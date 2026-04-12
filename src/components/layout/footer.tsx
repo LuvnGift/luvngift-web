@@ -6,7 +6,7 @@ export function Footer() {
   return (
     <footer className="border-t bg-background mt-auto">
       <div className="container mx-auto px-4 py-10">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-8">
           <div className="col-span-2 md:col-span-1">
             <Link href="/" className="flex items-center gap-2 font-bold text-base mb-3">
               <Gift className="h-5 w-5 text-primary" />
@@ -30,6 +30,14 @@ export function Footer() {
             <ul className="space-y-2 text-sm text-muted-foreground">
               <li><Link href="/orders" className="hover:text-foreground transition-colors">My Orders</Link></li>
               <li><Link href="/account" className="hover:text-foreground transition-colors">Profile</Link></li>
+            </ul>
+          </div>
+
+          <div>
+            <h4 className="text-sm font-semibold mb-3">Company</h4>
+            <ul className="space-y-2 text-sm text-muted-foreground">
+              <li><Link href="/about" className="hover:text-foreground transition-colors">About us</Link></li>
+              <li><Link href="/contact" className="hover:text-foreground transition-colors">Contact us</Link></li>
             </ul>
           </div>
 

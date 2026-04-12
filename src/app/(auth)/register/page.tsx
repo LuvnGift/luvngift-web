@@ -48,9 +48,22 @@ export default function RegisterPage() {
         </div>
 
         <form onSubmit={handleSubmit((data) => register(data))} className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="firstName">First Name</Label>
+              <Input id="firstName" {...field('firstName')} placeholder="Jane" autoComplete="given-name" />
+              {errors.firstName && <p className="text-destructive text-xs">{errors.firstName.message}</p>}
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="lastName">Last Name</Label>
+              <Input id="lastName" {...field('lastName')} placeholder="Doe" autoComplete="family-name" />
+              {errors.lastName && <p className="text-destructive text-xs">{errors.lastName.message}</p>}
+            </div>
+          </div>
+
           <div className="space-y-1.5">
             <Label htmlFor="username">Username</Label>
-            <Input id="username" {...field('username')} placeholder="johndoe" autoComplete="username" />
+            <Input id="username" {...field('username')} placeholder="janedoe" autoComplete="username" />
             {errors.username && <p className="text-destructive text-xs">{errors.username.message}</p>}
           </div>
 
@@ -67,8 +80,13 @@ export default function RegisterPage() {
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="phone">Phone (optional)</Label>
+            <Label htmlFor="phone">Phone <span className="text-muted-foreground font-normal">(optional)</span></Label>
             <Input id="phone" {...field('phone')} type="tel" placeholder="+1 (555) 000-0000" />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="dateOfBirth">Date of Birth <span className="text-muted-foreground font-normal">(optional)</span></Label>
+            <Input id="dateOfBirth" {...field('dateOfBirth')} type="date" />
           </div>
 
           {error && (

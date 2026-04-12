@@ -43,10 +43,10 @@ function VerifyEmailInner() {
             <CheckCircle className="h-12 w-12 text-green-500 mx-auto" />
             <div className="space-y-1">
               <p className="font-medium">Email verified!</p>
-              <CardDescription>Your account is now active. You can sign in.</CardDescription>
+              <CardDescription>Your account is active. Sign in to finish setting up your profile.</CardDescription>
             </div>
             <Button className="w-full" asChild>
-              <Link href="/login">Sign in</Link>
+              <Link href="/login?redirect=/setup-location">Sign in</Link>
             </Button>
           </>
         )}

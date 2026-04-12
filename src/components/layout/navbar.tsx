@@ -42,8 +42,10 @@ export function Navbar() {
   const navLinks = isAdmin ? adminLinks : customerLinks;
 
   const initials = user
-    ? `${user.username?.charAt(0) ?? ''}`.toUpperCase()
+    ? (user.firstName?.charAt(0) ?? user.username?.charAt(0) ?? '').toUpperCase()
     : '?';
+
+  const welcomeName = user?.firstName ?? user?.username ?? null;
 
   const isActive = (href: string) =>
     href === '/' ? pathname === '/' : pathname.startsWith(href);
@@ -77,6 +79,11 @@ export function Navbar() {
         <div className="hidden md:flex items-center gap-3">
           {mounted && user ? (
             <>
+              {welcomeName && (
+                <span className="text-sm text-muted-foreground hidden lg:inline">
+                  Welcome, <span className="font-medium text-foreground">{welcomeName}</span>
+                </span>
+              )}
               {!isAdmin && (
                 <Link href="/account">
                   <Avatar className="h-8 w-8 cursor-pointer">

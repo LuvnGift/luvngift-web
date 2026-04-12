@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 // Routes that require the user to be logged in
-const AUTH_REQUIRED = ['/custom', '/orders', '/account'];
+const AUTH_REQUIRED = ['/custom', '/orders', '/account', '/setup-location'];
 // Routes only for unauthenticated users (redirect away if already logged in)
 const GUEST_ONLY = ['/login', '/register', '/verify-email', '/forgot-password', '/reset-password', '/2fa'];
 // Routes that require admin role

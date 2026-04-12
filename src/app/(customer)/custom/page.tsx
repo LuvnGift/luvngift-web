@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { customOrderSchema, CustomOrderInput } from '@celebrate4me/shared';
 import { useCreateCustomOrder } from '@/hooks/use-orders';
+import { useAuthStore } from '@/store/auth.store';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -39,11 +40,21 @@ const NIGERIAN_STATES = [
   'Plateau', 'Rivers', 'Sokoto', 'Taraba', 'Yobe', 'Zamfara',
 ];
 
+const countryCurrencyDefault: Record<string, 'CAD' | 'USD' | 'GBP'> = {
+  CA: 'CAD', US: 'USD', GB: 'GBP',
+};
+
 export default function CustomGiftPage() {
   const [step, setStep] = useState(1);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const router = useRouter();
   const { mutateAsync: submitCustomOrder, isPending } = useCreateCustomOrder();
+  const { user } = useAuthStore();
+
+  const defaultCurrency: 'CAD' | 'USD' | 'GBP' =
+    (user?.buyerCountry ? countryCurrencyDefault[user.buyerCountry] : undefined) ??
+    (user?.preferredCurrency as 'CAD' | 'USD' | 'GBP' | undefined) ??
+    'USD';
 
   const {
     register,
@@ -54,7 +65,7 @@ export default function CustomGiftPage() {
     formState: { errors },
   } = useForm<CustomOrderInput>({
     resolver: zodResolver(customOrderSchema),
-    defaultValues: { currency: 'USD', giftType: 'PHYSICAL' },
+    defaultValues: { currency: defaultCurrency, giftType: 'PHYSICAL' },
   });
 
   const watched = watch();
