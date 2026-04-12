@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@celebrate4me/shared':
-        specifier: ^1.1.0
-        version: 1.1.0
+        specifier: ^1.2.0
+        version: 1.2.0
       '@hookform/resolvers':
         specifier: ^3.9.0
         version: 3.10.0(react-hook-form@7.71.2(react@18.3.1))
@@ -232,8 +232,8 @@ packages:
     resolution: {integrity: sha512-LwdZHpScM4Qz8Xw2iKSzS+cfglZzJGvofQICy7W7v4caru4EaAmyUuO6BGrbyQ2mYV11W0U8j5mBhd14dd3B0A==}
     engines: {node: '>=6.9.0'}
 
-  '@celebrate4me/shared@1.1.0':
-    resolution: {integrity: sha512-+CgqCDfF0QVCzngqORCVVh5EOUJYC4D5cy25MWWsBsVByvpNMqNmR6Ip5VZqlg0chrUFRXUpb9dGoWtOJzStJg==, tarball: https://npm.pkg.github.com/download/@celebrate4me/shared/1.1.0/01b1159b39aec820d39e9173b064dedf70ca018a}
+  '@celebrate4me/shared@1.2.0':
+    resolution: {integrity: sha512-MC42xF8gTlusODeu+p1pH7HMMCxOhAm1RboaO1AsMNvswJyMxpWUW9h3jjrOMlwMT8GG0YgYf4GF2UuVhFT8pw==, tarball: https://npm.pkg.github.com/download/@celebrate4me/shared/1.2.0/761019986b98848fd323fbafd1956fca0b81ad48}
     engines: {node: '>=20.0.0'}
 
   '@emnapi/core@1.9.0':
@@ -3401,7 +3401,7 @@ snapshots:
       '@babel/helper-string-parser': 7.27.1
       '@babel/helper-validator-identifier': 7.28.5
 
-  '@celebrate4me/shared@1.1.0':
+  '@celebrate4me/shared@1.2.0':
     dependencies:
       zod: 3.25.76
 
