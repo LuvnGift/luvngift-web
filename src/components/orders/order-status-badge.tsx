@@ -1,5 +1,5 @@
 import { Badge } from '@/components/ui/badge';
-import { OrderStatus } from '@celebrate4me/shared';
+import { OrderStatus } from '@luvngift/shared';
 
 const statusConfig: Record<OrderStatus, { label: string; variant: 'default' | 'secondary' | 'warning' | 'success' | 'destructive' | 'outline' }> = {
   [OrderStatus.PENDING]: { label: 'Pending', variant: 'warning' },

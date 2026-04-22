@@ -2,7 +2,7 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { User } from '@celebrate4me/shared';
+import { User } from '@luvngift/shared';
 
 interface AuthState {
   user: User | null;

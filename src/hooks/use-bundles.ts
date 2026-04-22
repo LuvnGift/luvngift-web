@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import type { Bundle } from '@celebrate4me/shared';
+import type { Bundle } from '@luvngift/shared';
 
 export const useBundle = (id: string) =>
   useQuery<Bundle>({

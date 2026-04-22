@@ -7,8 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
 import { useAuthStore } from '@/store/auth.store';
 import { useSendChatMessage, useStartChat, useChatSocket } from '@/hooks/use-chat';
-import { ChatMessageRole } from '@celebrate4me/shared';
-import type { ChatMessage } from '@celebrate4me/shared';
+import { ChatMessageRole } from '@luvngift/shared';
+import type { ChatMessage } from '@luvngift/shared';
 import { cn } from '@/lib/utils';
 
 export function ChatWidget() {

@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import type { Occasion, Bundle } from '@celebrate4me/shared';
+import type { Occasion, Bundle } from '@luvngift/shared';
 
 export const useOccasions = () =>
   useQuery<Occasion[]>({

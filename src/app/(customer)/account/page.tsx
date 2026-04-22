@@ -11,7 +11,7 @@ import {
   updateProfileSchema, UpdateProfileInput,
   updateLocationSchema, UpdateLocationInput,
   changePasswordSchema,
-} from '@celebrate4me/shared';
+} from '@luvngift/shared';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';

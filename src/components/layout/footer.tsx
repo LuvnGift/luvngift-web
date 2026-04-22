@@ -10,7 +10,7 @@ export function Footer() {
           <div className="col-span-2 md:col-span-1">
             <Link href="/" className="flex items-center gap-2 font-bold text-base mb-3">
               <Gift className="h-5 w-5 text-primary" />
-              CelebrateForMe
+              Luvngift
             </Link>
             <p className="text-sm text-muted-foreground leading-relaxed">
               Send curated gifts and experiences to your loved ones in Nigeria from anywhere in the world.
@@ -52,7 +52,7 @@ export function Footer() {
         <Separator className="my-8" />
 
         <div className="flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
-          <p>&copy; {new Date().getFullYear()} CelebrateForMe. All rights reserved.</p>
+          <p>&copy; {new Date().getFullYear()} Luvngift. All rights reserved.</p>
           <p className="text-xs">Accepting CAD · USD · GBP. Delivering across Nigeria.</p>
         </div>
       </div>

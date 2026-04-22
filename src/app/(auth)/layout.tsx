@@ -7,7 +7,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       <header className="border-b py-4 px-6">
         <Link href="/" className="flex items-center gap-2 font-bold text-lg w-fit">
           <Gift className="h-5 w-5 text-primary" />
-          CelebrateForMe
+          Luvngift
         </Link>
       </header>
       <main className="flex-1 flex items-center justify-center px-4 py-12">

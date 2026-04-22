@@ -25,7 +25,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
-import type { Occasion } from '@celebrate4me/shared';
+import type { Occasion } from '@luvngift/shared';
 
 const occasionSchema = z.object({
   name: z.string().min(1, 'Name is required'),

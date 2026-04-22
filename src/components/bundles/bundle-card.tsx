@@ -4,7 +4,7 @@ import { Clock, Package } from 'lucide-react';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import type { Bundle } from '@celebrate4me/shared';
+import type { Bundle } from '@luvngift/shared';
 
 interface BundleCardProps {
   bundle: Bundle;

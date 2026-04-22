@@ -56,7 +56,7 @@ export function Navbar() {
         {/* Brand */}
         <Link href={isAdmin ? '/admin' : '/'} className="flex items-center gap-2 font-bold text-lg">
           <Gift className="h-5 w-5 text-primary" />
-          <span>CelebrateForMe</span>
+          <span>Luvngift</span>
         </Link>
 
         {/* Desktop nav */}

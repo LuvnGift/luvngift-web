@@ -4,8 +4,8 @@ import { Separator } from '@/components/ui/separator';
 import { Gift, Heart, Globe, ShieldCheck } from 'lucide-react';
 
 export const metadata = {
-  title: 'About Us — CelebrateForMe',
-  description: 'Learn how CelebrateForMe helps the Nigerian diaspora send meaningful gifts home.',
+  title: 'About Us — Luvngift',
+  description: 'Learn how Luvngift helps the Nigerian diaspora send meaningful gifts home.',
 };
 
 const values = [
@@ -47,7 +47,7 @@ export default function AboutPage() {
               We exist to close the gap
             </h1>
             <p className="text-lg text-muted-foreground leading-relaxed">
-              CelebrateForMe was born out of a simple frustration — sending a meaningful gift to loved ones in Nigeria from abroad was too complicated, too unreliable, and felt impersonal. We set out to change that.
+              Luvngift was born out of a simple frustration — sending a meaningful gift to loved ones in Nigeria from abroad was too complicated, too unreliable, and felt impersonal. We set out to change that.
             </p>
           </div>
         </section>
@@ -63,7 +63,7 @@ export default function AboutPage() {
                 Like many diaspora families, our founders spent years scrambling to send gifts home for birthdays, Eid, Christmas, and graduations — only to deal with unreliable couriers, currency confusion, and gifts that arrived late or not at all.
               </p>
               <p>
-                In 2024 we decided to build the platform we always wished existed. CelebrateForMe brings together a curated catalogue of gift bundles, a Nigeria-based fulfilment team, and a seamless payment experience — all in one place.
+                In 2024 we decided to build the platform we always wished existed. Luvngift brings together a curated catalogue of gift bundles, a Nigeria-based fulfilment team, and a seamless payment experience — all in one place.
               </p>
               <p>
                 Today we serve diaspora Nigerians across Canada, the United States, and the United Kingdom, delivering joy to recipients in Lagos, Abuja, Port Harcourt, and every corner of Nigeria.

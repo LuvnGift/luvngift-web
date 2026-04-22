@@ -25,7 +25,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import type { Order } from '@celebrate4me/shared';
+import type { Order } from '@luvngift/shared';
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 
@@ -433,7 +433,7 @@ function StripePaymentForm({ orderId, onBack }: { orderId: string; onBack: () =>
 
   return (
     <div className="space-y-4">
-      <PaymentElement options={{ business: { name: 'CelebrateForMe' } }} />
+      <PaymentElement options={{ business: { name: 'Luvngift' } }} />
       <div className="flex gap-3">
         <Button variant="outline" onClick={onBack} disabled={isProcessing} className="flex-1">
           Back

@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import type { Order, PaginatedResponse, CreateOrderInput, CustomOrderInput } from '@celebrate4me/shared';
+import type { Order, PaginatedResponse, CreateOrderInput, CustomOrderInput } from '@luvngift/shared';
 import { toast } from 'sonner';
 
 export const useMyOrders = (page = 1) =>

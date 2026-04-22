@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Spinner } from '@/components/ui/spinner';
 import { toast } from 'sonner';
-import { OrderStatus } from '@celebrate4me/shared';
+import { OrderStatus } from '@luvngift/shared';
 import { getSocket } from '@/lib/socket';
 import { useQueryClient } from '@tanstack/react-query';
 

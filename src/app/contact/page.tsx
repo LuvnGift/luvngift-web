@@ -66,7 +66,7 @@ export default function ContactPage() {
                 </div>
                 <div>
                   <p className="font-semibold text-sm">Email us</p>
-                  <p className="text-sm text-muted-foreground">info@celebrateforme.com</p>
+                  <p className="text-sm text-muted-foreground">info@luvngift.com</p>
                   <p className="text-xs text-muted-foreground mt-1">We reply within 24-48 hours</p>
                 </div>
               </div>

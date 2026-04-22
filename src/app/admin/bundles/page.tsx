@@ -33,7 +33,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight, X } from 'lucide-react';
-import type { Bundle, Occasion } from '@celebrate4me/shared';
+import type { Bundle, Occasion } from '@luvngift/shared';
 
 const bundleItemSchema = z.object({
   name: z.string().min(1, 'Item name required'),

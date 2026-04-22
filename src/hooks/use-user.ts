@@ -4,7 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/auth.store';
-import type { UpdateProfileInput, UpdateLocationInput } from '@celebrate4me/shared';
+import type { UpdateProfileInput, UpdateLocationInput } from '@luvngift/shared';
 import { toast } from 'sonner';
 
 export const useUpdateProfile = () => {

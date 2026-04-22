@@ -1,5 +1,5 @@
 {
-  "name": "@celebrate4me/web",
+  "name": "@luvngift/web",
   "version": "1.0.0",
   "private": true,
   "scripts": {
@@ -11,7 +11,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@celebrate4me/shared": "^1.2.0",
+    "@luvngift/shared": "^1.2.1",
     "@radix-ui/react-dialog": "^1.1.1",
     "@radix-ui/react-dropdown-menu": "^2.1.1",
     "@radix-ui/react-label": "^2.1.0",

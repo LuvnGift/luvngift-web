@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/auth.store';
 import { connectSocket, disconnectSocket } from '@/lib/socket';
-import type { LoginInput, RegisterInput } from '@celebrate4me/shared';
+import type { LoginInput, RegisterInput } from '@luvngift/shared';
 
 /** Only allow relative-path redirects to prevent open redirect attacks */
 function safeRedirect(url: string | null, fallback: string): string {

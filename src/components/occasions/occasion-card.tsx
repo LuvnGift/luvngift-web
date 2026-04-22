@@ -2,7 +2,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
-import type { Occasion } from '@celebrate4me/shared';
+import type { Occasion } from '@luvngift/shared';
 
 interface OccasionCardProps {
   occasion: Occasion;

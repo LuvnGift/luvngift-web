@@ -1,5 +1,5 @@
 import { CheckCircle, Circle, Clock } from 'lucide-react';
-import { OrderStatus } from '@celebrate4me/shared';
+import { OrderStatus } from '@luvngift/shared';
 import { cn } from '@/lib/utils';
 
 const STEPS: { status: OrderStatus; label: string; description: string }[] = [

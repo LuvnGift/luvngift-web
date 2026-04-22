@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { getSocket } from '@/lib/socket';
-import type { ChatMessage } from '@celebrate4me/shared';
+import type { ChatMessage } from '@luvngift/shared';
 
 interface SendMessageInput {
   sessionId: string;

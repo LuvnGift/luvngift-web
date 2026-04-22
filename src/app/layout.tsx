@@ -7,7 +7,7 @@ import { Toaster } from 'sonner';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'CelebrateForMe — Send gifts to loved ones in Nigeria',
+  title: 'Luvngift — Send gifts to loved ones in Nigeria',
   description: 'Curated gift bundles and custom experiences delivered to Nigeria from the diaspora.',
 };
 
