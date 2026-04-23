@@ -12,8 +12,8 @@ importers:
         specifier: ^3.9.0
         version: 3.10.0(react-hook-form@7.71.2(react@18.3.1))
       '@luvngift/shared':
-        specifier: ^1.2.1
-        version: 1.2.1
+        specifier: file:../luvngift-shared
+        version: file:../luvngift-shared
       '@radix-ui/react-accordion':
         specifier: ^1.2.0
         version: 1.2.12(@types/react-dom@18.3.7(@types/react@18.3.28))(@types/react@18.3.28)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -606,8 +606,8 @@ packages:
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
 
-  '@luvngift/shared@1.2.1':
-    resolution: {integrity: sha512-U9J1AZJAmyBANtSstsQAZx1wLvDbKLV/8D7shv+sV3DlmBsqLyDIV0LFXgggXLtMtQy9oj3HRJHQBqVbH8TVLw==, tarball: https://npm.pkg.github.com/download/@LuvnGift/shared/1.2.1/e6891b97d9f0fc42b2916b69113fbb3e7e9fd1d0}
+  '@luvngift/shared@file:../luvngift-shared':
+    resolution: {directory: ../luvngift-shared, type: directory}
     engines: {node: '>=20.0.0'}
 
   '@napi-rs/wasm-runtime@0.2.12':
@@ -3680,7 +3680,7 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
 
-  '@luvngift/shared@1.2.1':
+  '@luvngift/shared@file:../luvngift-shared':
     dependencies:
       zod: 3.25.76
 

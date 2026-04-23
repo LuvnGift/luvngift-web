@@ -13,6 +13,8 @@ import { useBundle } from '@/hooks/use-bundles';
 import { useCreateOrder } from '@/hooks/use-orders';
 import { useCreatePaymentIntent } from '@/hooks/use-checkout';
 import { useAuthStore } from '@/store/auth.store';
+import { useUserCurrency } from '@/hooks/use-exchange-rates';
+import { formatCurrency } from '@luvngift/shared';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -28,12 +30,6 @@ import { toast } from 'sonner';
 import type { Order } from '@luvngift/shared';
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
-
-const currencySymbols: Record<string, string> = { CAD: 'CA$', USD: '$', GBP: '£' };
-
-const countryCurrencyDefault: Record<string, 'CAD' | 'USD' | 'GBP'> = {
-  CA: 'CAD', US: 'USD', GB: 'GBP',
-};
 
 const PROVINCE_TAX_LABEL: Record<string, string> = {
   AB: 'GST (5%)', BC: 'GST + PST (12%)', MB: 'GST + PST (12%)',
@@ -57,7 +53,6 @@ const recipientSchema = z.object({
   city: z.string().min(2, 'City is required'),
   state: z.string().min(2, 'State is required'),
   personalMessage: z.string().max(500).optional(),
-  currency: z.enum(['CAD', 'USD', 'GBP']),
 });
 
 type RecipientForm = z.infer<typeof recipientSchema>;
@@ -70,6 +65,7 @@ export default function BundleDetailPage({ params }: Props) {
   const { id: slug } = use(params);
   const { data: bundle, isLoading, isError } = useBundle(slug);
   const { user } = useAuthStore();
+  const { currency, convert, ready } = useUserCurrency();
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [checkoutStep, setCheckoutStep] = useState<'recipient' | 'payment'>('recipient');
   const [clientSecret, setClientSecret] = useState<string | null>(null);
@@ -77,14 +73,8 @@ export default function BundleDetailPage({ params }: Props) {
   const { mutateAsync: createOrder, isPending: creatingOrder } = useCreateOrder();
   const { mutateAsync: createPaymentIntent, isPending: creatingIntent } = useCreatePaymentIntent();
 
-  const defaultCurrency: 'CAD' | 'USD' | 'GBP' =
-    (user?.buyerCountry ? countryCurrencyDefault[user.buyerCountry] : undefined) ??
-    (user?.preferredCurrency as 'CAD' | 'USD' | 'GBP' | undefined) ??
-    'USD';
-
-  const { register, handleSubmit, setValue, formState: { errors } } = useForm<RecipientForm>({
+  const { register, handleSubmit, formState: { errors } } = useForm<RecipientForm>({
     resolver: zodResolver(recipientSchema),
-    defaultValues: { currency: defaultCurrency },
   });
 
   if (isLoading) {
@@ -110,7 +100,6 @@ export default function BundleDetailPage({ params }: Props) {
         recipientPhone: data.recipientPhone,
         deliveryAddress: { street: data.street, city: data.city, state: data.state, country: 'Nigeria' },
         personalMessage: data.personalMessage,
-        currency: data.currency,
       });
       const intent = await createPaymentIntent({ orderId: createdOrder.id });
       setOrder(createdOrder);
@@ -135,8 +124,7 @@ export default function BundleDetailPage({ params }: Props) {
     return 'No tax will be applied to your order';
   })();
 
-  const price = (bundle.price / 100).toFixed(2);
-  const symbol = currencySymbols[bundle.currency] ?? bundle.currency;
+  const displayPrice = ready ? formatCurrency(convert(bundle.price), currency as any) : null;
 
   return (
     <div className="container mx-auto px-4 py-10 max-w-5xl">
@@ -197,8 +185,10 @@ export default function BundleDetailPage({ params }: Props) {
 
           <div className="border-t pt-5">
             <div className="flex items-baseline justify-between mb-4">
-              <span className="text-3xl font-bold">{symbol}{price}</span>
-              <Badge variant="secondary">{bundle.currency}</Badge>
+              {displayPrice
+                ? <span className="text-3xl font-bold">{displayPrice}</span>
+                : <span className="h-9 w-28 animate-pulse rounded bg-muted inline-block" />}
+              <Badge variant="secondary">{ready ? currency : '...'}</Badge>
             </div>
             <Button
               size="lg"
@@ -265,21 +255,6 @@ export default function BundleDetailPage({ params }: Props) {
                   <Input id="state" {...register('state')} placeholder="Lagos State" />
                   {errors.state && <p className="text-destructive text-xs">{errors.state.message}</p>}
                 </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="currency">Pay in</Label>
-                <Select
-                  defaultValue={defaultCurrency}
-                  onValueChange={(v) => setValue('currency', v as 'CAD' | 'USD' | 'GBP')}
-                >
-                  <SelectTrigger id="currency"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="CAD">CAD — Canadian Dollar</SelectItem>
-                    <SelectItem value="USD">USD — US Dollar</SelectItem>
-                    <SelectItem value="GBP">GBP — British Pound</SelectItem>
-                  </SelectContent>
-                </Select>
               </div>
 
               {taxNote && (

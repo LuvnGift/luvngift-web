@@ -231,3 +231,30 @@ export const useModerateReview = () => {
     },
   });
 };
+
+// ---------- Exchange rate settings ----------
+export interface ExchangeRateSettings {
+  GBP: number;
+  CAD: number;
+  sources: { GBP: 'admin' | 'live'; CAD: 'admin' | 'live' };
+}
+
+export const useAdminExchangeRates = () =>
+  useQuery<ExchangeRateSettings>({
+    queryKey: ['admin', 'settings', 'exchange-rates'],
+    queryFn: () => api.get('/api/v1/admin/settings/exchange-rates').then((r) => r.data.data),
+  });
+
+export const useUpdateExchangeRates = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (rates: { GBP?: number | null; CAD?: number | null }) =>
+      api.put('/api/v1/admin/settings/exchange-rates', rates).then((r) => r.data.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'settings', 'exchange-rates'] });
+      qc.invalidateQueries({ queryKey: ['exchange-rates'] });
+      toast.success('Exchange rates updated');
+    },
+    onError: () => toast.error('Failed to update exchange rates'),
+  });
+};

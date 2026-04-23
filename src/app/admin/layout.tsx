@@ -11,6 +11,7 @@ import {
   Star,
   CalendarDays,
   Package,
+  Settings,
   LogOut,
   Menu,
   X,
@@ -28,6 +29,7 @@ const NAV_ITEMS = [
   { href: '/admin/users', label: 'Users', icon: Users },
   { href: '/admin/chat', label: 'Support Chat', icon: MessageSquare },
   { href: '/admin/reviews', label: 'Reviews', icon: Star },
+  { href: '/admin/settings', label: 'Settings', icon: Settings },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

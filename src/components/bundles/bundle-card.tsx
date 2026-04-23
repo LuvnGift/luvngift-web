@@ -1,20 +1,22 @@
+'use client';
+
 import Image from 'next/image';
 import Link from 'next/link';
-import { Clock, Package } from 'lucide-react';
+import { Clock } from 'lucide-react';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { useUserCurrency } from '@/hooks/use-exchange-rates';
+import { formatCurrency } from '@luvngift/shared';
 import type { Bundle } from '@luvngift/shared';
 
 interface BundleCardProps {
   bundle: Bundle;
 }
 
-const currencySymbols: Record<string, string> = { CAD: 'CA$', USD: '$', GBP: '£', NGN: '₦' };
-
 export function BundleCard({ bundle }: BundleCardProps) {
-  const symbol = currencySymbols[bundle.currency] ?? bundle.currency;
-  const price = (bundle.price / 100).toFixed(2);
+  const { currency, convert, ready } = useUserCurrency();
+  const displayPrice = ready ? formatCurrency(convert(bundle.price), currency as any) : null;
 
   return (
     <Card className="flex flex-col overflow-hidden hover:shadow-md transition-shadow">
@@ -55,7 +57,7 @@ export function BundleCard({ bundle }: BundleCardProps) {
 
       <CardFooter className="flex items-center justify-between p-4 pt-0">
         <span className="text-lg font-bold">
-          {symbol}{price}
+          {displayPrice ?? <span className="inline-block h-5 w-16 animate-pulse rounded bg-muted" />}
         </span>
         <Button size="sm" asChild>
           <Link href={`/bundles/${bundle.slug}`}>View bundle</Link>

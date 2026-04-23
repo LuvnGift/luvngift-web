@@ -46,7 +46,6 @@ const bundleFormSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   description: z.string().min(1, 'Description is required'),
   price: z.coerce.number().positive('Must be greater than 0'),
-  currency: z.enum(['CAD', 'USD', 'GBP']),
   estimatedDeliveryDays: z.coerce.number().int().min(1, 'Min 1 day'),
   images: z.array(z.object({ url: z.string().url('Must be a valid URL') })).min(1, 'At least one image required'),
   items: z.array(bundleItemSchema).min(1, 'At least one item required'),
@@ -54,14 +53,11 @@ const bundleFormSchema = z.object({
 
 type BundleFormValues = z.infer<typeof bundleFormSchema>;
 
-const CURRENCIES = ['CAD', 'USD', 'GBP'] as const;
-
 const defaultValues: BundleFormValues = {
   occasionId: '',
   name: '',
   description: '',
   price: 0,
-  currency: 'USD',
   estimatedDeliveryDays: 7,
   images: [{ url: '' }],
   items: [{ name: '', description: '', quantity: 1 }],
@@ -131,37 +127,20 @@ function BundleForm({
         )}
       </div>
 
-      {/* Price + Currency */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-2">
-          <Label>Price</Label>
-          <Input
-            type="number"
-            step="0.01"
-            min="0"
-            {...form.register('price')}
-            placeholder="e.g. 49.99"
-          />
-          {form.formState.errors.price && (
-            <p className="text-xs text-destructive">{form.formState.errors.price.message}</p>
-          )}
-        </div>
-        <div className="space-y-2">
-          <Label>Currency</Label>
-          <Select
-            value={form.watch('currency')}
-            onValueChange={(v) => form.setValue('currency', v as 'CAD' | 'USD' | 'GBP', { shouldValidate: true })}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {CURRENCIES.map((c) => (
-                <SelectItem key={c} value={c}>{c}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+      {/* Price — always USD; frontend converts to buyer's local currency */}
+      <div className="space-y-2">
+        <Label>Price (USD)</Label>
+        <Input
+          type="number"
+          step="0.01"
+          min="0"
+          {...form.register('price')}
+          placeholder="e.g. 49.99"
+        />
+        <p className="text-xs text-muted-foreground">Enter price in US dollars. Buyers see it converted to their local currency.</p>
+        {form.formState.errors.price && (
+          <p className="text-xs text-destructive">{form.formState.errors.price.message}</p>
+        )}
       </div>
 
       {/* Estimated delivery */}
@@ -323,6 +302,7 @@ export default function AdminBundlesPage() {
     createBundle.mutate(
       {
         ...values,
+        currency: 'USD',
         price: Math.round(values.price * 100),
         images: values.images.map((i) => i.url),
         items: values.items.map((item) => ({
@@ -347,7 +327,6 @@ export default function AdminBundlesPage() {
       name: bundle.name,
       description: bundle.description,
       price: bundle.price / 100,
-      currency: bundle.currency as 'CAD' | 'USD' | 'GBP',
       estimatedDeliveryDays: bundle.estimatedDeliveryDays,
       images: bundle.images.map((url) => ({ url })),
       items: bundle.items.map((item) => ({
@@ -364,6 +343,7 @@ export default function AdminBundlesPage() {
       {
         id: editTarget.id,
         ...values,
+        currency: 'USD',
         price: Math.round(values.price * 100),
         images: values.images.map((i) => i.url),
         items: values.items.map((item) => ({
