@@ -31,6 +31,8 @@ import type { Order } from '@luvngift/shared';
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 
+const currencySymbols: Record<string, string> = { CAD: 'CA$', USD: '$', GBP: '£', NGN: '₦' };
+
 const PROVINCE_TAX_LABEL: Record<string, string> = {
   AB: 'GST (5%)', BC: 'GST + PST (12%)', MB: 'GST + PST (12%)',
   NB: 'HST (15%)', NL: 'HST (15%)', NS: 'HST (15%)',
