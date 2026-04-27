@@ -155,7 +155,7 @@ export default function HomePage() {
 				<section className="py-20 bg-primary text-primary-foreground">
 					<div className="container mx-auto px-4 text-center">
 						<h2 className="text-3xl md:text-4xl font-bold mb-4">Ready to make someone's day?</h2>
-						<p className="text-primary-foreground/80 text-lg mb-8 max-w-xl mx-auto">Join thousands of diaspora Nigerians already sending gifts home with Luvngift.</p>
+						<p className="text-primary-foreground/80 text-lg mb-8 max-w-xl mx-auto">Join thousands of diaspora Nigerians already sending gifts home with LuvNgift.</p>
 						<div className="flex flex-col sm:flex-row gap-4 justify-center">
 							<Button size="lg" variant="secondary" asChild className="text-base font-semibold px-8">
 								<Link href="/register">Create free account</Link>
