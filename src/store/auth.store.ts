@@ -5,21 +5,27 @@ import { persist } from 'zustand/middleware';
 import { User } from '@luvngift/shared';
 
 interface AuthState {
+  // Full user object — in memory only, never written to localStorage.
   user: User | null;
+  // Persisted flag — only thing stored in localStorage. No PII.
+  // useMe() reads this to know whether to re-fetch the user on hard reload.
+  isAuthenticated: boolean;
   setUser: (user: User) => void;
   clearAuth: () => void;
 }
 
-// The session cookie used by Next.js middleware for route protection is set by
-// the API (via the Next.js proxy rewrite), making it a first-party cookie on the
-// web domain. No JS cookie management needed here.
 export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
       user: null,
-      setUser: (user) => set({ user }),
-      clearAuth: () => set({ user: null }),
+      isAuthenticated: false,
+      setUser: (user) => set({ user, isAuthenticated: true }),
+      clearAuth: () => set({ user: null, isAuthenticated: false }),
     }),
-    { name: 'auth-user' },
+    {
+      name: 'auth-user',
+      // Only persist the boolean flag, never the user object.
+      partialize: (state) => ({ isAuthenticated: state.isAuthenticated }),
+    },
   ),
 );

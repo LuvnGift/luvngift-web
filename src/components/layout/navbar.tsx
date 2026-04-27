@@ -26,7 +26,7 @@ const adminLinks = [
 
 export function Navbar() {
   const pathname = usePathname();
-  const { user } = useAuthStore();
+  const { user, isAuthenticated } = useAuthStore();
   const { mutate: logout, isPending } = useLogout();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -39,7 +39,7 @@ export function Navbar() {
     setMounted(true);
   }, []);
 
-  const isAdmin = mounted && user?.role === 'ADMIN';
+  const isAdmin = mounted && isAuthenticated && user?.role === 'ADMIN';
   const navLinks = isAdmin ? adminLinks : customerLinks;
 
   const initials = user
@@ -73,7 +73,7 @@ export function Navbar() {
 
 				{/* Desktop user menu */}
 				<div className="hidden md:flex items-center gap-3">
-					{mounted && user ? (
+					{mounted && isAuthenticated ? (
 						<>
 							{welcomeName && (
 								<span className="text-sm text-muted-foreground hidden lg:inline">
@@ -122,12 +122,12 @@ export function Navbar() {
 						))}
 					</nav>
 					<Separator className="my-3" />
-					{mounted && user ? (
+					{mounted && isAuthenticated ? (
 						<div className="flex flex-col gap-2">
 							{!isAdmin && (
 								<Link href="/account" onClick={() => setMobileOpen(false)} className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-accent">
 									<User className="h-4 w-4" />
-									Account ({user.username})
+									Account {user && `(${user.username})`}
 								</Link>
 							)}
 							<button

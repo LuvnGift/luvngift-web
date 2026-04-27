@@ -68,13 +68,18 @@ export const useLogout = () => {
 };
 
 export const useMe = () => {
-  const { user, clearAuth } = useAuthStore();
+  const { isAuthenticated, setUser, clearAuth } = useAuthStore();
   const query = useQuery({
     queryKey: ['me'],
     queryFn: () => api.get('/api/v1/users/me').then((r) => r.data.data),
-    enabled: !!user,
+    enabled: isAuthenticated,
     retry: false,
   });
+
+  useEffect(() => {
+    if (query.isSuccess && query.data) setUser(query.data);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query.isSuccess, query.data]);
 
   useEffect(() => {
     if (query.isError) clearAuth();
