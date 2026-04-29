@@ -27,6 +27,15 @@ export const useCreateOrder = () => {
   });
 };
 
+export const useUpdateOrder = () => {
+  const qc = useQueryClient();
+  return useMutation<Order, Error, { orderId: string; recipientName: string; recipientPhone: string; deliveryAddress: { street: string; city: string; state: string; country: string }; personalMessage?: string }>({
+    mutationFn: ({ orderId, ...data }) => api.patch(`/api/v1/orders/${orderId}/recipient`, data).then((r) => r.data.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['orders'] }),
+    onError: (err: any) => toast.error(err?.response?.data?.error?.message ?? 'Failed to update order.'),
+  });
+};
+
 export const useCreateCustomOrder = () => {
   const qc = useQueryClient();
   return useMutation<Order, Error, CustomOrderInput>({

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { customOrderSchema, CustomOrderInput } from '@luvngift/shared';
+import { customOrderSchema, CustomOrderInput, getUserCurrency } from '@luvngift/shared';
 import { useCreateCustomOrder } from '@/hooks/use-orders';
 import { useAuthStore } from '@/store/auth.store';
 import { Button } from '@/components/ui/button';
@@ -40,10 +40,6 @@ const NIGERIAN_STATES = [
   'Plateau', 'Rivers', 'Sokoto', 'Taraba', 'Yobe', 'Zamfara',
 ];
 
-const countryCurrencyDefault: Record<string, 'CAD' | 'USD' | 'GBP'> = {
-  CA: 'CAD', US: 'USD', GB: 'GBP',
-};
-
 export default function CustomGiftPage() {
   const [step, setStep] = useState(1);
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -51,10 +47,7 @@ export default function CustomGiftPage() {
   const { mutateAsync: submitCustomOrder, isPending } = useCreateCustomOrder();
   const { user } = useAuthStore();
 
-  const defaultCurrency: 'CAD' | 'USD' | 'GBP' =
-    (user?.buyerCountry ? countryCurrencyDefault[user.buyerCountry] : undefined) ??
-    (user?.preferredCurrency as 'CAD' | 'USD' | 'GBP' | undefined) ??
-    'USD';
+  const currency = getUserCurrency(user?.buyerCountry);
 
   const {
     register,
@@ -65,7 +58,7 @@ export default function CustomGiftPage() {
     formState: { errors },
   } = useForm<CustomOrderInput>({
     resolver: zodResolver(customOrderSchema),
-    defaultValues: { currency: defaultCurrency, giftType: 'PHYSICAL' },
+    defaultValues: { currency, giftType: 'PHYSICAL' },
   });
 
   const watched = watch();
@@ -74,7 +67,7 @@ export default function CustomGiftPage() {
     const fieldsByStep: Record<number, (keyof CustomOrderInput)[]> = {
       1: ['occasionType', 'preferredDate'],
       2: ['recipientName', 'recipientPhone', 'deliveryCity', 'deliveryState'],
-      3: ['giftType', 'description', 'currency'],
+      3: ['giftType', 'description'],
       4: [],
     };
     return trigger(fieldsByStep[step]);
@@ -324,34 +317,21 @@ export default function CustomGiftPage() {
                   <p className="text-xs text-muted-foreground">Min. 10 characters. Be as specific as possible.</p>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="estimatedBudget">Estimated budget (optional)</Label>
-                    <Input
-                      id="estimatedBudget"
-                      type="number"
-                      min={0}
-                      step={0.01}
-                      placeholder="e.g. 150"
-                      onChange={(e) => setValue('estimatedBudget', e.target.value ? Number(e.target.value) : undefined)}
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Currency</Label>
-                    <Select
-                      value={watched.currency}
-                      onValueChange={(v) => setValue('currency', v as any)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="USD">USD — US Dollar</SelectItem>
-                        <SelectItem value="CAD">CAD — Canadian Dollar</SelectItem>
-                        <SelectItem value="GBP">GBP — British Pound</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="estimatedBudget">
+                    Estimated budget in {currency} (optional)
+                  </Label>
+                  <Input
+                    id="estimatedBudget"
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    placeholder="e.g. 150"
+                    onChange={(e) => setValue('estimatedBudget', e.target.value ? Number(e.target.value) : undefined)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Your currency is automatically set to {currency} based on your account location.
+                  </p>
                 </div>
 
                 <div className="space-y-1.5">
@@ -423,7 +403,7 @@ export default function CustomGiftPage() {
                   {watched.estimatedBudget && (
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Budget</span>
-                      <span className="font-medium">{watched.estimatedBudget} {watched.currency}</span>
+                      <span className="font-medium">{watched.estimatedBudget} {currency}</span>
                     </div>
                   )}
                   <div>

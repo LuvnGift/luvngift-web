@@ -4,14 +4,14 @@ import { use, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { ArrowLeft, Clock, Check, ShoppingBag, Info } from 'lucide-react';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { useBundle } from '@/hooks/use-bundles';
-import { useCreateOrder } from '@/hooks/use-orders';
-import { useCreatePaymentIntent } from '@/hooks/use-checkout';
+import { useCreateOrder, useUpdateOrder } from '@/hooks/use-orders';
+import { useCreatePaymentIntent, useVerifyPayment } from '@/hooks/use-checkout';
 import { useAuthStore } from '@/store/auth.store';
 import { useUserCurrency } from '@/hooks/use-exchange-rates';
 import { formatCurrency } from '@luvngift/shared';
@@ -48,9 +48,26 @@ const PROVINCE_NAMES: Record<string, string> = {
   SK: 'Saskatchewan', YT: 'Yukon',
 };
 
+const NIGERIAN_STATES = [
+  'Abia', 'Adamawa', 'Akwa Ibom', 'Anambra', 'Bauchi', 'Bayelsa', 'Benue', 'Borno',
+  'Cross River', 'Delta', 'Ebonyi', 'Edo', 'Ekiti', 'Enugu', 'FCT', 'Gombe', 'Imo',
+  'Jigawa', 'Kaduna', 'Kano', 'Katsina', 'Kebbi', 'Kogi', 'Kwara', 'Lagos', 'Nasarawa',
+  'Niger', 'Ogun', 'Ondo', 'Osun', 'Oyo', 'Plateau', 'Rivers', 'Sokoto', 'Taraba',
+  'Yobe', 'Zamfara',
+];
+
+const nameRegex = /^[a-zA-Z\s'\-]+$/;
+
+function formatPhone(digits: string): string {
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 7) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+  return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
+}
+
 const recipientSchema = z.object({
-  recipientName: z.string().min(2, 'Name is required'),
-  recipientPhone: z.string().min(7, 'Valid phone required'),
+  firstName: z.string().min(1, 'First name is required').regex(nameRegex, 'Letters only'),
+  lastName: z.string().min(1, 'Last name is required').regex(nameRegex, 'Letters only'),
+  recipientPhone: z.string().min(7, 'Valid phone required').max(10, 'Max 10 digits'),
   street: z.string().min(5, 'Street is required'),
   city: z.string().min(2, 'City is required'),
   state: z.string().min(2, 'State is required'),
@@ -73,9 +90,10 @@ export default function BundleDetailPage({ params }: Props) {
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [order, setOrder] = useState<Order | null>(null);
   const { mutateAsync: createOrder, isPending: creatingOrder } = useCreateOrder();
+  const { mutateAsync: updateOrder, isPending: updatingOrder } = useUpdateOrder();
   const { mutateAsync: createPaymentIntent, isPending: creatingIntent } = useCreatePaymentIntent();
 
-  const { register, handleSubmit, formState: { errors } } = useForm<RecipientForm>({
+  const { register, handleSubmit, formState: { errors }, control } = useForm<RecipientForm>({
     resolver: zodResolver(recipientSchema),
   });
 
@@ -95,16 +113,22 @@ export default function BundleDetailPage({ params }: Props) {
   }
 
   const handleRecipientSubmit = async (data: RecipientForm) => {
+    const payload = {
+      recipientName: `${data.firstName} ${data.lastName}`,
+      recipientPhone: data.recipientPhone,
+      deliveryAddress: { street: data.street, city: data.city, state: data.state, country: 'Nigeria' },
+      personalMessage: data.personalMessage,
+    };
     try {
-      const createdOrder = await createOrder({
-        bundleId: bundle.id,
-        recipientName: data.recipientName,
-        recipientPhone: data.recipientPhone,
-        deliveryAddress: { street: data.street, city: data.city, state: data.state, country: 'Nigeria' },
-        personalMessage: data.personalMessage,
-      });
-      const intent = await createPaymentIntent({ orderId: createdOrder.id });
-      setOrder(createdOrder);
+      let targetOrder: Order;
+      if (order) {
+        targetOrder = await updateOrder({ orderId: order.id, ...payload });
+        setOrder(targetOrder);
+      } else {
+        targetOrder = await createOrder({ bundleId: bundle.id, ...payload });
+        setOrder(targetOrder);
+      }
+      const intent = await createPaymentIntent({ orderId: targetOrder.id });
       setClientSecret(intent.clientSecret);
       setCheckoutStep('payment');
     } catch {
@@ -123,7 +147,7 @@ export default function BundleDetailPage({ params }: Props) {
         ? `${taxLabel} will be applied — ${provinceName} billing address`
         : 'Canadian tax will be applied based on your billing address';
     }
-    return 'No tax will be applied to your order';
+    return null;
   })();
 
   const displayPrice = ready ? formatCurrency(convert(bundle.price), currency as any) : null;
@@ -227,16 +251,34 @@ export default function BundleDetailPage({ params }: Props) {
             <form onSubmit={handleSubmit(handleRecipientSubmit)} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <Label htmlFor="recipientName">Recipient name</Label>
-                  <Input id="recipientName" {...register('recipientName')} placeholder="Full name" />
-                  {errors.recipientName && <p className="text-destructive text-xs">{errors.recipientName.message}</p>}
+                  <Label htmlFor="firstName">First name</Label>
+                  <Input id="firstName" {...register('firstName')} placeholder="First name" />
+                  {errors.firstName && <p className="text-destructive text-xs">{errors.firstName.message}</p>}
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="recipientPhone">Recipient phone</Label>
-                  <Input id="recipientPhone" {...register('recipientPhone')} placeholder="+234..." />
-                  {errors.recipientPhone && <p className="text-destructive text-xs">{errors.recipientPhone.message}</p>}
+                  <Label htmlFor="lastName">Last name</Label>
+                  <Input id="lastName" {...register('lastName')} placeholder="Last name" />
+                  {errors.lastName && <p className="text-destructive text-xs">{errors.lastName.message}</p>}
                 </div>
               </div>
+
+              <Controller
+                control={control}
+                name="recipientPhone"
+                render={({ field }) => (
+                  <div className="space-y-1.5">
+                    <Label htmlFor="recipientPhone">Recipient phone</Label>
+                    <Input
+                      id="recipientPhone"
+                      inputMode="numeric"
+                      placeholder="080-1234-567"
+                      value={formatPhone(field.value ?? '')}
+                      onChange={(e) => field.onChange(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                    />
+                    {errors.recipientPhone && <p className="text-destructive text-xs">{errors.recipientPhone.message}</p>}
+                  </div>
+                )}
+              />
 
               <div className="space-y-1.5">
                 <Label htmlFor="street">
@@ -253,8 +295,23 @@ export default function BundleDetailPage({ params }: Props) {
                   {errors.city && <p className="text-destructive text-xs">{errors.city.message}</p>}
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="state">State</Label>
-                  <Input id="state" {...register('state')} placeholder="Lagos State" />
+                  <Label>State</Label>
+                  <Controller
+                    control={control}
+                    name="state"
+                    render={({ field }) => (
+                      <Select value={field.value} onValueChange={field.onChange}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select state" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {NIGERIAN_STATES.map((s) => (
+                            <SelectItem key={s} value={s}>{s}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
                   {errors.state && <p className="text-destructive text-xs">{errors.state.message}</p>}
                 </div>
               </div>
@@ -278,8 +335,8 @@ export default function BundleDetailPage({ params }: Props) {
                 />
               </div>
 
-              <Button type="submit" className="w-full" disabled={creatingOrder || creatingIntent}>
-                {(creatingOrder || creatingIntent) ? (
+              <Button type="submit" className="w-full" disabled={creatingOrder || updatingOrder || creatingIntent}>
+                {(creatingOrder || updatingOrder || creatingIntent) ? (
                   <><Spinner size="sm" className="mr-2" />Setting up payment...</>
                 ) : 'Continue to payment'}
               </Button>
@@ -389,6 +446,7 @@ function OrderSummary({ order, bundleName }: { order: Order; bundleName: string 
 function StripePaymentForm({ orderId, onBack }: { orderId: string; onBack: () => void }) {
   const stripe = useStripe();
   const elements = useElements();
+  const { mutateAsync: verifyPayment } = useVerifyPayment();
   const [isProcessing, setIsProcessing] = useState(false);
 
   const handlePay = async () => {
@@ -400,11 +458,15 @@ function StripePaymentForm({ orderId, onBack }: { orderId: string; onBack: () =>
       confirmParams: {
         return_url: `${window.location.origin}/orders/${orderId}?success=true`,
       },
+      redirect: 'if_required',
     });
 
     if (error) {
       toast.error(error.message ?? 'Payment failed. Please try again.');
       setIsProcessing(false);
+    } else {
+      await verifyPayment({ orderId });
+      window.location.href = `/orders/${orderId}?success=true`;
     }
   };
 

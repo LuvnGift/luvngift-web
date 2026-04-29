@@ -17,3 +17,9 @@ export const useCreatePaymentIntent = () =>
     mutationFn: (data) => api.post('/api/v1/payments/create-intent', data).then((r) => r.data.data),
     onError: (err: any) => toast.error(err?.response?.data?.error?.message ?? 'Payment setup failed.'),
   });
+
+export const useVerifyPayment = () =>
+  useMutation<void, Error, { orderId: string }>({
+    mutationFn: (data) => api.post('/api/v1/payments/verify', data).then((r) => r.data),
+    onError: () => {}, // silent — webhook will catch it if verify fails
+  });
