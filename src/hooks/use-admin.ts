@@ -20,6 +20,26 @@ export const useAdminOrders = (page = 1, limit = 20) =>
       api.get('/api/v1/admin/orders', { params: { page, limit } }).then((r) => r.data.data),
   });
 
+export const useAdminOrder = (id: string | null) =>
+  useQuery({
+    queryKey: ['admin', 'orders', id],
+    queryFn: () => api.get(`/api/v1/admin/orders/${id}`).then((r) => r.data.data),
+    enabled: !!id,
+  });
+
+export const useDeleteOrder = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/api/v1/admin/orders/${id}`).then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'orders'] });
+      qc.invalidateQueries({ queryKey: ['admin', 'metrics'] });
+      toast.success('Order deleted');
+    },
+    onError: () => toast.error('Failed to delete order'),
+  });
+};
+
 export const useUpdateOrderStatus = () => {
   const qc = useQueryClient();
   return useMutation({
