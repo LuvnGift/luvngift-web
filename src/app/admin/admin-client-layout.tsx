@@ -1,34 +1,41 @@
-import { cookies } from 'next/headers';
-import { redirect } from 'next/navigation';
-import AdminClientLayout from './admin-client-layout';
+'use client';
 
-async function verifyAdminSession(): Promise<boolean> {
-  const cookieStore = await cookies();
-  const accessToken = cookieStore.get('accessToken')?.value;
-  if (!accessToken) return false;
+import Link from 'next/link';
+import Image from 'next/image';
+import { usePathname } from 'next/navigation';
+import {
+  LayoutDashboard,
+  ShoppingCart,
+  Users,
+  MessageSquare,
+  Star,
+  CalendarDays,
+  Package,
+  Settings,
+  LogOut,
+  Menu,
+  X,
+} from 'lucide-react';
+import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { useLogout } from '@/hooks/use-auth';
+import { cn } from '@/lib/utils';
 
-  try {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? '';
-    const res = await fetch(`${apiUrl}/api/v1/users/me`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-      cache: 'no-store',
-    });
-    if (!res.ok) return false;
-    const body = await res.json();
-    return body?.data?.role === 'ADMIN';
-  } catch {
-    return false;
-  }
-}
+const NAV_ITEMS = [
+  { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/admin/orders', label: 'Orders', icon: ShoppingCart },
+  { href: '/admin/occasions', label: 'Occasions', icon: CalendarDays },
+  { href: '/admin/bundles', label: 'Bundles', icon: Package },
+  { href: '/admin/users', label: 'Users', icon: Users },
+  { href: '/admin/chat', label: 'Support Chat', icon: MessageSquare },
+  { href: '/admin/reviews', label: 'Reviews', icon: Star },
+  { href: '/admin/settings', label: 'Settings', icon: Settings },
+];
 
-export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  const isAdmin = await verifyAdminSession();
-  if (!isAdmin) {
-    redirect('/login');
-  }
-
-  return <AdminClientLayout>{children}</AdminClientLayout>;
-}
+export default function AdminClientLayout({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const { mutate: logout } = useLogout();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const isActive = (href: string) =>
     href === '/admin' ? pathname === '/admin' : pathname.startsWith(href);

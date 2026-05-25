@@ -13,33 +13,29 @@ import { useAuthStore } from '@/store/auth.store';
 import { connectSocket } from '@/lib/socket';
 import { toast } from 'sonner';
 import { ShieldCheck } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 
 export default function TwoFactorPage() {
   const router = useRouter();
-  const { setUser } = useAuthStore();
-  const [tempToken, setTempToken] = useState<string | null>(null);
+  const { setUser, pendingTwoFactorToken, clearPendingTwoFactorToken } = useAuthStore();
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<Verify2FAInput>({
     resolver: zodResolver(verify2FASchema),
   });
 
   useEffect(() => {
-    const stored = sessionStorage.getItem('2fa-temp-token');
-    if (!stored) {
+    if (!pendingTwoFactorToken) {
       router.replace('/login');
-      return;
     }
-    setTempToken(stored);
-  }, [router]);
+  }, [pendingTwoFactorToken, router]);
 
   const onSubmit = async (data: Verify2FAInput) => {
-    if (!tempToken) return;
+    if (!pendingTwoFactorToken) return;
     try {
       const res = await api.post('/api/v1/auth/2fa/verify-login', {
-        tempToken,
+        tempToken: pendingTwoFactorToken,
         token: data.token,
       });
-      sessionStorage.removeItem('2fa-temp-token');
+      clearPendingTwoFactorToken();
       const { user } = res.data.data;
       setUser(user);
 

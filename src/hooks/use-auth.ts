@@ -18,14 +18,14 @@ function safeRedirect(url: string | null, fallback: string): string {
 export const useLogin = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { setUser } = useAuthStore();
+  const { setUser, setPendingTwoFactorToken } = useAuthStore();
 
   return useMutation({
     mutationFn: (data: LoginInput) =>
       api.post('/api/v1/auth/login', data).then((r) => r.data.data),
     onSuccess: (data) => {
       if (data.requiresTwoFactor) {
-        sessionStorage.setItem('2fa-temp-token', data.tempToken);
+        setPendingTwoFactorToken(data.tempToken);
         router.push('/2fa');
         return;
       }
