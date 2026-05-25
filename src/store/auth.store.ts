@@ -23,8 +23,18 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       isAuthenticated: false,
       pendingTwoFactorToken: null,
-      setUser: (user) => set({ user, isAuthenticated: true }),
-      clearAuth: () => set({ user: null, isAuthenticated: false, pendingTwoFactorToken: null }),
+      setUser: (user) => {
+        // Write a non-httpOnly session cookie so Next.js middleware can read isAuth + role.
+        const isSecure = typeof window !== 'undefined' && window.location.protocol === 'https:';
+        const secure = isSecure ? '; Secure' : '';
+        const sameSite = isSecure ? 'None' : 'Lax';
+        document.cookie = `session=${JSON.stringify({ isAuth: true, role: user.role })}; Path=/; SameSite=${sameSite}${secure}`;
+        set({ user, isAuthenticated: true });
+      },
+      clearAuth: () => {
+        document.cookie = 'session=; Path=/; Max-Age=0';
+        set({ user: null, isAuthenticated: false, pendingTwoFactorToken: null });
+      },
       setPendingTwoFactorToken: (token) => set({ pendingTwoFactorToken: token }),
       clearPendingTwoFactorToken: () => set({ pendingTwoFactorToken: null }),
     }),
