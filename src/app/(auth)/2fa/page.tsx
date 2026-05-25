@@ -73,7 +73,7 @@ export default function TwoFactorPage() {
             />
             {errors.token && <p className="text-destructive text-xs">{errors.token.message}</p>}
           </div>
-          <Button type="submit" className="w-full" disabled={isSubmitting || !tempToken}>
+          <Button type="submit" className="w-full" disabled={isSubmitting || !pendingTwoFactorToken}>
             {isSubmitting ? 'Verifying...' : 'Verify'}
           </Button>
         </form>
