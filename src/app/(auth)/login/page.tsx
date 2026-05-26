@@ -17,7 +17,11 @@ import Link from 'next/link';
 
 function LoginInner() {
   const searchParams = useSearchParams();
-  const { mutate: login, isPending, error } = useLogin();
+  const { mutate: login, isPending, error } = useLogin({
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.error?.message ?? 'Login failed. Check your credentials and try again.');
+    },
+  });
   const { register, handleSubmit, formState: { errors } } = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
   });
@@ -58,7 +62,7 @@ function LoginInner() {
           </span>
         </div>
 
-        <form onSubmit={handleSubmit((data) => login(data))} className="space-y-4">
+        <form onSubmit={handleSubmit((data) => login(data))} method="post" className="space-y-4">
           <div className="space-y-1.5">
             <Label htmlFor="email">Email</Label>
             <Input id="email" {...register('email')} type="email" placeholder="you@example.com" autoComplete="email" />

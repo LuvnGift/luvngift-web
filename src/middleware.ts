@@ -53,15 +53,18 @@ export function middleware(request: NextRequest) {
   const response = NextResponse.next();
 
   // Content Security Policy
+  // 'unsafe-eval' is required by Next.js React Refresh in development (hot reload).
+  // It is intentionally excluded from production builds.
+  const isDev = process.env.NODE_ENV !== 'production';
   response.headers.set(
     'Content-Security-Policy',
     [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' https://js.stripe.com",
+      `script-src 'self' 'unsafe-inline' https://js.stripe.com${isDev ? " 'unsafe-eval'" : ''}`,
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https://res.cloudinary.com https://*.stripe.com",
       "font-src 'self'",
-      `connect-src 'self' ${process.env.NEXT_PUBLIC_API_URL} ${process.env.NEXT_PUBLIC_SOCKET_URL} https://api.stripe.com`,
+      `connect-src 'self' ${process.env.NEXT_PUBLIC_API_URL} ${process.env.NEXT_PUBLIC_SOCKET_URL} ${(process.env.NEXT_PUBLIC_SOCKET_URL ?? '').replace(/^http/, 'ws')} https://api.stripe.com wss:`,
       "frame-src 'self' https://js.stripe.com https://hooks.stripe.com",
       "object-src 'none'",
       "base-uri 'self'",

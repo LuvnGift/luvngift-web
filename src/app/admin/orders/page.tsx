@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import {
   useAdminOrders, useAdminOrder, useUpdateOrderStatus,
-  useRefundOrder, useDeleteOrder,
+  useRefundOrder, useDeleteOrder, useAssignVendor, useVendors,
 } from '@/hooks/use-admin';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -16,7 +16,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { ChevronLeft, ChevronRight, RefreshCw, Eye, Copy, Trash2, ExternalLink } from 'lucide-react';
+import { ChevronLeft, ChevronRight, RefreshCw, Eye, Copy, Trash2, ExternalLink, UserCheck } from 'lucide-react';
 
 const ORDER_STATUSES = ['PENDING', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'REFUNDED'];
 
@@ -52,6 +52,7 @@ function OrderDetailModal({ orderId, onClose }: { orderId: string; onClose: () =
   const refund = useRefundOrder();
   const deleteOrder = useDeleteOrder();
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [showAssign, setShowAssign] = useState(false);
 
   const handleRefund = () => {
     if (!order) return;
@@ -193,8 +194,17 @@ function OrderDetailModal({ orderId, onClose }: { orderId: string; onClose: () =
                 {order.vendor ? (
                   <p className="font-medium">{order.vendor.name}</p>
                 ) : (
-                  <p className="text-muted-foreground italic">Not assigned</p>
+                  <p className="text-muted-foreground italic mb-1">Not assigned</p>
                 )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-1 gap-1"
+                  onClick={() => setShowAssign(true)}
+                >
+                  <UserCheck className="h-3 w-3" />
+                  {order.vendor ? 'Reassign vendor' : 'Assign vendor'}
+                </Button>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground uppercase tracking-wide font-medium mb-1.5">Invoice</p>
@@ -242,6 +252,10 @@ function OrderDetailModal({ orderId, onClose }: { orderId: string; onClose: () =
               <span>Updated: {new Date(order.updatedAt).toLocaleString()}</span>
             </div>
           </div>
+        )}
+
+        {showAssign && order && (
+          <AssignVendorDialog order={order} onClose={() => setShowAssign(false)} />
         )}
 
         <DialogFooter className="flex-col-reverse sm:flex-row sm:justify-between gap-2 pt-4 border-t">
@@ -347,6 +361,86 @@ function UpdateStatusDialog({ order, onClose }: { order: any; onClose: () => voi
   );
 }
 
+// ─── Assign Vendor Dialog ─────────────────────────────────────────────────────
+
+function AssignVendorDialog({ order, onClose }: { order: any; onClose: () => void }) {
+  const [vendorId, setVendorId] = useState(order.vendor?.id ?? '');
+  const { data: vendorsData, isLoading } = useVendors(1, 100);
+  const assign = useAssignVendor();
+
+  const vendors = vendorsData?.vendors ?? [];
+
+  const handleSubmit = () => {
+    if (!vendorId) return;
+    assign.mutate({ orderId: order.id, vendorId }, { onSuccess: onClose });
+  };
+
+  return (
+    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Assign Vendor</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4 py-2">
+          <div className="space-y-1">
+            <p className="text-sm text-muted-foreground">
+              Order <span className="font-mono font-medium">#{order.id.slice(-8).toUpperCase()}</span>
+              {' '}— recipient: <span className="font-medium">{order.recipientName}</span>
+            </p>
+            {order.vendor && (
+              <p className="text-xs text-muted-foreground">
+                Currently assigned to: <span className="font-medium">{order.vendor.name}</span>
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Select vendor</Label>
+            {isLoading ? (
+              <div className="flex justify-center py-4"><Spinner /></div>
+            ) : vendors.length === 0 ? (
+              <p className="text-sm text-muted-foreground italic">
+                No active vendors. Add vendors first.
+              </p>
+            ) : (
+              <Select value={vendorId} onValueChange={setVendorId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose a vendor..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {vendors.map((v: any) => (
+                    <SelectItem key={v.id} value={v.id}>
+                      <span className="font-medium">{v.name}</span>
+                      <span className="text-muted-foreground ml-2 text-xs">
+                        · {v.state} · {v.businessType}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+
+          <p className="text-xs text-muted-foreground">
+            Assigning a vendor will move the order to <strong>PROCESSING</strong> and notify the vendor by email and SMS.
+          </p>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button
+            onClick={handleSubmit}
+            disabled={!vendorId || assign.isPending || vendors.length === 0}
+          >
+            {assign.isPending ? 'Assigning...' : 'Assign Vendor'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function AdminOrdersPage() {
@@ -355,6 +449,7 @@ export default function AdminOrdersPage() {
 
   const [detailOrderId, setDetailOrderId] = useState<string | null>(null);
   const [updateOrder, setUpdateOrder] = useState<any>(null);
+  const [assignOrder, setAssignOrder] = useState<any>(null);
 
   if (isLoading) {
     return <div className="flex h-64 items-center justify-center"><Spinner /></div>;
@@ -428,9 +523,18 @@ export default function AdminOrdersPage() {
                           <Button
                             variant="outline"
                             size="sm"
+                            className="gap-1"
+                            onClick={() => setAssignOrder(order)}
+                          >
+                            <UserCheck className="h-3.5 w-3.5" />
+                            {order.vendor ? 'Reassign' : 'Assign'}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
                             onClick={() => setUpdateOrder(order)}
                           >
-                            Update
+                            Status
                           </Button>
                         </div>
                       </td>
@@ -466,6 +570,10 @@ export default function AdminOrdersPage() {
 
       {updateOrder && (
         <UpdateStatusDialog order={updateOrder} onClose={() => setUpdateOrder(null)} />
+      )}
+
+      {assignOrder && (
+        <AssignVendorDialog order={assignOrder} onClose={() => setAssignOrder(null)} />
       )}
     </div>
   );

@@ -81,12 +81,12 @@ export default function RegisterPage() {
 
           <div className="space-y-1.5">
             <Label htmlFor="phone">Phone <span className="text-muted-foreground font-normal">(optional)</span></Label>
-            <Input id="phone" {...field('phone')} type="tel" placeholder="+1 (555) 000-0000" />
+            <Input id="phone" {...field('phone', { setValueAs: (v) => v === '' ? undefined : v })} type="tel" placeholder="+1 (555) 000-0000" />
           </div>
 
           <div className="space-y-1.5">
             <Label htmlFor="dateOfBirth">Date of Birth <span className="text-muted-foreground font-normal">(optional)</span></Label>
-            <Input id="dateOfBirth" {...field('dateOfBirth')} type="date" />
+            <Input id="dateOfBirth" {...field('dateOfBirth', { setValueAs: (v) => v === '' ? undefined : v })} type="date" />
           </div>
 
           {error && (

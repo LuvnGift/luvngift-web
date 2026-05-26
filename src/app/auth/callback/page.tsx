@@ -13,26 +13,34 @@ function AuthCallbackInner() {
   const { setUser } = useAuthStore();
 
   useEffect(() => {
-    const userParam = searchParams.get('user');
+    const success = searchParams.get('success');
 
-    if (userParam) {
-      try {
-        const user = JSON.parse(userParam);
+    if (success !== 'true') {
+      router.replace('/login?error=oauth_failed');
+      return;
+    }
+
+    // Cookies (accessToken, session) are already set by the API redirect.
+    // Fetch the user profile through the Next.js proxy so the httpOnly
+    // cookie is forwarded correctly.
+    api
+      .get('/api/v1/users/me')
+      .then((r) => {
+        const user = r.data.data;
         setUser(user);
 
-        // Connect socket via the API (token is in httpOnly cookie)
-        api.get('/api/v1/auth/socket-token')
-          .then((r) => connectSocket(r.data.data.token))
+        api
+          .get('/api/v1/auth/socket-token')
+          .then((sr) => connectSocket(sr.data.data.token))
           .catch(() => { /* non-critical */ });
 
         router.replace(user.role === 'ADMIN' ? '/admin' : '/');
-      } catch {
+      })
+      .catch(() => {
         router.replace('/login?error=oauth_failed');
-      }
-    } else {
-      router.replace('/login?error=oauth_failed');
-    }
-  }, [searchParams, setUser, router]);
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="flex h-screen items-center justify-center">

@@ -15,7 +15,7 @@ function safeRedirect(url: string | null, fallback: string): string {
   return fallback;
 }
 
-export const useLogin = () => {
+export const useLogin = (opts?: { onError?: (err: any) => void }) => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { setUser, setPendingTwoFactorToken } = useAuthStore();
@@ -30,12 +30,12 @@ export const useLogin = () => {
         return;
       }
       setUser(data.user);
-      // Socket connects via the httpOnly cookie on the API domain
       connectSocketFromApi();
       const defaultRoute = data.user?.role === 'ADMIN' ? '/admin' : '/';
       const redirect = safeRedirect(searchParams.get('redirect'), defaultRoute);
       router.push(redirect);
     },
+    onError: opts?.onError,
   });
 };
 

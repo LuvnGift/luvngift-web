@@ -252,6 +252,95 @@ export const useModerateReview = () => {
   });
 };
 
+// ---------- Vendor assignment ----------
+export const useAssignVendor = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ orderId, vendorId }: { orderId: string; vendorId: string }) =>
+      api.patch(`/api/v1/admin/orders/${orderId}/vendor`, { vendorId }).then((r) => r.data.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'orders'] });
+      qc.invalidateQueries({ queryKey: ['admin', 'vendors'] });
+      toast.success('Vendor assigned — they will be notified by email and SMS');
+    },
+    onError: () => toast.error('Failed to assign vendor'),
+  });
+};
+
+// ---------- Vendors ----------
+export interface VendorInput {
+  name: string;
+  email: string;
+  phone: string;
+  address: string;
+  state: string;
+  businessType: 'RETAIL' | 'DELIVERY' | 'LOGISTICS';
+  notes?: string;
+}
+
+export const useVendors = (page = 1, limit = 20, search = '', includeInactive = false) =>
+  useQuery({
+    queryKey: ['admin', 'vendors', page, limit, search, includeInactive],
+    queryFn: () =>
+      api
+        .get('/api/v1/vendors', { params: { page, limit, search: search || undefined, includeInactive } })
+        .then((r) => r.data.data),
+  });
+
+export const useVendor = (id: string | null) =>
+  useQuery({
+    queryKey: ['admin', 'vendors', id],
+    queryFn: () => api.get(`/api/v1/vendors/${id}`).then((r) => r.data.data),
+    enabled: !!id,
+  });
+
+export const useVendorOrders = (vendorId: string | null, page = 1) =>
+  useQuery({
+    queryKey: ['admin', 'vendors', vendorId, 'orders', page],
+    queryFn: () =>
+      api.get(`/api/v1/vendors/${vendorId}/orders`, { params: { page } }).then((r) => r.data.data),
+    enabled: !!vendorId,
+  });
+
+export const useCreateVendor = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: VendorInput) =>
+      api.post('/api/v1/vendors', data).then((r) => r.data.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'vendors'] });
+      toast.success('Vendor created');
+    },
+    onError: () => toast.error('Failed to create vendor'),
+  });
+};
+
+export const useUpdateVendor = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...data }: Partial<VendorInput> & { id: string }) =>
+      api.patch(`/api/v1/vendors/${id}`, data).then((r) => r.data.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'vendors'] });
+      toast.success('Vendor updated');
+    },
+    onError: () => toast.error('Failed to update vendor'),
+  });
+};
+
+export const useSetVendorActive = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) =>
+      api.patch(`/api/v1/vendors/${id}/active`, { isActive }).then((r) => r.data.data),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ['admin', 'vendors'] });
+      toast.success(vars.isActive ? 'Vendor activated' : 'Vendor deactivated');
+    },
+    onError: () => toast.error('Failed to update vendor status'),
+  });
+};
+
 // ---------- Exchange rate settings ----------
 export interface ExchangeRateSettings {
   GBP: number;
