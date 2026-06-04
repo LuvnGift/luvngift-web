@@ -7,10 +7,54 @@ import { Navbar } from '@/components/layout/navbar';
 import { Footer } from '@/components/layout/footer';
 import { ChatWidget } from '@/components/chat/chat-widget';
 import { AddressBanner } from '@/components/layout/address-banner';
+import type { Metadata } from 'next';
+
+const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.luvngift.com';
+
+export const metadata: Metadata = {
+  alternates: { canonical: BASE_URL },
+};
+
+const organizationJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'Organization',
+  name: 'Luvngift',
+  url: BASE_URL,
+  logo: `${BASE_URL}/images/luvngift.png`,
+  description:
+    'Send curated gift bundles and custom experiences to loved ones in Nigeria from the USA, Canada, or UK.',
+  contactPoint: {
+    '@type': 'ContactPoint',
+    email: 'info@luvngift.com',
+    contactType: 'customer service',
+  },
+  areaServed: ['US', 'CA', 'GB'],
+  sameAs: [],
+};
+
+const websiteJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'WebSite',
+  name: 'Luvngift',
+  url: BASE_URL,
+  potentialAction: {
+    '@type': 'SearchAction',
+    target: { '@type': 'EntryPoint', urlTemplate: `${BASE_URL}/occasions?q={search_term_string}` },
+    'query-input': 'required name=search_term_string',
+  },
+};
 
 export default function HomePage() {
   return (
 		<div className="flex flex-col min-h-screen">
+			<script
+				type="application/ld+json"
+				dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
+			/>
+			<script
+				type="application/ld+json"
+				dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
+			/>
 			<Navbar />
 			<AddressBanner />
 

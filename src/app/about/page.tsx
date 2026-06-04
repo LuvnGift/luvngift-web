@@ -3,9 +3,25 @@ import { Footer } from '@/components/layout/footer';
 import { Separator } from '@/components/ui/separator';
 import { Gift, Heart, Globe, ShieldCheck } from 'lucide-react';
 
+const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.luvngift.com';
+
 export const metadata = {
-  title: 'About Us — Luvngift',
-  description: 'Learn how Luvngift helps the Nigerian diaspora send meaningful gifts home.',
+  title: 'About Us',
+  description:
+    'Learn how Luvngift helps Nigerians in the diaspora send curated gifts and experiences to loved ones back home — reliably, beautifully, and with heart.',
+  alternates: { canonical: `${BASE_URL}/about` },
+  openGraph: {
+    title: 'About Us | Luvngift',
+    description:
+      'The story behind Luvngift — how we\'re closing the distance between the Nigerian diaspora and their loved ones at home.',
+    url: `${BASE_URL}/about`,
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'About Us | Luvngift',
+    description: 'How Luvngift helps Nigerians in the diaspora send meaningful gifts home.',
+  },
 };
 
 const values = [
