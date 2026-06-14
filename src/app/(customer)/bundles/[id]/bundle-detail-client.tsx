@@ -67,7 +67,7 @@ function formatPhone(digits: string): string {
 const recipientSchema = z.object({
   firstName: z.string().min(1, 'First name is required').regex(nameRegex, 'Letters only'),
   lastName: z.string().min(1, 'Last name is required').regex(nameRegex, 'Letters only'),
-  recipientPhone: z.string().min(7, 'Valid phone required').max(10, 'Max 10 digits'),
+  recipientPhone: z.string().min(11, 'Valid phone required').max(11, 'Max 11 digits'),
   street: z.string().min(5, 'Street is required'),
   city: z.string().min(2, 'City is required'),
   state: z.string().min(2, 'State is required'),
