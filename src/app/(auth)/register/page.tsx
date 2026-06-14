@@ -1,8 +1,11 @@
 'use client';
 
+import { useState } from 'react';
+import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { registerSchema, RegisterInput } from '@luvngift/shared';
+import { registerSchema } from '@luvngift/shared';
+import { Eye, EyeOff } from 'lucide-react';
 import { useRegister } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,11 +14,28 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Separator } from '@/components/ui/separator';
 import Link from 'next/link';
 
+// Extend the shared schema with a client-only confirmPassword field. It is
+// validated here but stripped before the request — the API never needs it.
+const registerFormSchema = registerSchema
+  .extend({ confirmPassword: z.string().min(1, 'Please confirm your password') })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: 'Passwords do not match',
+    path: ['confirmPassword'],
+  });
+
+type RegisterFormValues = z.infer<typeof registerFormSchema>;
+
 export default function RegisterPage() {
   const { mutate: register, isPending, error } = useRegister();
-  const { register: field, handleSubmit, formState: { errors } } = useForm<RegisterInput>({
-    resolver: zodResolver(registerSchema),
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const { register: field, handleSubmit, formState: { errors } } = useForm<RegisterFormValues>({
+    resolver: zodResolver(registerFormSchema),
   });
+
+  const onSubmit = ({ confirmPassword: _confirmPassword, ...payload }: RegisterFormValues) => {
+    register(payload);
+  };
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL;
 
@@ -47,7 +67,7 @@ export default function RegisterPage() {
           </span>
         </div>
 
-        <form onSubmit={handleSubmit((data) => register(data))} className="space-y-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="firstName">First Name</Label>
@@ -75,8 +95,36 @@ export default function RegisterPage() {
 
           <div className="space-y-1.5">
             <Label htmlFor="password">Password</Label>
-            <Input id="password" {...field('password')} type="password" placeholder="Min. 8 characters" autoComplete="new-password" />
+            <div className="relative">
+              <Input id="password" {...field('password')} type={showPassword ? 'text' : 'password'} placeholder="Min. 8 characters" autoComplete="new-password" className="pr-10" />
+              <button
+                type="button"
+                onClick={() => setShowPassword((s) => !s)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                tabIndex={-1}
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
             {errors.password && <p className="text-destructive text-xs">{errors.password.message}</p>}
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="confirmPassword">Confirm Password</Label>
+            <div className="relative">
+              <Input id="confirmPassword" {...field('confirmPassword')} type={showConfirm ? 'text' : 'password'} placeholder="Re-enter your password" autoComplete="new-password" className="pr-10" />
+              <button
+                type="button"
+                onClick={() => setShowConfirm((s) => !s)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                aria-label={showConfirm ? 'Hide password' : 'Show password'}
+                tabIndex={-1}
+              >
+                {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+            {errors.confirmPassword && <p className="text-destructive text-xs">{errors.confirmPassword.message}</p>}
           </div>
 
           <div className="space-y-1.5">

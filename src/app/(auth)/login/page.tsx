@@ -30,6 +30,9 @@ function LoginInner() {
     if (searchParams.get('registered') === 'true') {
       toast.success('Account created! Check your email to verify your address.');
     }
+    if (searchParams.get('error') === 'oauth_failed') {
+      toast.error('Google sign-in failed. Please try again.');
+    }
   }, [searchParams]);
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL;

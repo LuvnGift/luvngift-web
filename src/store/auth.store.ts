@@ -24,12 +24,20 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
       pendingTwoFactorToken: null,
       setUser: (user) => {
-        // The `session` cookie (read by Next.js middleware) is owned by the API,
-        // which sets it with a 7-day Max-Age on login/refresh/OAuth. We must NOT
-        // overwrite it here: a client-side `document.cookie` write has no Max-Age,
-        // which would downgrade it to a session-scoped cookie that dies on browser
-        // close — leaving middleware-gated routes (e.g. /custom) redirecting to
-        // /login even though the refresh token is still valid.
+        // Write the `session` cookie (read by Next.js middleware) synchronously so
+        // it exists for the very next navigation — e.g. router.push('/custom')
+        // immediately after login. Relying solely on the API's Set-Cookie (via the
+        // proxy) is not safe here: it may not be committed before middleware runs
+        // for the redirect target, which bounces the user back to /login.
+        //
+        // Critically, set a 7-day Max-Age (matching the refresh token / the API's
+        // own session cookie) so it is a persistent cookie and survives a browser
+        // restart. Without Max-Age it would be session-scoped and middleware-gated
+        // routes would break after the browser is closed.
+        const isSecure = typeof window !== 'undefined' && window.location.protocol === 'https:';
+        const attrs = isSecure ? '; SameSite=None; Secure' : '; SameSite=Lax';
+        const maxAge = 7 * 24 * 60 * 60; // 7 days, in seconds
+        document.cookie = `session=${JSON.stringify({ isAuth: true, role: user.role })}; Path=/; Max-Age=${maxAge}${attrs}`;
         set({ user, isAuthenticated: true });
       },
       clearAuth: () => {

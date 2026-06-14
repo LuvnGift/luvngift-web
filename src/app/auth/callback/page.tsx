@@ -1,44 +1,51 @@
 'use client';
 
-import { Suspense, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth.store';
 import { Spinner } from '@/components/ui/spinner';
 import { api } from '@/lib/api';
 import { connectSocket } from '@/lib/socket';
 
-function AuthCallbackInner() {
+export default function AuthCallbackPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { setUser } = useAuthStore();
 
   useEffect(() => {
-    const success = searchParams.get('success');
+    const run = async () => {
+      // The API delivers the one-time code in the URL fragment so it never
+      // reaches a server log or Referer header.
+      const hash = window.location.hash.startsWith('#') ? window.location.hash.slice(1) : '';
+      const code = new URLSearchParams(hash).get('code');
 
-    if (success !== 'true') {
-      router.replace('/login?error=oauth_failed');
-      return;
-    }
+      // Strip the code from the address bar / history immediately.
+      window.history.replaceState(null, '', window.location.pathname);
 
-    // Cookies (accessToken, session) are already set by the API redirect.
-    // Fetch the user profile through the Next.js proxy so the httpOnly
-    // cookie is forwarded correctly.
-    api
-      .get('/api/v1/users/me')
-      .then((r) => {
-        const user = r.data.data;
+      if (!code) {
+        router.replace('/login?error=oauth_failed');
+        return;
+      }
+
+      try {
+        // Exchange through the Next.js proxy → cookies are set first-party.
+        const r = await api.post('/api/v1/auth/oauth/exchange', { code });
+        const user = r.data.data.user;
         setUser(user);
 
-        api
-          .get('/api/v1/auth/socket-token')
-          .then((sr) => connectSocket(sr.data.data.token))
-          .catch(() => { /* non-critical */ });
+        try {
+          const sr = await api.get('/api/v1/auth/socket-token');
+          connectSocket(sr.data.data.token);
+        } catch {
+          /* Socket connection is non-critical */
+        }
 
         router.replace(user.role === 'ADMIN' ? '/admin' : '/');
-      })
-      .catch(() => {
+      } catch {
         router.replace('/login?error=oauth_failed');
-      });
+      }
+    };
+
+    run();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -49,17 +56,5 @@ function AuthCallbackInner() {
         <p className="text-muted-foreground text-sm">Completing sign in...</p>
       </div>
     </div>
-  );
-}
-
-export default function AuthCallbackPage() {
-  return (
-    <Suspense fallback={
-      <div className="flex h-screen items-center justify-center">
-        <Spinner />
-      </div>
-    }>
-      <AuthCallbackInner />
-    </Suspense>
   );
 }
