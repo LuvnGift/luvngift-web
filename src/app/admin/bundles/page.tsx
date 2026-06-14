@@ -35,18 +35,19 @@ import {
 import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import type { Bundle, Occasion } from '@luvngift/shared';
 
+// Kept in sync with createBundleSchema in @luvngift/shared
 const bundleItemSchema = z.object({
-  name: z.string().min(1, 'Item name required'),
-  description: z.string().optional(),
-  quantity: z.coerce.number().int().min(1, 'Min 1'),
+  name: z.string().trim().min(2, 'Item name must be at least 2 characters').max(100),
+  description: z.string().trim().max(500).optional(),
+  quantity: z.coerce.number().int().min(1, 'Quantity must be at least 1'),
 });
 
 const bundleFormSchema = z.object({
   occasionId: z.string().min(1, 'Occasion is required'),
-  name: z.string().min(1, 'Name is required'),
-  description: z.string().min(1, 'Description is required'),
+  name: z.string().trim().min(3, 'Name must be at least 3 characters').max(100),
+  description: z.string().trim().min(10, 'Description must be at least 10 characters').max(2000),
   price: z.coerce.number().positive('Must be greater than 0'),
-  estimatedDeliveryDays: z.coerce.number().int().min(1, 'Min 1 day'),
+  estimatedDeliveryDays: z.coerce.number().int().min(1).max(30, 'Cannot exceed 30 days'),
   images: z.array(z.object({ url: z.string().url('Must be a valid URL') })).min(1, 'At least one image required'),
   items: z.array(bundleItemSchema).min(1, 'At least one item required'),
 });

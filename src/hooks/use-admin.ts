@@ -196,6 +196,9 @@ export const useCreateBundle = () => {
       qc.invalidateQueries({ queryKey: ['admin', 'bundles'] });
       toast.success('Bundle created');
     },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.error?.message ?? 'Failed to create bundle');
+    },
   });
 };
 
@@ -217,6 +220,9 @@ export const useUpdateBundle = () => {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'bundles'] });
       toast.success('Bundle updated');
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.error?.message ?? 'Failed to update bundle');
     },
   });
 };
