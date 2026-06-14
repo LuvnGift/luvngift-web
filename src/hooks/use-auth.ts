@@ -33,6 +33,9 @@ export const useLogin = (opts?: { onError?: (err: any) => void }) => {
       connectSocketFromApi();
       const defaultRoute = data.user?.role === 'ADMIN' ? '/admin' : '/';
       const redirect = safeRedirect(searchParams.get('redirect'), defaultRoute);
+      // Invalidate the Next.js Router Cache so stale middleware redirects (cached
+      // while the user was logged out) are not served after a successful login.
+      router.refresh();
       router.push(redirect);
     },
     onError: opts?.onError,
