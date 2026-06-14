@@ -28,10 +28,11 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    // Never try to refresh off a failed refresh call — that would loop.
-    const isRefreshCall = originalRequest?.url?.includes('/api/v1/auth/refresh');
+    // Never try to refresh off an auth endpoint — /auth/login, /auth/refresh etc.
+    // all legitimately return 401 and should surface as normal errors to the caller.
+    const isAuthCall = originalRequest?.url?.includes('/api/v1/auth/');
 
-    if (error.response?.status === 401 && originalRequest && !originalRequest._retry && !isRefreshCall) {
+    if (error.response?.status === 401 && originalRequest && !originalRequest._retry && !isAuthCall) {
       originalRequest._retry = true;
       try {
         await refreshSession();
