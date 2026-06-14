@@ -46,7 +46,7 @@ export const metadata: Metadata = {
       'Send curated gift bundles and custom experiences to loved ones in Nigeria from the USA, Canada, or UK. Pay in CAD, USD, or GBP — we handle everything.',
     images: [
       {
-        url: '/images/og-default.png',
+        url: '/images/luvngift.png',
         width: 1200,
         height: 630,
         alt: 'Luvngift — Gift delivery to Nigeria',
@@ -58,7 +58,7 @@ export const metadata: Metadata = {
     title: 'Luvngift — Send Gifts to Loved Ones in Nigeria',
     description:
       'Curated gift bundles and custom experiences delivered to Nigeria. Pay in CAD, USD, or GBP.',
-    images: ['/images/og-default.png'],
+    images: ['/images/luvngift.png'],
     creator: '@luvngift',
   },
   alternates: {

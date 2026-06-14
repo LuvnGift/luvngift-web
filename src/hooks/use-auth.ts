@@ -68,7 +68,7 @@ export const useLogout = () => {
 };
 
 export const useMe = () => {
-  const { isAuthenticated, setUser, clearAuth } = useAuthStore();
+  const { isAuthenticated, setUser } = useAuthStore();
   const query = useQuery({
     queryKey: ['me'],
     queryFn: () => api.get('/api/v1/users/me').then((r) => r.data.data),
@@ -81,10 +81,10 @@ export const useMe = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query.isSuccess, query.data]);
 
-  useEffect(() => {
-    if (query.isError) clearAuth();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query.isError]);
+  // Intentionally no clearAuth() on error here. The axios interceptor is the single
+  // authority on auth failures: it refreshes on 401 and, only if refresh truly fails,
+  // clears auth and redirects to /login. Logging out on every query error (transient
+  // network blips, 500s, refresh races) is what made the header flicker to signed-out.
 
   return query;
 };

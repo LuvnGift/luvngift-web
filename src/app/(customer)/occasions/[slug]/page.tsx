@@ -24,6 +24,18 @@ async function fetchOccasion(slug: string): Promise<Occasion | null> {
   }
 }
 
+export async function generateStaticParams() {
+  try {
+    const res = await fetch(`${API_URL}/api/v1/occasions?limit=100`);
+    if (!res.ok) return [];
+    const json = await res.json();
+    const occasions: { slug: string }[] = json.data ?? [];
+    return occasions.map((o) => ({ slug: o.slug }));
+  } catch {
+    return [];
+  }
+}
+
 interface Props {
   params: Promise<{ slug: string }>;
 }

@@ -26,6 +26,18 @@ async function fetchBundle(id: string): Promise<Bundle | null> {
   }
 }
 
+export async function generateStaticParams() {
+  try {
+    const res = await fetch(`${API_URL}/api/v1/bundles?limit=200&isActive=true`);
+    if (!res.ok) return [];
+    const json = await res.json();
+    const bundles: { id: string }[] = json.data?.bundles ?? json.data ?? [];
+    return bundles.map((b) => ({ id: b.id }));
+  } catch {
+    return [];
+  }
+}
+
 interface Props {
   params: Promise<{ id: string }>;
 }
