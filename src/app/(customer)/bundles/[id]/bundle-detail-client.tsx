@@ -272,7 +272,7 @@ export function BundleDetailClient({ id }: Props) {
                       inputMode="numeric"
                       placeholder="080-1234-567"
                       value={formatPhone(field.value ?? '')}
-                      onChange={(e) => field.onChange(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                      onChange={(e) => field.onChange(e.target.value.replace(/\D/g, '').slice(0, 11))}
                     />
                     {errors.recipientPhone && <p className="text-destructive text-xs">{errors.recipientPhone.message}</p>}
                   </div>
