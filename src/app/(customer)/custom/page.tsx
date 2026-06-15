@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { customOrderSchema, CustomOrderInput, getUserCurrency } from '@luvngift/shared';
+import { z } from 'zod';
+import { getUserCurrency, type CustomOrderInput } from '@luvngift/shared';
 import { useCreateCustomOrder } from '@/hooks/use-orders';
 import { useAuthStore } from '@/store/auth.store';
 import { Button } from '@/components/ui/button';
@@ -18,7 +19,6 @@ import { Check, ChevronRight, Gift, Sparkles, User, FileText } from 'lucide-reac
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
-
 
 const STEPS = [
   { id: 1, title: 'Occasion', icon: Sparkles },
@@ -40,6 +40,67 @@ const NIGERIAN_STATES = [
   'Plateau', 'Rivers', 'Sokoto', 'Taraba', 'Yobe', 'Zamfara',
 ];
 
+const DRAFT_KEY = 'customGiftDraft';
+
+// Letters (incl. accented), spaces, hyphens, apostrophes — matches the shared name rules.
+const NAME_RE = /^[a-zA-ZÀ-ÖØ-öø-ÿ'\-\s]+$/;
+
+// Local form schema. Names + address are split for better UX/validation, then
+// concatenated to the API's recipientName / deliveryCity (no schema/DB change).
+const customFormSchema = z.object({
+  occasionType: z.string().min(1, 'Please select an occasion'),
+  preferredDate: z.string().optional(),
+  firstName: z.string().trim().min(1, 'First name is required').max(50).regex(NAME_RE, 'Letters only'),
+  lastName: z.string().trim().min(1, 'Last name is required').max(50).regex(NAME_RE, 'Letters only'),
+  recipientPhone: z.string().regex(/^\d{11}$/, 'Enter a valid 11-digit phone number'),
+  street: z
+    .string()
+    .trim()
+    .min(5, 'Street address is required')
+    .max(200)
+    .regex(/^[a-zA-ZÀ-ÖØ-öø-ÿ0-9\s,.'#\-/]+$/, 'Street address contains invalid characters'),
+  city: z
+    .string()
+    .trim()
+    .min(2, 'City / area is required')
+    .max(100)
+    .regex(/^[a-zA-ZÀ-ÖØ-öø-ÿ0-9'\-\s.]+$/, 'City contains invalid characters'),
+  state: z.string().min(2, 'Please select a state'),
+  giftType: z.enum(['PHYSICAL', 'EXPERIENCE']),
+  description: z.string().trim().min(10, 'Please provide at least 10 characters').max(1000),
+  estimatedBudget: z
+    .string()
+    .optional()
+    .refine((v) => !v || Number(v) > 0, 'Enter a valid amount'),
+  personalMessage: z.string().max(500, 'Message must be at most 500 characters').optional(),
+  specialInstructions: z.string().max(500, 'Instructions must be at most 500 characters').optional(),
+});
+
+type CustomFormValues = z.infer<typeof customFormSchema>;
+
+const EMPTY_FORM: CustomFormValues = {
+  occasionType: '',
+  preferredDate: undefined,
+  firstName: '',
+  lastName: '',
+  recipientPhone: '',
+  street: '',
+  city: '',
+  state: '',
+  giftType: 'PHYSICAL',
+  description: '',
+  estimatedBudget: '',
+  personalMessage: '',
+  specialInstructions: '',
+};
+
+/** Display 11 digits as 080-1234-5678 while keeping the raw value as digits. */
+function formatPhone(digits: string): string {
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 7) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+  return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
+}
+
 export default function CustomGiftPage() {
   const [step, setStep] = useState(1);
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -56,19 +117,21 @@ export default function CustomGiftPage() {
     watch,
     trigger,
     reset,
+    control,
     formState: { errors },
-  } = useForm<CustomOrderInput>({
-    resolver: zodResolver(customOrderSchema),
-    defaultValues: { currency, giftType: 'PHYSICAL' },
+  } = useForm<CustomFormValues>({
+    resolver: zodResolver(customFormSchema),
+    defaultValues: EMPTY_FORM,
   });
 
-  // Guests can build the whole gift; if they were sent to login at submit, their
-  // draft is restored here so they don't lose any work after signing in.
+  const watched = watch();
+
+  // Restore a draft saved when a guest was sent to login at submit, so no work is lost.
   useEffect(() => {
     try {
-      const draft = sessionStorage.getItem('customGiftDraft');
+      const draft = sessionStorage.getItem(DRAFT_KEY);
       if (draft) {
-        reset(JSON.parse(draft));
+        reset({ ...EMPTY_FORM, ...JSON.parse(draft) });
         setStep(4);
       }
     } catch {
@@ -77,13 +140,11 @@ export default function CustomGiftPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const watched = watch();
-
   const validateStep = async () => {
-    const fieldsByStep: Record<number, (keyof CustomOrderInput)[]> = {
+    const fieldsByStep: Record<number, (keyof CustomFormValues)[]> = {
       1: ['occasionType', 'preferredDate'],
-      2: ['recipientName', 'recipientPhone', 'deliveryCity', 'deliveryState'],
-      3: ['giftType', 'description'],
+      2: ['firstName', 'lastName', 'recipientPhone', 'street', 'city', 'state'],
+      3: ['giftType', 'description', 'estimatedBudget'],
       4: [],
     };
     return trigger(fieldsByStep[step]);
@@ -96,11 +157,11 @@ export default function CustomGiftPage() {
 
   const prevStep = () => setStep((s) => Math.max(s - 1, 1));
 
-  const onSubmit = async (data: CustomOrderInput) => {
+  const onSubmit = async (data: CustomFormValues) => {
     // Auth is only required at submit. Guests keep their draft and sign in first.
     if (!isAuthenticated) {
       try {
-        sessionStorage.setItem('customGiftDraft', JSON.stringify(data));
+        sessionStorage.setItem(DRAFT_KEY, JSON.stringify(data));
       } catch {
         /* sessionStorage may be unavailable; proceed to login anyway */
       }
@@ -108,9 +169,28 @@ export default function CustomGiftPage() {
       router.push('/login?redirect=/custom');
       return;
     }
+
+    // First + last name are concatenated into recipientName (no DB change);
+    // street/city/state map straight to the existing delivery columns.
+    const payload: CustomOrderInput & { deliveryStreet?: string } = {
+      occasionType: data.occasionType,
+      giftType: data.giftType,
+      preferredDate: data.preferredDate || undefined,
+      estimatedBudget: data.estimatedBudget ? Number(data.estimatedBudget) : undefined,
+      currency,
+      description: data.description,
+      recipientName: `${data.firstName.trim()} ${data.lastName.trim()}`,
+      recipientPhone: data.recipientPhone,
+      deliveryStreet: data.street.trim(),
+      deliveryCity: data.city.trim(),
+      deliveryState: data.state,
+      personalMessage: data.personalMessage || undefined,
+      specialInstructions: data.specialInstructions || undefined,
+    };
+
     try {
-      await submitCustomOrder(data);
-      sessionStorage.removeItem('customGiftDraft');
+      await submitCustomOrder(payload);
+      sessionStorage.removeItem(DRAFT_KEY);
       setIsSubmitted(true);
       toast.success('Custom gift request submitted!');
     } catch {
@@ -193,7 +273,7 @@ export default function CustomGiftPage() {
                   <Label>Occasion type</Label>
                   <Select
                     value={watched.occasionType}
-                    onValueChange={(v) => setValue('occasionType', v)}
+                    onValueChange={(v) => setValue('occasionType', v, { shouldValidate: true })}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select an occasion" />
@@ -215,6 +295,7 @@ export default function CustomGiftPage() {
                     id="preferredDate"
                     type="date"
                     min={new Date().toISOString().split('T')[0]}
+                    value={watched.preferredDate ? watched.preferredDate.split('T')[0] : ''}
                     onChange={(e) => {
                       const iso = e.target.value ? new Date(e.target.value).toISOString() : undefined;
                       setValue('preferredDate', iso);
@@ -238,59 +319,84 @@ export default function CustomGiftPage() {
               <CardContent className="space-y-5">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <Label htmlFor="recipientName">Recipient full name</Label>
-                    <Input
-                      id="recipientName"
-                      {...register('recipientName')}
-                      placeholder="Full name"
-                    />
-                    {errors.recipientName && (
-                      <p className="text-destructive text-xs">{errors.recipientName.message}</p>
+                    <Label htmlFor="firstName">First name</Label>
+                    <Input id="firstName" {...register('firstName')} placeholder="First name" />
+                    {errors.firstName && (
+                      <p className="text-destructive text-xs">{errors.firstName.message}</p>
                     )}
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="recipientPhone">Recipient phone</Label>
-                    <Input
-                      id="recipientPhone"
-                      {...register('recipientPhone')}
-                      placeholder="+234 801 000 0000"
-                    />
-                    {errors.recipientPhone && (
-                      <p className="text-destructive text-xs">{errors.recipientPhone.message}</p>
+                    <Label htmlFor="lastName">Last name</Label>
+                    <Input id="lastName" {...register('lastName')} placeholder="Last name" />
+                    {errors.lastName && (
+                      <p className="text-destructive text-xs">{errors.lastName.message}</p>
                     )}
                   </div>
                 </div>
 
+                <Controller
+                  control={control}
+                  name="recipientPhone"
+                  render={({ field }) => (
+                    <div className="space-y-1.5">
+                      <Label htmlFor="recipientPhone">Recipient phone</Label>
+                      <Input
+                        id="recipientPhone"
+                        inputMode="numeric"
+                        placeholder="080-1234-5678"
+                        value={formatPhone(field.value ?? '')}
+                        onChange={(e) => field.onChange(e.target.value.replace(/\D/g, '').slice(0, 11))}
+                      />
+                      {errors.recipientPhone && (
+                        <p className="text-destructive text-xs">{errors.recipientPhone.message}</p>
+                      )}
+                    </div>
+                  )}
+                />
+
                 <div className="space-y-1.5">
-                  <Label>Delivery state</Label>
-                  <Select
-                    value={watched.deliveryState}
-                    onValueChange={(v) => setValue('deliveryState', v)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select state" />
-                    </SelectTrigger>
-                    <SelectContent className="max-h-60">
-                      {NIGERIAN_STATES.map((s) => (
-                        <SelectItem key={s} value={s}>{s}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {errors.deliveryState && (
-                    <p className="text-destructive text-xs">{errors.deliveryState.message}</p>
+                  <Label htmlFor="street">Street address</Label>
+                  <Input
+                    id="street"
+                    {...register('street')}
+                    placeholder="House number, street name"
+                  />
+                  {errors.street && (
+                    <p className="text-destructive text-xs">{errors.street.message}</p>
                   )}
                 </div>
 
-                <div className="space-y-1.5">
-                  <Label htmlFor="deliveryCity">City / Area</Label>
-                  <Input
-                    id="deliveryCity"
-                    {...register('deliveryCity')}
-                    placeholder="e.g. Victoria Island"
-                  />
-                  {errors.deliveryCity && (
-                    <p className="text-destructive text-xs">{errors.deliveryCity.message}</p>
-                  )}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="city">City / Area</Label>
+                    <Input
+                      id="city"
+                      {...register('city')}
+                      placeholder="e.g. Victoria Island"
+                    />
+                    {errors.city && (
+                      <p className="text-destructive text-xs">{errors.city.message}</p>
+                    )}
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>State</Label>
+                    <Select
+                      value={watched.state}
+                      onValueChange={(v) => setValue('state', v, { shouldValidate: true })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select state" />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-60">
+                        {NIGERIAN_STATES.map((s) => (
+                          <SelectItem key={s} value={s}>{s}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {errors.state && (
+                      <p className="text-destructive text-xs">{errors.state.message}</p>
+                    )}
+                  </div>
                 </div>
               </CardContent>
             </>
@@ -345,22 +451,37 @@ export default function CustomGiftPage() {
                   <p className="text-xs text-muted-foreground">Min. 10 characters. Be as specific as possible.</p>
                 </div>
 
-                <div className="space-y-1.5">
-                  <Label htmlFor="estimatedBudget">
-                    Estimated budget in {currency} (optional)
-                  </Label>
-                  <Input
-                    id="estimatedBudget"
-                    type="number"
-                    min={0}
-                    step={0.01}
-                    placeholder="e.g. 150"
-                    onChange={(e) => setValue('estimatedBudget', e.target.value ? Number(e.target.value) : undefined)}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Your currency is automatically set to {currency} based on your account location.
-                  </p>
-                </div>
+                <Controller
+                  control={control}
+                  name="estimatedBudget"
+                  render={({ field }) => (
+                    <div className="space-y-1.5">
+                      <Label htmlFor="estimatedBudget">
+                        Estimated budget in {currency} (optional)
+                      </Label>
+                      <Input
+                        id="estimatedBudget"
+                        type="text"
+                        inputMode="decimal"
+                        placeholder="e.g. 150"
+                        value={field.value ?? ''}
+                        onChange={(e) => {
+                          // Numbers only, with a single optional decimal point.
+                          let v = e.target.value.replace(/[^\d.]/g, '');
+                          const parts = v.split('.');
+                          if (parts.length > 2) v = `${parts[0]}.${parts.slice(1).join('')}`;
+                          field.onChange(v);
+                        }}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Your currency is automatically set to {currency} based on your account location.
+                      </p>
+                      {errors.estimatedBudget && (
+                        <p className="text-destructive text-xs">{errors.estimatedBudget.message}</p>
+                      )}
+                    </div>
+                  )}
+                />
 
                 <div className="space-y-1.5">
                   <Label htmlFor="personalMessage">Personal message (optional)</Label>
@@ -370,6 +491,9 @@ export default function CustomGiftPage() {
                     placeholder="A message to include with the gift..."
                     rows={2}
                   />
+                  {errors.personalMessage && (
+                    <p className="text-destructive text-xs">{errors.personalMessage.message}</p>
+                  )}
                 </div>
 
                 <div className="space-y-1.5">
@@ -380,6 +504,9 @@ export default function CustomGiftPage() {
                     placeholder="Any allergies, preferences, or packaging instructions..."
                     rows={2}
                   />
+                  {errors.specialInstructions && (
+                    <p className="text-destructive text-xs">{errors.specialInstructions.message}</p>
+                  )}
                 </div>
               </CardContent>
             </>
@@ -411,15 +538,17 @@ export default function CustomGiftPage() {
                   <Separator />
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Recipient</span>
-                    <span className="font-medium">{watched.recipientName}</span>
+                    <span className="font-medium">{watched.firstName} {watched.lastName}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Phone</span>
-                    <span className="font-medium">{watched.recipientPhone}</span>
+                    <span className="font-medium">{formatPhone(watched.recipientPhone ?? '')}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Location</span>
-                    <span className="font-medium">{watched.deliveryCity}, {watched.deliveryState}</span>
+                  <div className="flex justify-between gap-4">
+                    <span className="text-muted-foreground shrink-0">Address</span>
+                    <span className="font-medium text-right">
+                      {[watched.street, watched.city, watched.state].filter(Boolean).join(', ')}
+                    </span>
                   </div>
                   <Separator />
                   <div className="flex justify-between items-center">

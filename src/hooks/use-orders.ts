@@ -38,7 +38,9 @@ export const useUpdateOrder = () => {
 
 export const useCreateCustomOrder = () => {
   const qc = useQueryClient();
-  return useMutation<Order, Error, CustomOrderInput>({
+  // deliveryStreet is part of customOrderSchema from @luvngift/shared >= 1.4.0;
+  // intersect it so this compiles before the updated package is installed here.
+  return useMutation<Order, Error, CustomOrderInput & { deliveryStreet?: string }>({
     mutationFn: (data) => api.post('/api/v1/orders/custom', data).then((r) => r.data.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['orders'] }),
     onError: (err: any) => toast.error(err?.response?.data?.error?.message ?? 'Failed to submit request.'),
