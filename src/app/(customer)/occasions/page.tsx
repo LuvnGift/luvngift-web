@@ -29,7 +29,7 @@ export const metadata: Metadata = {
 async function fetchOccasions(): Promise<Occasion[]> {
   try {
     const res = await fetch(`${API_URL}/api/v1/occasions`, {
-      next: { revalidate: 3600 },
+      next: { revalidate: 60 },
     });
     if (!res.ok) return [];
     const json = await res.json();

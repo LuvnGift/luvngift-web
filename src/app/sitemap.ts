@@ -8,8 +8,8 @@ interface OccasionSlug {
   updatedAt?: string;
 }
 
-interface BundleId {
-  id: string;
+interface BundleRef {
+  slug: string;
   updatedAt?: string;
 }
 
@@ -26,7 +26,7 @@ async function fetchOccasionSlugs(): Promise<OccasionSlug[]> {
   }
 }
 
-async function fetchBundleIds(): Promise<BundleId[]> {
+async function fetchBundleRefs(): Promise<BundleRef[]> {
   try {
     const res = await fetch(`${API_URL}/api/v1/bundles?limit=200&isActive=true`, {
       next: { revalidate: 3600 },
@@ -42,7 +42,7 @@ async function fetchBundleIds(): Promise<BundleId[]> {
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const [occasions, bundles] = await Promise.all([
     fetchOccasionSlugs(),
-    fetchBundleIds(),
+    fetchBundleRefs(),
   ]);
 
   const staticPages: MetadataRoute.Sitemap = [
@@ -80,7 +80,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }));
 
   const bundlePages: MetadataRoute.Sitemap = bundles.map((b) => ({
-    url: `${BASE_URL}/bundles/${b.id}`,
+    url: `${BASE_URL}/bundles/${b.slug}`,
     lastModified: b.updatedAt ? new Date(b.updatedAt) : new Date(),
     changeFrequency: 'weekly' as const,
     priority: 0.7,
