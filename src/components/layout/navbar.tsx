@@ -12,16 +12,20 @@ import { useAuthStore } from '@/store/auth.store';
 import { useLogout, useMe } from '@/hooks/use-auth';
 import { cn } from '@/lib/utils';
 
+// `protected` links go through auth middleware. Prefetch is disabled on them so
+// that, while logged out, Next.js doesn't prefetch + cache a redirect-to-login —
+// which would then be served from the Router Cache after login, bouncing the user
+// back to /login until a hard refresh.
 const customerLinks = [
-  { href: '/', label: 'Home', icon: Home },
-  { href: '/occasions', label: 'Occasions', icon: Gift },
-  { href: '/custom', label: 'Custom Gift', icon: Package },
-  { href: '/orders', label: 'My Orders', icon: Package },
+  { href: '/', label: 'Home', icon: Home, protected: false },
+  { href: '/occasions', label: 'Occasions', icon: Gift, protected: false },
+  { href: '/custom', label: 'Custom Gift', icon: Package, protected: true },
+  { href: '/orders', label: 'My Orders', icon: Package, protected: true },
 ];
 
 const adminLinks = [
-  { href: '/', label: 'Home', icon: Home },
-  { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/', label: 'Home', icon: Home, protected: false },
+  { href: '/admin', label: 'Dashboard', icon: LayoutDashboard, protected: true },
 ];
 
 export function Navbar() {
@@ -65,7 +69,7 @@ export function Navbar() {
 				{/* Desktop nav */}
 				<nav className="hidden md:flex items-center gap-6">
 					{navLinks.map((link) => (
-						<Link key={link.href} href={link.href} className={cn("text-sm font-medium transition-colors hover:text-primary", isActive(link.href) ? "text-primary" : "text-muted-foreground")}>
+						<Link key={link.href} href={link.href} prefetch={link.protected ? false : undefined} className={cn("text-sm font-medium transition-colors hover:text-primary", isActive(link.href) ? "text-primary" : "text-muted-foreground")}>
 							{link.label}
 						</Link>
 					))}
@@ -115,7 +119,7 @@ export function Navbar() {
 				<div className="md:hidden border-t bg-background px-4 pb-4">
 					<nav className="flex flex-col gap-1 pt-3">
 						{navLinks.map((link) => (
-							<Link key={link.href} href={link.href} onClick={() => setMobileOpen(false)} className={cn("flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent", isActive(link.href) ? "bg-accent text-accent-foreground" : "text-muted-foreground")}>
+							<Link key={link.href} href={link.href} prefetch={link.protected ? false : undefined} onClick={() => setMobileOpen(false)} className={cn("flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent", isActive(link.href) ? "bg-accent text-accent-foreground" : "text-muted-foreground")}>
 								<link.icon className="h-4 w-4" />
 								{link.label}
 							</Link>
