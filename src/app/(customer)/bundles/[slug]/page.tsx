@@ -193,9 +193,9 @@ export default async function BundleDetailPage({ params }: Props) {
 
       {/* Long-form SEO copy — server-rendered, admin-editable */}
       {bundle.seoBody && (
-        <section className="mt-12 max-w-3xl">
-          <h2 className="text-xl font-semibold mb-3">About this gift</h2>
-          <div className="space-y-3 text-muted-foreground leading-relaxed">
+        <section className="mt-12 max-w-3xl rounded-xl border bg-muted/40 p-6 md:p-8">
+          <h2 className="text-lg font-semibold mb-3">About this gift</h2>
+          <div className="space-y-4 text-[15px] leading-7 text-foreground/80">
             {bundle.seoBody
               .split(/\n+/)
               .map((p) => p.trim())

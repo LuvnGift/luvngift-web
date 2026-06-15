@@ -126,11 +126,11 @@ export default async function OccasionDetailPage({ params }: Props) {
       </Link>
 
       <div className="mb-10 max-w-3xl">
-        <h1 className="text-3xl font-bold mb-2">{occasion.name}</h1>
-        <p className="text-muted-foreground text-lg">{occasion.description}</p>
+        <h1 className="text-3xl md:text-4xl font-bold tracking-tight mb-3">{occasion.name}</h1>
+        <p className="text-lg text-muted-foreground">{occasion.description}</p>
 
         {introParagraphs.length > 0 && (
-          <div className="mt-5 space-y-3 text-muted-foreground leading-relaxed">
+          <div className="mt-6 space-y-4 text-[15px] leading-7 text-foreground/80">
             {introParagraphs.map((para, i) => (
               <p key={i}>{para}</p>
             ))}
@@ -138,14 +138,21 @@ export default async function OccasionDetailPage({ params }: Props) {
         )}
 
         {highlights.length > 0 && (
-          <ul className="mt-5 grid gap-2 sm:grid-cols-2">
-            {highlights.map((h) => (
-              <li key={h} className="flex items-start gap-2 text-sm">
-                <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                <span>{h}</span>
-              </li>
-            ))}
-          </ul>
+          <div className="mt-8 rounded-xl border bg-muted/40 p-5 sm:p-6">
+            <h2 className="mb-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Why you'll love these gifts
+            </h2>
+            <ul className="grid gap-3 sm:grid-cols-2">
+              {highlights.map((h) => (
+                <li key={h} className="flex items-start gap-3">
+                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                    <Check className="h-3 w-3 text-primary" />
+                  </span>
+                  <span className="text-sm leading-snug">{h}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
       </div>
 
