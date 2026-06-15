@@ -12,14 +12,14 @@ import { useAuthStore } from '@/store/auth.store';
 import { useLogout, useMe } from '@/hooks/use-auth';
 import { cn } from '@/lib/utils';
 
-// `protected` links go through auth middleware. Prefetch is disabled on them so
-// that, while logged out, Next.js doesn't prefetch + cache a redirect-to-login —
-// which would then be served from the Router Cache after login, bouncing the user
-// back to /login until a hard refresh.
+// `protected` links require auth. They are hidden from the nav while logged out,
+// so Next.js never prefetches (and caches) a redirect-to-login for them — which
+// is what bounced users back to /login after signing in. /custom is public
+// (guests can build a gift; auth is enforced at submit).
 const customerLinks = [
   { href: '/', label: 'Home', icon: Home, protected: false },
   { href: '/occasions', label: 'Occasions', icon: Gift, protected: false },
-  { href: '/custom', label: 'Custom Gift', icon: Package, protected: true },
+  { href: '/custom', label: 'Custom Gift', icon: Package, protected: false },
   { href: '/orders', label: 'My Orders', icon: Package, protected: true },
 ];
 
@@ -43,8 +43,12 @@ export function Navbar() {
     setMounted(true);
   }, []);
 
-  const isAdmin = mounted && isAuthenticated && user?.role === 'ADMIN';
-  const navLinks = isAdmin ? adminLinks : customerLinks;
+  const showAuthed = mounted && isAuthenticated;
+  const isAdmin = showAuthed && user?.role === 'ADMIN';
+  // Hide protected links (e.g. My Orders) until we know the user is signed in.
+  const navLinks = (isAdmin ? adminLinks : customerLinks).filter(
+    (link) => !link.protected || showAuthed,
+  );
 
   const initials = user
     ? (user.firstName?.charAt(0) ?? user.username?.charAt(0) ?? '').toUpperCase()

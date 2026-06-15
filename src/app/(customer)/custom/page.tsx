@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { customOrderSchema, CustomOrderInput, getUserCurrency } from '@luvngift/shared';
@@ -45,7 +45,7 @@ export default function CustomGiftPage() {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const router = useRouter();
   const { mutateAsync: submitCustomOrder, isPending } = useCreateCustomOrder();
-  const { user } = useAuthStore();
+  const { user, isAuthenticated } = useAuthStore();
 
   const currency = getUserCurrency(user?.buyerCountry);
 
@@ -55,11 +55,27 @@ export default function CustomGiftPage() {
     setValue,
     watch,
     trigger,
+    reset,
     formState: { errors },
   } = useForm<CustomOrderInput>({
     resolver: zodResolver(customOrderSchema),
     defaultValues: { currency, giftType: 'PHYSICAL' },
   });
+
+  // Guests can build the whole gift; if they were sent to login at submit, their
+  // draft is restored here so they don't lose any work after signing in.
+  useEffect(() => {
+    try {
+      const draft = sessionStorage.getItem('customGiftDraft');
+      if (draft) {
+        reset(JSON.parse(draft));
+        setStep(4);
+      }
+    } catch {
+      /* ignore malformed draft */
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const watched = watch();
 
@@ -81,8 +97,20 @@ export default function CustomGiftPage() {
   const prevStep = () => setStep((s) => Math.max(s - 1, 1));
 
   const onSubmit = async (data: CustomOrderInput) => {
+    // Auth is only required at submit. Guests keep their draft and sign in first.
+    if (!isAuthenticated) {
+      try {
+        sessionStorage.setItem('customGiftDraft', JSON.stringify(data));
+      } catch {
+        /* sessionStorage may be unavailable; proceed to login anyway */
+      }
+      toast.info('Please sign in to submit your custom gift request.');
+      router.push('/login?redirect=/custom');
+      return;
+    }
     try {
       await submitCustomOrder(data);
+      sessionStorage.removeItem('customGiftDraft');
       setIsSubmitted(true);
       toast.success('Custom gift request submitted!');
     } catch {

@@ -26,7 +26,7 @@ export function Footer() {
 								</Link>
 							</li>
 							<li>
-								<Link href="/custom" prefetch={false} className="hover:text-foreground transition-colors">
+								<Link href="/custom" className="hover:text-foreground transition-colors">
 									Custom Gift
 								</Link>
 							</li>

@@ -1,8 +1,11 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-// Routes that require the user to be logged in
-const AUTH_REQUIRED = ['/custom', '/orders', '/account', '/setup-location'];
+// Routes that require the user to be logged in.
+// Note: /custom is intentionally public — guests can build a custom gift; auth is
+// enforced only at submit (see custom page). Keeping it out of this list avoids
+// prefetched redirect-to-login responses poisoning the client Router Cache.
+const AUTH_REQUIRED = ['/orders', '/account', '/setup-location'];
 // Routes only for unauthenticated users (redirect away if already logged in)
 const GUEST_ONLY = ['/login', '/register', '/verify-email', '/forgot-password', '/reset-password', '/2fa'];
 // Routes that require admin role

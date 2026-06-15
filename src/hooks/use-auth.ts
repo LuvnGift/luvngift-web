@@ -32,9 +32,10 @@ export const useLogin = (opts?: { onError?: (err: any) => void }) => {
       setUser(data.user);
       const defaultRoute = data.user?.role === 'ADMIN' ? '/admin' : '/';
       const redirect = safeRedirect(searchParams.get('redirect'), defaultRoute);
-      // Clear the Router Cache (which may hold a redirect-to-login for a protected
-      // route visited while logged out), then soft-navigate so we keep SPA state.
-      // Protected links use prefetch={false} so they aren't re-poisoned pre-login.
+      // Soft navigation keeps SPA state. Safe now that no protected-route link is
+      // rendered (and prefetched) while logged out: /custom is public and
+      // My Orders is hidden until authenticated, so the Router Cache can't be
+      // poisoned with a redirect-to-login. refresh() clears any prior entry.
       router.refresh();
       router.push(redirect);
     },
