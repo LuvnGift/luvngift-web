@@ -72,6 +72,7 @@ export default async function OccasionsPage() {
         </p>
         <Link
           href="/custom"
+          prefetch={false}
           className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2.5 rounded-md font-medium text-sm hover:bg-primary/90 transition-colors"
         >
           <Wand2 className="h-4 w-4" />

@@ -26,7 +26,7 @@ export function Footer() {
 								</Link>
 							</li>
 							<li>
-								<Link href="/custom" className="hover:text-foreground transition-colors">
+								<Link href="/custom" prefetch={false} className="hover:text-foreground transition-colors">
 									Custom Gift
 								</Link>
 							</li>
@@ -37,12 +37,12 @@ export function Footer() {
 						<h4 className="text-sm font-semibold mb-3">Account</h4>
 						<ul className="space-y-2 text-sm text-muted-foreground">
 							<li>
-								<Link href="/orders" className="hover:text-foreground transition-colors">
+								<Link href="/orders" prefetch={false} className="hover:text-foreground transition-colors">
 									My Orders
 								</Link>
 							</li>
 							<li>
-								<Link href="/account" className="hover:text-foreground transition-colors">
+								<Link href="/account" prefetch={false} className="hover:text-foreground transition-colors">
 									Profile
 								</Link>
 							</li>

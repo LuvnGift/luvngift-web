@@ -80,7 +80,7 @@ export default function HomePage() {
 								</Link>
 							</Button>
 							<Button size="lg" variant="outline" className="gap-2 text-base" asChild>
-								<Link href="/custom">
+								<Link href="/custom" prefetch={false}>
 									<Wand2 className="h-5 w-5" />
 									Build custom gift
 								</Link>

@@ -10,7 +10,6 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/auth.store';
-import { connectSocket } from '@/lib/socket';
 import { toast } from 'sonner';
 import { ShieldCheck } from 'lucide-react';
 import { useEffect } from 'react';
@@ -39,12 +38,10 @@ export default function TwoFactorPage() {
       const { user } = res.data.data;
       setUser(user);
 
-      // Connect socket via API
-      api.get('/api/v1/auth/socket-token')
-        .then((r) => connectSocket(r.data.data.token))
-        .catch(() => {});
-
+      // Clear the Router Cache then soft-navigate (keeps SPA state). Protected
+      // links use prefetch={false} so no redirect-to-login is cached pre-login.
       const defaultRoute = user?.role === 'ADMIN' ? '/admin' : '/';
+      router.refresh();
       router.push(defaultRoute);
     } catch (err: any) {
       toast.error(err?.response?.data?.error?.message ?? 'Invalid code. Please try again.');

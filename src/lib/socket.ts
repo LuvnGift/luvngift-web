@@ -2,11 +2,13 @@ import { io, Socket } from 'socket.io-client';
 
 let socket: Socket | null = null;
 
-export const connectSocket = (token: string): Socket => {
+export const connectSocket = (token?: string): Socket => {
   if (socket?.connected) return socket;
 
   socket = io(process.env.NEXT_PUBLIC_SOCKET_URL!, {
-    auth: { token },
+    // Token is optional: authenticated users pass one (joins their personal/admin
+    // rooms); guests connect anonymously (e.g. for the public chat widget).
+    auth: token ? { token } : {},
     autoConnect: true,
   });
 

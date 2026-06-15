@@ -179,7 +179,7 @@ export default async function OccasionDetailPage({ params }: Props) {
         <div className="text-center py-16 border rounded-lg">
           <p className="text-muted-foreground mb-4">No bundles available for this occasion yet.</p>
           <Button asChild>
-            <Link href="/custom">
+            <Link href="/custom" prefetch={false}>
               <Wand2 className="h-4 w-4 mr-2" />
               Build a custom gift instead
             </Link>
@@ -193,7 +193,7 @@ export default async function OccasionDetailPage({ params }: Props) {
           Describe exactly what you need and our team will curate it for you.
         </p>
         <Button variant="outline" asChild>
-          <Link href="/custom">
+          <Link href="/custom" prefetch={false}>
             <Wand2 className="h-4 w-4 mr-2" />
             Request a custom gift
           </Link>

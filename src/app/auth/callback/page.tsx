@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth.store';
 import { Spinner } from '@/components/ui/spinner';
 import { api } from '@/lib/api';
-import { connectSocket } from '@/lib/socket';
 
 export default function AuthCallbackPage() {
   const router = useRouter();
@@ -32,13 +31,7 @@ export default function AuthCallbackPage() {
         const user = r.data.data.user;
         setUser(user);
 
-        try {
-          const sr = await api.get('/api/v1/auth/socket-token');
-          connectSocket(sr.data.data.token);
-        } catch {
-          /* Socket connection is non-critical */
-        }
-
+        // Fresh page load (OAuth redirect) so the Router Cache is already empty.
         router.replace(user.role === 'ADMIN' ? '/admin' : '/');
       } catch {
         router.replace('/login?error=oauth_failed');

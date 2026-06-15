@@ -5,7 +5,7 @@ import { useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/auth.store';
-import { connectSocket, disconnectSocket } from '@/lib/socket';
+import { disconnectSocket } from '@/lib/socket';
 import type { LoginInput, RegisterInput } from '@luvngift/shared';
 
 /** Only allow relative-path redirects to prevent open redirect attacks */
@@ -30,15 +30,13 @@ export const useLogin = (opts?: { onError?: (err: any) => void }) => {
         return;
       }
       setUser(data.user);
-      connectSocketFromApi();
       const defaultRoute = data.user?.role === 'ADMIN' ? '/admin' : '/';
       const redirect = safeRedirect(searchParams.get('redirect'), defaultRoute);
-      // Invalidate the Next.js Router Cache so stale middleware redirects (cached
-      // while the user was logged out) are not served after a successful login.
+      // Clear the Router Cache (which may hold a redirect-to-login for a protected
+      // route visited while logged out), then soft-navigate so we keep SPA state.
+      // Protected links use prefetch={false} so they aren't re-poisoned pre-login.
       router.refresh();
-      setTimeout(() => {
-        router.push(redirect);
-      }, 100);
+      router.push(redirect);
     },
     onError: opts?.onError,
   });
@@ -54,7 +52,6 @@ export const useRegister = () => {
 };
 
 export const useLogout = () => {
-  const router = useRouter();
   const { clearAuth } = useAuthStore();
   const queryClient = useQueryClient();
 
@@ -62,7 +59,9 @@ export const useLogout = () => {
     clearAuth();
     disconnectSocket();
     queryClient.clear();
-    router.push('/');
+    // Hard navigation on logout: fully discards the Router Cache and in-memory
+    // state so no authenticated page can be served from cache after signing out.
+    window.location.href = '/';
   };
 
   return useMutation({
@@ -93,12 +92,3 @@ export const useMe = () => {
 
   return query;
 };
-
-/** Connect socket — fetch an access token reference for socket auth */
-function connectSocketFromApi() {
-  // Socket.io needs a token for its handshake auth.
-  // We fetch it from a lightweight endpoint that returns the token from the cookie.
-  api.get('/api/v1/auth/socket-token')
-    .then((r) => connectSocket(r.data.data.token))
-    .catch(() => { /* Socket connection is non-critical */ });
-}
