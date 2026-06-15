@@ -125,33 +125,43 @@ export default async function OccasionDetailPage({ params }: Props) {
         <ArrowLeft className="h-3.5 w-3.5" /> All occasions
       </Link>
 
-      <div className="mb-10 max-w-3xl">
-        <h1 className="text-3xl md:text-4xl font-bold tracking-tight mb-3">{occasion.name}</h1>
-        <p className="text-lg text-muted-foreground">{occasion.description}</p>
+      <div className="mb-12">
+        <div className="max-w-3xl">
+          <h1 className="text-3xl md:text-4xl font-bold tracking-tight mb-3">{occasion.name}</h1>
+          <p className="text-lg text-muted-foreground">{occasion.description}</p>
+        </div>
 
-        {introParagraphs.length > 0 && (
-          <div className="mt-6 space-y-4 text-[15px] leading-7 text-foreground/80">
-            {introParagraphs.map((para, i) => (
-              <p key={i}>{para}</p>
-            ))}
-          </div>
-        )}
+        {(introParagraphs.length > 0 || highlights.length > 0) && (
+          <div className="mt-6 grid gap-8 lg:grid-cols-3 lg:items-start">
+            {introParagraphs.length > 0 && (
+              <div
+                className={`space-y-4 text-[15px] leading-7 text-foreground/80 ${
+                  highlights.length > 0 ? 'lg:col-span-2' : 'lg:col-span-3 max-w-3xl'
+                }`}
+              >
+                {introParagraphs.map((para, i) => (
+                  <p key={i}>{para}</p>
+                ))}
+              </div>
+            )}
 
-        {highlights.length > 0 && (
-          <div className="mt-8 rounded-xl border bg-muted/40 p-5 sm:p-6">
-            <h2 className="mb-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Why you'll love these gifts
-            </h2>
-            <ul className="grid gap-3 sm:grid-cols-2">
-              {highlights.map((h) => (
-                <li key={h} className="flex items-start gap-3">
-                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10">
-                    <Check className="h-3 w-3 text-primary" />
-                  </span>
-                  <span className="text-sm leading-snug">{h}</span>
-                </li>
-              ))}
-            </ul>
+            {highlights.length > 0 && (
+              <div className="rounded-xl border bg-muted/40 p-5 sm:p-6">
+                <h2 className="mb-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Why you'll love these gifts
+                </h2>
+                <ul className="space-y-3">
+                  {highlights.map((h) => (
+                    <li key={h} className="flex items-start gap-3">
+                      <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                        <Check className="h-3 w-3 text-primary" />
+                      </span>
+                      <span className="text-sm leading-snug">{h}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -194,7 +204,7 @@ export default async function OccasionDetailPage({ params }: Props) {
         <FaqSection
           faqs={faqs}
           title={`${occasion.name} gifts — frequently asked questions`}
-          className="mt-16 max-w-3xl"
+          className="mt-16"
         />
       )}
     </div>
