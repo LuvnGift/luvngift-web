@@ -7,7 +7,7 @@ export function Footer() {
   return (
 		<footer className="border-t bg-background mt-auto">
 			<div className="container mx-auto px-4 py-10">
-				<div className="grid grid-cols-2 md:grid-cols-5 gap-8">
+				<div className="grid grid-cols-2 md:grid-cols-6 gap-8">
 					<div className="col-span-2 md:col-span-1">
 						<Link href="/" className="flex items-center gap-2 mb-3 w-fit">
 							<Image src="/images/luvngift.png" alt="Luvngift" width={56} height={56} className="object-contain" />
@@ -65,6 +65,37 @@ export function Footer() {
 							</li>
 							<li>
 								<span className="cursor-pointer hover:text-foreground transition-colors">Live Chat</span>
+							</li>
+						</ul>
+					</div>
+
+					<div>
+						<h4 className="text-sm font-semibold mb-3">Legal</h4>
+						<ul className="space-y-2 text-sm text-muted-foreground">
+							<li>
+								<Link href="/terms" className="hover:text-foreground transition-colors">
+									Terms of Service
+								</Link>
+							</li>
+							<li>
+								<Link href="/privacy" className="hover:text-foreground transition-colors">
+									Privacy Policy
+								</Link>
+							</li>
+							<li>
+								<Link href="/refund-policy" className="hover:text-foreground transition-colors">
+									Refund Policy
+								</Link>
+							</li>
+							<li>
+								<Link href="/cookie-policy" className="hover:text-foreground transition-colors">
+									Cookie Policy
+								</Link>
+							</li>
+							<li>
+								<Link href="/vendor-agreement" className="hover:text-foreground transition-colors">
+									Vendor Agreement
+								</Link>
 							</li>
 						</ul>
 					</div>

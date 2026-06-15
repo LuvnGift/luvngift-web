@@ -393,6 +393,15 @@ function StripePaymentForm({ orderId, onBack }: { orderId: string; onBack: () =>
           {isProcessing ? <><Spinner size="sm" className="mr-2" />Processing...</> : 'Pay now'}
         </Button>
       </div>
+      <p className="text-center text-xs text-muted-foreground">
+        By paying, you agree to our{' '}
+        <a href="/terms" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-foreground">
+          Terms of Service
+        </a>{' '}and{' '}
+        <a href="/refund-policy" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-foreground">
+          Refund Policy
+        </a>.
+      </p>
     </div>
   );
 }
