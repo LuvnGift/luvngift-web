@@ -7,6 +7,8 @@ import { Navbar } from '@/components/layout/navbar';
 import { Footer } from '@/components/layout/footer';
 import { ChatWidget } from '@/components/chat/chat-widget';
 import { AddressBanner } from '@/components/layout/address-banner';
+import { FaqSection } from '@/components/seo/faq-section';
+import { GENERAL_FAQS } from '@/content/faqs';
 import type { Metadata } from 'next';
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.luvngift.com';
@@ -192,6 +194,23 @@ export default function HomePage() {
 								</Card>
 							))}
 						</div>
+					</div>
+				</section>
+
+				{/* FAQ */}
+				<section className="py-20 bg-background">
+					<div className="container mx-auto px-4 max-w-3xl">
+						<FaqSection
+							faqs={GENERAL_FAQS.slice(0, 6)}
+							title="Frequently asked questions"
+						/>
+						<p className="mt-6 text-center text-sm text-muted-foreground">
+							See all answers on our{' '}
+							<Link href="/faq" className="font-medium text-primary underline underline-offset-4">
+								FAQ page
+							</Link>
+							.
+						</p>
 					</div>
 				</section>
 

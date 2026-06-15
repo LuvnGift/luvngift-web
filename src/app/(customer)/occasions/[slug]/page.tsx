@@ -1,9 +1,11 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ArrowLeft, Wand2 } from 'lucide-react';
+import { ArrowLeft, Wand2, Check } from 'lucide-react';
 import { BundleCard } from '@/components/bundles/bundle-card';
 import { Button } from '@/components/ui/button';
+import { FaqSection } from '@/components/seo/faq-section';
+import type { FAQ } from '@/content/faqs';
 import type { Bundle } from '@luvngift/shared';
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.luvngift.com';
@@ -15,6 +17,10 @@ interface Occasion {
   slug: string;
   description?: string;
   bundles?: Bundle[];
+  // SEO content from the DB (admin-editable).
+  seoIntro?: string | null;
+  highlights?: string[];
+  faqs?: FAQ[] | null;
 }
 
 // Next.js dedupes identical fetch() calls within a single render, so calling this
@@ -86,6 +92,15 @@ export default async function OccasionDetailPage({ params }: Props) {
 
   const bundles = (occasion.bundles ?? []).filter((b) => b.isActive);
 
+  // SEO content comes from the DB (admin-editable). seoIntro is a free-text blob;
+  // split it into paragraphs on blank/new lines for rendering.
+  const introParagraphs = (occasion.seoIntro ?? '')
+    .split(/\n+/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+  const highlights = occasion.highlights ?? [];
+  const faqs = occasion.faqs ?? [];
+
   const breadcrumbJsonLd = {
     '@context': 'https://schema.org',
     '@type': 'BreadcrumbList',
@@ -110,9 +125,28 @@ export default async function OccasionDetailPage({ params }: Props) {
         <ArrowLeft className="h-3.5 w-3.5" /> All occasions
       </Link>
 
-      <div className="mb-10">
+      <div className="mb-10 max-w-3xl">
         <h1 className="text-3xl font-bold mb-2">{occasion.name}</h1>
         <p className="text-muted-foreground text-lg">{occasion.description}</p>
+
+        {introParagraphs.length > 0 && (
+          <div className="mt-5 space-y-3 text-muted-foreground leading-relaxed">
+            {introParagraphs.map((para, i) => (
+              <p key={i}>{para}</p>
+            ))}
+          </div>
+        )}
+
+        {highlights.length > 0 && (
+          <ul className="mt-5 grid gap-2 sm:grid-cols-2">
+            {highlights.map((h) => (
+              <li key={h} className="flex items-start gap-2 text-sm">
+                <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                <span>{h}</span>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
       {bundles.length > 0 ? (
@@ -148,6 +182,14 @@ export default async function OccasionDetailPage({ params }: Props) {
           </Link>
         </Button>
       </div>
+
+      {faqs.length > 0 && (
+        <FaqSection
+          faqs={faqs}
+          title={`${occasion.name} gifts — frequently asked questions`}
+          className="mt-16 max-w-3xl"
+        />
+      )}
     </div>
   );
 }

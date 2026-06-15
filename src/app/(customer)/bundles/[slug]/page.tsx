@@ -4,14 +4,20 @@ import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import { ArrowLeft, Clock, Check } from 'lucide-react';
 import { PurchasePanel } from './purchase-panel';
+import { FaqSection } from '@/components/seo/faq-section';
+import type { FAQ } from '@/content/faqs';
 import type { Bundle } from '@luvngift/shared';
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.luvngift.com';
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? '';
 
+// The installed @luvngift/shared types may not yet include the SEO fields; the
+// API returns them on the bundle record.
+type BundleWithSeo = Bundle & { seoBody?: string | null; faqs?: FAQ[] | null };
+
 // Next.js dedupes identical fetch() calls within a single render, so calling this
 // from generateMetadata and the page component results in one network request.
-async function fetchBundle(slug: string): Promise<Bundle | null> {
+async function fetchBundle(slug: string): Promise<BundleWithSeo | null> {
   try {
     const res = await fetch(`${API_URL}/api/v1/bundles/${slug}`, {
       next: { revalidate: 300 },
@@ -184,6 +190,30 @@ export default async function BundleDetailPage({ params }: Props) {
           <PurchasePanel bundle={bundle} />
         </div>
       </div>
+
+      {/* Long-form SEO copy — server-rendered, admin-editable */}
+      {bundle.seoBody && (
+        <section className="mt-12 max-w-3xl">
+          <h2 className="text-xl font-semibold mb-3">About this gift</h2>
+          <div className="space-y-3 text-muted-foreground leading-relaxed">
+            {bundle.seoBody
+              .split(/\n+/)
+              .map((p) => p.trim())
+              .filter(Boolean)
+              .map((para, i) => (
+                <p key={i}>{para}</p>
+              ))}
+          </div>
+        </section>
+      )}
+
+      {bundle.faqs && bundle.faqs.length > 0 && (
+        <FaqSection
+          faqs={bundle.faqs}
+          title="Frequently asked questions"
+          className="mt-12 max-w-3xl"
+        />
+      )}
     </div>
   );
 }

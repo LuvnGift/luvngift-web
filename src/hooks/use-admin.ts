@@ -132,10 +132,16 @@ export const useAllOccasions = () =>
       api.get('/api/v1/occasions').then((r) => r.data.data),
   });
 
+interface OccasionContentInput {
+  seoIntro?: string;
+  highlights?: string[];
+  faqs?: { question: string; answer: string }[];
+}
+
 export const useCreateOccasion = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: { name: string; description: string; image?: string }) =>
+    mutationFn: (data: { name: string; description: string; image?: string } & OccasionContentInput) =>
       api.post('/api/v1/admin/occasions', data).then((r) => r.data.data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'occasions'] });
@@ -148,7 +154,7 @@ export const useCreateOccasion = () => {
 export const useUpdateOccasion = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, ...data }: { id: string; name?: string; description?: string; image?: string; isActive?: boolean }) =>
+    mutationFn: ({ id, ...data }: { id: string; name?: string; description?: string; image?: string; isActive?: boolean } & OccasionContentInput) =>
       api.patch(`/api/v1/admin/occasions/${id}`, data).then((r) => r.data.data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'occasions'] });
@@ -191,6 +197,8 @@ export const useCreateBundle = () => {
       estimatedDeliveryDays: number;
       images: string[];
       items: { name: string; description?: string; quantity: number }[];
+      seoBody?: string;
+      faqs?: { question: string; answer: string }[];
     }) => api.post('/api/v1/admin/bundles', data).then((r) => r.data.data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'bundles'] });
@@ -216,6 +224,8 @@ export const useUpdateBundle = () => {
       images?: string[];
       items?: { name: string; description?: string; quantity: number }[];
       isActive?: boolean;
+      seoBody?: string;
+      faqs?: { question: string; answer: string }[];
     }) => api.patch(`/api/v1/admin/bundles/${id}`, data).then((r) => r.data.data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'bundles'] });

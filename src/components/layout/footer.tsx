@@ -69,6 +69,11 @@ export function Footer() {
 						<h4 className="text-sm font-semibold mb-3">Support</h4>
 						<ul className="space-y-2 text-sm text-muted-foreground">
 							<li>
+								<Link href="/faq" className="hover:text-foreground transition-colors">
+									FAQ
+								</Link>
+							</li>
+							<li>
 								<span className="cursor-pointer hover:text-foreground transition-colors">Live Chat</span>
 							</li>
 						</ul>

@@ -35,6 +35,13 @@ import {
 import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import type { Bundle, Occasion } from '@luvngift/shared';
 
+// Local extension: the installed @luvngift/shared types may not yet include the
+// SEO fields. These come back from the API on the bundle record.
+type AdminBundle = Bundle & {
+  seoBody?: string | null;
+  faqs?: { question: string; answer: string }[] | null;
+};
+
 // Kept in sync with createBundleSchema in @luvngift/shared
 const bundleItemSchema = z.object({
   name: z.string().trim().min(2, 'Item name must be at least 2 characters').max(100),
@@ -50,6 +57,15 @@ const bundleFormSchema = z.object({
   estimatedDeliveryDays: z.coerce.number().int().min(1).max(30, 'Cannot exceed 30 days'),
   images: z.array(z.object({ url: z.string().url('Must be a valid URL') })).min(1, 'At least one image required'),
   items: z.array(bundleItemSchema).min(1, 'At least one item required'),
+  seoBody: z.string().optional().or(z.literal('')),
+  faqs: z
+    .array(
+      z.object({
+        question: z.string().optional().or(z.literal('')),
+        answer: z.string().optional().or(z.literal('')),
+      }),
+    )
+    .optional(),
 });
 
 type BundleFormValues = z.infer<typeof bundleFormSchema>;
@@ -62,7 +78,19 @@ const defaultValues: BundleFormValues = {
   estimatedDeliveryDays: 7,
   images: [{ url: '' }],
   items: [{ name: '', description: '', quantity: 1 }],
+  seoBody: '',
+  faqs: [],
 };
+
+/** Build the SEO portion of the API payload (drop empty FAQs). */
+function seoPayload(values: BundleFormValues) {
+  return {
+    seoBody: values.seoBody?.trim() || undefined,
+    faqs: (values.faqs ?? [])
+      .map((f) => ({ question: (f.question ?? '').trim(), answer: (f.answer ?? '').trim() }))
+      .filter((f) => f.question && f.answer),
+  };
+}
 
 function BundleForm({
   form,
@@ -84,6 +112,9 @@ function BundleForm({
 
   const { fields: itemFields, append: appendItem, remove: removeItem } =
     useFieldArray({ control: form.control, name: 'items' });
+
+  const { fields: faqFields, append: appendFaq, remove: removeFaq } =
+    useFieldArray({ control: form.control, name: 'faqs' });
 
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-2 max-h-[70vh] overflow-y-auto pr-1">
@@ -266,6 +297,58 @@ function BundleForm({
         )}
       </div>
 
+      {/* SEO content (optional) */}
+      <div className="rounded-lg border p-3 space-y-4">
+        <p className="text-sm font-semibold">SEO content (public page)</p>
+
+        <div className="space-y-2">
+          <Label>About this gift</Label>
+          <Textarea
+            {...form.register('seoBody')}
+            rows={5}
+            placeholder="Long-form copy shown below the bundle. Separate paragraphs with a blank line."
+          />
+          <p className="text-xs text-muted-foreground">
+            1–2 unique paragraphs. Helps this product page rank for searches.
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label>FAQs</Label>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => appendFaq({ question: '', answer: '' })}
+            >
+              <Plus className="h-3 w-3 mr-1" /> Add FAQ
+            </Button>
+          </div>
+          {faqFields.length === 0 && (
+            <p className="text-xs text-muted-foreground">No FAQs yet (optional).</p>
+          )}
+          {faqFields.map((field, idx) => (
+            <div key={field.id} className="space-y-2 rounded-md border p-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-muted-foreground">Q{idx + 1}</span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="text-destructive hover:text-destructive"
+                  onClick={() => removeFaq(idx)}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+              <Input {...form.register(`faqs.${idx}.question`)} placeholder="Question" />
+              <Textarea {...form.register(`faqs.${idx}.answer`)} placeholder="Answer" rows={2} />
+            </div>
+          ))}
+        </div>
+      </div>
+
       <DialogFooter className="pt-2">
         <Button type="button" variant="outline" onClick={onCancel}>
           Cancel
@@ -287,7 +370,7 @@ export default function AdminBundlesPage() {
   const deleteBundle = useDeleteBundle();
 
   const [createOpen, setCreateOpen] = useState(false);
-  const [editTarget, setEditTarget] = useState<Bundle | null>(null);
+  const [editTarget, setEditTarget] = useState<AdminBundle | null>(null);
 
   const createForm = useForm<BundleFormValues>({
     resolver: zodResolver(bundleFormSchema),
@@ -311,6 +394,7 @@ export default function AdminBundlesPage() {
           quantity: item.quantity,
           description: item.description || undefined,
         })),
+        ...seoPayload(values),
       },
       {
         onSuccess: () => {
@@ -321,7 +405,7 @@ export default function AdminBundlesPage() {
     );
   };
 
-  const handleEdit = (bundle: Bundle) => {
+  const handleEdit = (bundle: AdminBundle) => {
     setEditTarget(bundle);
     editForm.reset({
       occasionId: bundle.occasionId,
@@ -335,6 +419,8 @@ export default function AdminBundlesPage() {
         description: item.description ?? '',
         quantity: item.quantity,
       })),
+      seoBody: bundle.seoBody ?? '',
+      faqs: bundle.faqs ?? [],
     });
   };
 
@@ -352,6 +438,7 @@ export default function AdminBundlesPage() {
           quantity: item.quantity,
           description: item.description || undefined,
         })),
+        ...seoPayload(values),
       },
       { onSuccess: () => setEditTarget(null) },
     );
@@ -374,7 +461,7 @@ export default function AdminBundlesPage() {
     );
   }
 
-  const bundles: Bundle[] = data?.data ?? [];
+  const bundles: AdminBundle[] = data?.data ?? [];
   const meta = data?.meta;
 
   const occasionMap = new Map((occasions as Occasion[]).map((o) => [o.id, o.name]));
