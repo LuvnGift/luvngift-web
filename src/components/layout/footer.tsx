@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { Separator } from '@/components/ui/separator';
+import { FooterAccountLinks } from './footer-account-links';
 
 export function Footer() {
   return (
@@ -35,18 +36,7 @@ export function Footer() {
 
 					<div>
 						<h4 className="text-sm font-semibold mb-3">Account</h4>
-						<ul className="space-y-2 text-sm text-muted-foreground">
-							<li>
-								<Link href="/orders" prefetch={false} className="hover:text-foreground transition-colors">
-									My Orders
-								</Link>
-							</li>
-							<li>
-								<Link href="/account" prefetch={false} className="hover:text-foreground transition-colors">
-									Profile
-								</Link>
-							</li>
-						</ul>
+						<FooterAccountLinks />
 					</div>
 
 					<div>
