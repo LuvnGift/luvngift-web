@@ -358,11 +358,11 @@ export const useUpdateVendor = () => {
 export const useSetVendorActive = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) =>
-      api.patch(`/api/v1/vendors/${id}/active`, { isActive }).then((r) => r.data.data),
+    mutationFn: ({ id, isActive, reason }: { id: string; isActive: boolean; reason?: string }) =>
+      api.patch(`/api/v1/vendors/${id}/active`, { isActive, reason }).then((r) => r.data.data),
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: ['admin', 'vendors'] });
-      toast.success(vars.isActive ? 'Vendor activated' : 'Vendor deactivated');
+      toast.success(vars.isActive ? 'Vendor reactivated — they have been notified' : 'Vendor deactivated — they have been notified');
     },
     onError: () => toast.error('Failed to update vendor status'),
   });

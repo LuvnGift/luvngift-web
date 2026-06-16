@@ -3,16 +3,21 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { useVendor, useVendorOrders, useSetVendorActive } from '@/hooks/use-admin';
+import { useVendor, useVendorOrders } from '@/hooks/use-admin';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Spinner } from '@/components/ui/spinner';
 import { ChevronLeft, ChevronRight, ArrowLeft, Mail, Phone, MapPin, FileText, Pencil, User } from 'lucide-react';
 import VendorFormModal from '../vendor-form-modal';
+import VendorActiveModal from '../vendor-active-modal';
 import type { Vendor } from '@luvngift/shared';
 
-type AdminVendor = Vendor & { contactName?: string | null; status?: 'PENDING' | 'APPROVED' | 'REJECTED' };
+type AdminVendor = Vendor & {
+  contactName?: string | null;
+  status?: 'PENDING' | 'APPROVED' | 'REJECTED';
+  deactivationReason?: string | null;
+};
 
 const BUSINESS_TYPE_LABELS: Record<string, string> = {
   RETAIL: 'Retail',
@@ -33,10 +38,10 @@ export default function VendorDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [ordersPage, setOrdersPage] = useState(1);
   const [modalOpen, setModalOpen] = useState(false);
+  const [activeModal, setActiveModal] = useState<{ open: boolean; deactivating: boolean }>({ open: false, deactivating: false });
 
   const { data: vendor, isLoading: vendorLoading } = useVendor(id) as { data: AdminVendor | undefined; isLoading: boolean };
   const { data: ordersData, isLoading: ordersLoading } = useVendorOrders(id, ordersPage);
-  const setActive = useSetVendorActive();
 
   if (vendorLoading) {
     return (
@@ -59,11 +64,7 @@ export default function VendorDetailPage() {
   const ordersTotal: number = ordersData?.total ?? 0;
   const totalOrderPages = Math.ceil(ordersTotal / 10);
 
-  const handleToggleActive = () => {
-    const action = vendor.isActive ? 'Deactivate' : 'Activate';
-    if (!confirm(`${action} "${vendor.name}"?`)) return;
-    setActive.mutate({ id: vendor.id, isActive: !vendor.isActive });
-  };
+  const openActiveModal = () => setActiveModal({ open: true, deactivating: vendor.isActive });
 
   return (
     <div className="space-y-6">
@@ -105,8 +106,7 @@ export default function VendorDetailPage() {
             variant="outline"
             size="sm"
             className={vendor.isActive ? 'text-destructive hover:text-destructive' : ''}
-            onClick={handleToggleActive}
-            disabled={setActive.isPending}
+            onClick={openActiveModal}
           >
             {vendor.isActive ? 'Deactivate' : 'Activate'}
           </Button>
@@ -142,6 +142,12 @@ export default function VendorDetailPage() {
               <div className="flex items-start gap-2 text-muted-foreground">
                 <FileText className="h-4 w-4 shrink-0 mt-0.5" />
                 <span>{vendor.notes}</span>
+              </div>
+            )}
+            {!vendor.isActive && vendor.deactivationReason && (
+              <div className="rounded-md border border-destructive/20 bg-destructive/5 px-3 py-2 mt-1">
+                <p className="text-xs font-medium text-destructive mb-0.5">Deactivation reason</p>
+                <p className="text-xs text-muted-foreground leading-relaxed">{vendor.deactivationReason}</p>
               </div>
             )}
           </CardContent>
@@ -233,6 +239,13 @@ export default function VendorDetailPage() {
       </Card>
 
       <VendorFormModal open={modalOpen} onClose={() => setModalOpen(false)} vendor={vendor} />
+      <VendorActiveModal
+        open={activeModal.open}
+        onClose={() => setActiveModal({ open: false, deactivating: false })}
+        vendorId={vendor.id}
+        vendorName={vendor.name}
+        deactivating={activeModal.deactivating}
+      />
     </div>
   );
 }

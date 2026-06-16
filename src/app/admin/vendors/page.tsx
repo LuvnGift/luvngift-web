@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useVendors, useSetVendorActive, useSetVendorStatus } from '@/hooks/use-admin';
+import { useVendors, useSetVendorStatus } from '@/hooks/use-admin';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
 import { ChevronLeft, ChevronRight, Plus, Search, ExternalLink } from 'lucide-react';
 import VendorFormModal from './vendor-form-modal';
+import VendorActiveModal from './vendor-active-modal';
 import type { Vendor } from '@luvngift/shared';
 
 // The installed shared Vendor type may not yet include the application fields.
@@ -32,6 +33,11 @@ export default function AdminVendorsPage() {
   const [view, setView] = useState<'all' | 'pending'>('all');
   const [modalOpen, setModalOpen] = useState(false);
   const [editVendor, setEditVendor] = useState<Vendor | null>(null);
+  const [activeModal, setActiveModal] = useState<{ open: boolean; vendor: AdminVendor | null; deactivating: boolean }>({
+    open: false,
+    vendor: null,
+    deactivating: false,
+  });
 
   const { data, isLoading } = useVendors(
     page,
@@ -40,7 +46,6 @@ export default function AdminVendorsPage() {
     includeInactive,
     view === 'pending' ? 'PENDING' : undefined,
   );
-  const setActive = useSetVendorActive();
   const setStatus = useSetVendorStatus();
 
   const vendors: AdminVendor[] = data?.vendors ?? [];
@@ -68,10 +73,8 @@ export default function AdminVendorsPage() {
     setEditVendor(null);
   };
 
-  const handleToggleActive = (vendor: AdminVendor) => {
-    const action = vendor.isActive ? 'deactivate' : 'activate';
-    if (!confirm(`${action.charAt(0).toUpperCase() + action.slice(1)} "${vendor.name}"?`)) return;
-    setActive.mutate({ id: vendor.id, isActive: !vendor.isActive });
+  const openActiveModal = (vendor: AdminVendor) => {
+    setActiveModal({ open: true, vendor, deactivating: vendor.isActive });
   };
 
   const handleApprove = (vendor: AdminVendor) => {
@@ -237,8 +240,7 @@ export default function AdminVendorsPage() {
                                   variant="outline"
                                   size="sm"
                                   className={vendor.isActive ? 'text-destructive hover:text-destructive' : ''}
-                                  onClick={() => handleToggleActive(vendor)}
-                                  disabled={setActive.isPending}
+                                  onClick={() => openActiveModal(vendor)}
                                 >
                                   {vendor.isActive ? 'Deactivate' : 'Activate'}
                                 </Button>
@@ -274,6 +276,15 @@ export default function AdminVendorsPage() {
       )}
 
       <VendorFormModal open={modalOpen} onClose={handleCloseModal} vendor={editVendor} />
+      {activeModal.vendor && (
+        <VendorActiveModal
+          open={activeModal.open}
+          onClose={() => setActiveModal({ open: false, vendor: null, deactivating: false })}
+          vendorId={activeModal.vendor.id}
+          vendorName={activeModal.vendor.name}
+          deactivating={activeModal.deactivating}
+        />
+      )}
     </div>
   );
 }
