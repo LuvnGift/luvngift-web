@@ -2,6 +2,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Separator } from '@/components/ui/separator';
 import { FooterAccountLinks } from './footer-account-links';
+import { FooterChatButton } from './footer-chat-button';
 
 export function Footer() {
   return (
@@ -69,7 +70,7 @@ export function Footer() {
 								</Link>
 							</li>
 							<li>
-								<span className="cursor-pointer hover:text-foreground transition-colors">Live Chat</span>
+								<FooterChatButton />
 							</li>
 						</ul>
 					</div>
