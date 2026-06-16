@@ -10,7 +10,7 @@ const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.luvngift.com';
 export const metadata: Metadata = {
   title: 'Become a Vendor — Sell with Luvngift',
   description:
-    'Sell with Luvngift and fulfil curated gift orders for the Nigerian diaspora. Apply to become a vendor — retail, delivery, or logistics. Keep 70% of net revenue, paid every two weeks.',
+    'Sell with Luvngift and fulfil curated gift orders for the Nigerian diaspora. Apply to become a vendor — retail, delivery, or logistics. Keep up to 70% of net revenue, paid every two weeks.',
   alternates: { canonical: `${BASE_URL}/become-a-vendor` },
   openGraph: {
     title: 'Become a Luvngift Vendor',
@@ -23,7 +23,7 @@ export const metadata: Metadata = {
 
 const BENEFITS = [
   { icon: TrendingUp, title: 'A steady stream of orders', desc: 'We bring the customers — diaspora buyers ordering gifts for delivery across Nigeria.' },
-  { icon: Wallet, title: 'Keep 70% of net revenue', desc: 'You earn the majority on every order you fulfil; Luvngift handles the storefront and payments.' },
+  { icon: Wallet, title: 'Keep up to 70% of net revenue', desc: 'You earn the majority on every order you fulfil; Luvngift handles the storefront and payments.' },
   { icon: CalendarClock, title: 'Paid every two weeks', desc: 'Reliable payouts on a fortnightly schedule for completed, delivered orders.' },
   { icon: ShieldCheck, title: 'No upfront cost', desc: 'It is free to apply and join. You focus on fulfilment; we handle pricing and the customer experience.' },
 ];
@@ -57,7 +57,7 @@ export default function BecomeAVendorPage() {
               and earn on every order you complete.
             </p>
             <div className="mt-8 flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm font-medium">
-              <span className="flex items-center gap-1.5"><Wallet className="h-4 w-4 text-primary" /> 70% of net revenue</span>
+              <span className="flex items-center gap-1.5"><Wallet className="h-4 w-4 text-primary" /> Up to70% of net revenue</span>
               <span className="flex items-center gap-1.5"><CalendarClock className="h-4 w-4 text-primary" /> Paid every two weeks</span>
               <span className="flex items-center gap-1.5"><ShieldCheck className="h-4 w-4 text-primary" /> Free to join</span>
             </div>
@@ -121,7 +121,7 @@ export default function BecomeAVendorPage() {
                 </p>
                 <ul className="space-y-3">
                   {[
-                    'Keep 70% of net revenue on every order you fulfil',
+                    'Keep up to 70% of net revenue on every order you fulfil',
                     'Reliable payouts every two weeks',
                     'Order details delivered to you by email and SMS',
                     'Free to apply — no upfront cost',
