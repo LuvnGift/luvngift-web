@@ -52,6 +52,11 @@ export function Footer() {
 									Contact us
 								</Link>
 							</li>
+							<li>
+								<Link href="/become-a-vendor" className="hover:text-foreground transition-colors">
+									Become a Vendor
+								</Link>
+							</li>
 						</ul>
 					</div>
 

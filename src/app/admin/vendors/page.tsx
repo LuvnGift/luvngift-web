@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useVendors, useSetVendorActive } from '@/hooks/use-admin';
+import { useVendors, useSetVendorActive, useSetVendorStatus } from '@/hooks/use-admin';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -11,6 +11,12 @@ import { Spinner } from '@/components/ui/spinner';
 import { ChevronLeft, ChevronRight, Plus, Search, ExternalLink } from 'lucide-react';
 import VendorFormModal from './vendor-form-modal';
 import type { Vendor } from '@luvngift/shared';
+
+// The installed shared Vendor type may not yet include the application fields.
+type AdminVendor = Vendor & {
+  status?: 'PENDING' | 'APPROVED' | 'REJECTED';
+  contactName?: string | null;
+};
 
 const BUSINESS_TYPE_LABELS: Record<string, string> = {
   RETAIL: 'Retail',
@@ -23,15 +29,28 @@ export default function AdminVendorsPage() {
   const [search, setSearch] = useState('');
   const [searchInput, setSearchInput] = useState('');
   const [includeInactive, setIncludeInactive] = useState(false);
+  const [view, setView] = useState<'all' | 'pending'>('all');
   const [modalOpen, setModalOpen] = useState(false);
   const [editVendor, setEditVendor] = useState<Vendor | null>(null);
 
-  const { data, isLoading } = useVendors(page, 20, search, includeInactive);
+  const { data, isLoading } = useVendors(
+    page,
+    20,
+    search,
+    includeInactive,
+    view === 'pending' ? 'PENDING' : undefined,
+  );
   const setActive = useSetVendorActive();
+  const setStatus = useSetVendorStatus();
 
-  const vendors: Vendor[] = data?.vendors ?? [];
+  const vendors: AdminVendor[] = data?.vendors ?? [];
   const total: number = data?.total ?? 0;
   const totalPages = Math.ceil(total / 20);
+
+  const switchView = (next: 'all' | 'pending') => {
+    setView(next);
+    setPage(1);
+  };
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,7 +58,7 @@ export default function AdminVendorsPage() {
     setPage(1);
   };
 
-  const handleEdit = (vendor: Vendor) => {
+  const handleEdit = (vendor: AdminVendor) => {
     setEditVendor(vendor);
     setModalOpen(true);
   };
@@ -49,10 +68,20 @@ export default function AdminVendorsPage() {
     setEditVendor(null);
   };
 
-  const handleToggleActive = (vendor: Vendor) => {
+  const handleToggleActive = (vendor: AdminVendor) => {
     const action = vendor.isActive ? 'deactivate' : 'activate';
     if (!confirm(`${action.charAt(0).toUpperCase() + action.slice(1)} "${vendor.name}"?`)) return;
     setActive.mutate({ id: vendor.id, isActive: !vendor.isActive });
+  };
+
+  const handleApprove = (vendor: AdminVendor) => {
+    if (!confirm(`Approve "${vendor.name}" as a vendor? They will be notified by email.`)) return;
+    setStatus.mutate({ id: vendor.id, status: 'APPROVED' });
+  };
+
+  const handleReject = (vendor: AdminVendor) => {
+    if (!confirm(`Reject the application from "${vendor.name}"? They will be notified by email.`)) return;
+    setStatus.mutate({ id: vendor.id, status: 'REJECTED' });
   };
 
   return (
@@ -66,6 +95,26 @@ export default function AdminVendorsPage() {
           <Plus className="h-4 w-4 mr-2" />
           Add vendor
         </Button>
+      </div>
+
+      {/* View tabs */}
+      <div className="flex gap-2 border-b">
+        <button
+          onClick={() => switchView('all')}
+          className={`-mb-px border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
+            view === 'all' ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          All vendors
+        </button>
+        <button
+          onClick={() => switchView('pending')}
+          className={`-mb-px border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
+            view === 'pending' ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          Pending applications
+        </button>
       </div>
 
       {/* Filters */}
@@ -82,13 +131,15 @@ export default function AdminVendorsPage() {
           </div>
           <Button type="submit" variant="secondary">Search</Button>
         </form>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => { setIncludeInactive((v) => !v); setPage(1); }}
-        >
-          {includeInactive ? 'Active only' : 'Show inactive'}
-        </Button>
+        {view === 'all' && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => { setIncludeInactive((v) => !v); setPage(1); }}
+          >
+            {includeInactive ? 'Active only' : 'Show inactive'}
+          </Button>
+        )}
       </div>
 
       {/* Table */}
@@ -138,30 +189,61 @@ export default function AdminVendorsPage() {
                           </Badge>
                         </td>
                         <td className="px-4 py-3">
-                          <Badge variant={vendor.isActive ? 'default' : 'secondary'}>
-                            {vendor.isActive ? 'Active' : 'Inactive'}
-                          </Badge>
+                          {vendor.status === 'PENDING' ? (
+                            <Badge variant="outline" className="border-amber-300 text-amber-700">Pending review</Badge>
+                          ) : vendor.status === 'REJECTED' ? (
+                            <Badge variant="secondary">Rejected</Badge>
+                          ) : (
+                            <Badge variant={vendor.isActive ? 'default' : 'secondary'}>
+                              {vendor.isActive ? 'Active' : 'Inactive'}
+                            </Badge>
+                          )}
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center justify-end gap-2">
-                            <Link href={`/admin/vendors/${vendor.id}`}>
-                              <Button variant="ghost" size="sm">
-                                <ExternalLink className="h-3 w-3 mr-1" />
-                                View
-                              </Button>
-                            </Link>
-                            <Button variant="outline" size="sm" onClick={() => handleEdit(vendor)}>
-                              Edit
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className={vendor.isActive ? 'text-destructive hover:text-destructive' : ''}
-                              onClick={() => handleToggleActive(vendor)}
-                              disabled={setActive.isPending}
-                            >
-                              {vendor.isActive ? 'Deactivate' : 'Activate'}
-                            </Button>
+                            {vendor.status === 'PENDING' ? (
+                              <>
+                                <Link href={`/admin/vendors/${vendor.id}`}>
+                                  <Button variant="ghost" size="sm">
+                                    <ExternalLink className="h-3 w-3 mr-1" />
+                                    View
+                                  </Button>
+                                </Link>
+                                <Button size="sm" onClick={() => handleApprove(vendor)} disabled={setStatus.isPending}>
+                                  Approve
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="text-destructive hover:text-destructive"
+                                  onClick={() => handleReject(vendor)}
+                                  disabled={setStatus.isPending}
+                                >
+                                  Reject
+                                </Button>
+                              </>
+                            ) : (
+                              <>
+                                <Link href={`/admin/vendors/${vendor.id}`}>
+                                  <Button variant="ghost" size="sm">
+                                    <ExternalLink className="h-3 w-3 mr-1" />
+                                    View
+                                  </Button>
+                                </Link>
+                                <Button variant="outline" size="sm" onClick={() => handleEdit(vendor)}>
+                                  Edit
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className={vendor.isActive ? 'text-destructive hover:text-destructive' : ''}
+                                  onClick={() => handleToggleActive(vendor)}
+                                  disabled={setActive.isPending}
+                                >
+                                  {vendor.isActive ? 'Deactivate' : 'Activate'}
+                                </Button>
+                              </>
+                            )}
                           </div>
                         </td>
                       </tr>

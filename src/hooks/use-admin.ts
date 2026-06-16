@@ -294,12 +294,22 @@ export interface VendorInput {
   notes?: string;
 }
 
-export const useVendors = (page = 1, limit = 20, search = '', includeInactive = false) =>
+export type VendorStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+
+export const useVendors = (
+  page = 1,
+  limit = 20,
+  search = '',
+  includeInactive = false,
+  status?: VendorStatus,
+) =>
   useQuery({
-    queryKey: ['admin', 'vendors', page, limit, search, includeInactive],
+    queryKey: ['admin', 'vendors', page, limit, search, includeInactive, status],
     queryFn: () =>
       api
-        .get('/api/v1/vendors', { params: { page, limit, search: search || undefined, includeInactive } })
+        .get('/api/v1/vendors', {
+          params: { page, limit, search: search || undefined, includeInactive, status },
+        })
         .then((r) => r.data.data),
   });
 
@@ -354,6 +364,19 @@ export const useSetVendorActive = () => {
       toast.success(vars.isActive ? 'Vendor activated' : 'Vendor deactivated');
     },
     onError: () => toast.error('Failed to update vendor status'),
+  });
+};
+
+export const useSetVendorStatus = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, status }: { id: string; status: 'APPROVED' | 'REJECTED' }) =>
+      api.patch(`/api/v1/vendors/${id}/status`, { status }).then((r) => r.data.data),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ['admin', 'vendors'] });
+      toast.success(vars.status === 'APPROVED' ? 'Vendor approved' : 'Application rejected');
+    },
+    onError: () => toast.error('Failed to update application'),
   });
 };
 
