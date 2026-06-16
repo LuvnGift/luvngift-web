@@ -57,7 +57,7 @@ export default function BecomeAVendorPage() {
               and earn on every order you complete.
             </p>
             <div className="mt-8 flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm font-medium">
-              <span className="flex items-center gap-1.5"><Wallet className="h-4 w-4 text-primary" /> Up to70% of net revenue</span>
+              <span className="flex items-center gap-1.5"><Wallet className="h-4 w-4 text-primary" /> Up to 70% of net revenue</span>
               <span className="flex items-center gap-1.5"><CalendarClock className="h-4 w-4 text-primary" /> Paid every two weeks</span>
               <span className="flex items-center gap-1.5"><ShieldCheck className="h-4 w-4 text-primary" /> Free to join</span>
             </div>

@@ -8,9 +8,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Spinner } from '@/components/ui/spinner';
-import { ChevronLeft, ChevronRight, ArrowLeft, Mail, Phone, MapPin, FileText, Pencil } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ArrowLeft, Mail, Phone, MapPin, FileText, Pencil, User } from 'lucide-react';
 import VendorFormModal from '../vendor-form-modal';
 import type { Vendor } from '@luvngift/shared';
+
+type AdminVendor = Vendor & { contactName?: string | null; status?: 'PENDING' | 'APPROVED' | 'REJECTED' };
 
 const BUSINESS_TYPE_LABELS: Record<string, string> = {
   RETAIL: 'Retail',
@@ -32,7 +34,7 @@ export default function VendorDetailPage() {
   const [ordersPage, setOrdersPage] = useState(1);
   const [modalOpen, setModalOpen] = useState(false);
 
-  const { data: vendor, isLoading: vendorLoading } = useVendor(id);
+  const { data: vendor, isLoading: vendorLoading } = useVendor(id) as { data: AdminVendor | undefined; isLoading: boolean };
   const { data: ordersData, isLoading: ordersLoading } = useVendorOrders(id, ordersPage);
   const setActive = useSetVendorActive();
 
@@ -75,11 +77,19 @@ export default function VendorDetailPage() {
             </Button>
           </Link>
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-2xl font-bold">{vendor.name}</h1>
-              <Badge variant={vendor.isActive ? 'default' : 'secondary'}>
-                {vendor.isActive ? 'Active' : 'Inactive'}
-              </Badge>
+              {vendor.status === 'PENDING' && (
+                <Badge variant="outline" className="border-amber-300 text-amber-700">Pending review</Badge>
+              )}
+              {vendor.status === 'REJECTED' && (
+                <Badge variant="secondary">Rejected</Badge>
+              )}
+              {(!vendor.status || vendor.status === 'APPROVED') && (
+                <Badge variant={vendor.isActive ? 'default' : 'secondary'}>
+                  {vendor.isActive ? 'Active' : 'Inactive'}
+                </Badge>
+              )}
             </div>
             <p className="text-muted-foreground text-sm">
               {BUSINESS_TYPE_LABELS[vendor.businessType]} · Added {new Date(vendor.createdAt).toLocaleDateString()}
@@ -110,6 +120,12 @@ export default function VendorDetailPage() {
             <CardTitle className="text-base">Contact details</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
+            {vendor.contactName && (
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <User className="h-4 w-4 shrink-0" />
+                <span>{vendor.contactName}</span>
+              </div>
+            )}
             <div className="flex items-center gap-2 text-muted-foreground">
               <Mail className="h-4 w-4 shrink-0" />
               <span className="break-all">{vendor.email}</span>
@@ -216,7 +232,7 @@ export default function VendorDetailPage() {
         </CardContent>
       </Card>
 
-      <VendorFormModal open={modalOpen} onClose={() => setModalOpen(false)} vendor={vendor as Vendor} />
+      <VendorFormModal open={modalOpen} onClose={() => setModalOpen(false)} vendor={vendor} />
     </div>
   );
 }
