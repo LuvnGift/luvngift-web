@@ -4,6 +4,7 @@ import { Navbar } from '@/components/layout/navbar';
 import { Footer } from '@/components/layout/footer';
 import { Badge } from '@/components/ui/badge';
 import { Briefcase, MapPin, ArrowRight } from 'lucide-react';
+import { EMPLOYMENT_LABELS } from './constants';
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.luvngift.com';
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? '';
@@ -19,13 +20,6 @@ export const metadata: Metadata = {
     url: `${BASE_URL}/careers`,
     type: 'website',
   },
-};
-
-export const EMPLOYMENT_LABELS: Record<string, string> = {
-  FULL_TIME: 'Full-time',
-  PART_TIME: 'Part-time',
-  CONTRACT: 'Contract',
-  REMOTE: 'Remote',
 };
 
 interface Job {
