@@ -381,6 +381,147 @@ export const useSetVendorStatus = () => {
   });
 };
 
+// ---------- Roadmap ----------
+export type RoadmapStatus = 'PLANNED' | 'IN_PROGRESS' | 'LAUNCHED';
+
+export interface RoadmapItemInput {
+  title: string;
+  description: string;
+  category?: string;
+  status?: RoadmapStatus;
+  targetLabel?: string;
+  sortOrder?: number;
+  isActive?: boolean;
+}
+
+export const useAdminRoadmap = (page = 1, limit = 50) =>
+  useQuery({
+    queryKey: ['admin', 'roadmap', page, limit],
+    queryFn: () =>
+      api.get('/api/v1/admin/roadmap', { params: { page, limit } }).then((r) => r.data.data),
+  });
+
+export const useCreateRoadmapItem = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: RoadmapItemInput) =>
+      api.post('/api/v1/admin/roadmap', data).then((r) => r.data.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'roadmap'] });
+      qc.invalidateQueries({ queryKey: ['roadmap'] });
+      toast.success('Roadmap item created');
+    },
+    onError: (err: any) =>
+      toast.error(err?.response?.data?.error?.message ?? 'Failed to create item'),
+  });
+};
+
+export const useUpdateRoadmapItem = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...data }: RoadmapItemInput & { id: string }) =>
+      api.patch(`/api/v1/admin/roadmap/${id}`, data).then((r) => r.data.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'roadmap'] });
+      qc.invalidateQueries({ queryKey: ['roadmap'] });
+      toast.success('Roadmap item updated');
+    },
+    onError: (err: any) =>
+      toast.error(err?.response?.data?.error?.message ?? 'Failed to update item'),
+  });
+};
+
+export const useDeleteRoadmapItem = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      api.delete(`/api/v1/admin/roadmap/${id}`).then((r) => r.data.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'roadmap'] });
+      qc.invalidateQueries({ queryKey: ['roadmap'] });
+      toast.success('Roadmap item deleted');
+    },
+  });
+};
+
+// ---------- Careers (jobs) ----------
+export type JobEmploymentType = 'FULL_TIME' | 'PART_TIME' | 'CONTRACT' | 'REMOTE';
+export type JobStatus = 'OPEN' | 'CLOSED';
+export type ApplicationStatus = 'NEW' | 'REVIEWING' | 'INTERVIEW' | 'REJECTED' | 'HIRED';
+
+export interface JobInput {
+  title: string;
+  department?: string;
+  location?: string;
+  employmentType?: JobEmploymentType;
+  description: string;
+  status?: JobStatus;
+}
+
+export const useAdminJobs = (page = 1, limit = 20) =>
+  useQuery({
+    queryKey: ['admin', 'jobs', page, limit],
+    queryFn: () =>
+      api.get('/api/v1/admin/jobs', { params: { page, limit } }).then((r) => r.data.data),
+  });
+
+export const useCreateJob = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: JobInput) => api.post('/api/v1/admin/jobs', data).then((r) => r.data.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'jobs'] });
+      toast.success('Job posted');
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.error?.message ?? 'Failed to post job'),
+  });
+};
+
+export const useUpdateJob = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...data }: JobInput & { id: string }) =>
+      api.patch(`/api/v1/admin/jobs/${id}`, data).then((r) => r.data.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'jobs'] });
+      toast.success('Job updated');
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.error?.message ?? 'Failed to update job'),
+  });
+};
+
+export const useDeleteJob = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/api/v1/admin/jobs/${id}`).then((r) => r.data.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'jobs'] });
+      toast.success('Job removed');
+    },
+  });
+};
+
+export const useJobApplications = (page = 1, limit = 20, jobId?: string) =>
+  useQuery({
+    queryKey: ['admin', 'jobs', 'applications', page, limit, jobId ?? null],
+    queryFn: () =>
+      api
+        .get('/api/v1/admin/jobs/applications', { params: { page, limit, jobId: jobId || undefined } })
+        .then((r) => r.data.data),
+  });
+
+export const useUpdateApplicationStatus = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, status }: { id: string; status: ApplicationStatus }) =>
+      api.patch(`/api/v1/admin/jobs/applications/${id}/status`, { status }).then((r) => r.data.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'jobs', 'applications'] });
+      toast.success('Application updated');
+    },
+  });
+};
+
 // ---------- Exchange rate settings ----------
 export interface ExchangeRateSettings {
   GBP: number;

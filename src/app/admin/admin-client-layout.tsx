@@ -16,6 +16,8 @@ import {
   Menu,
   X,
   Store,
+  Map,
+  Briefcase,
 } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -31,6 +33,8 @@ const NAV_ITEMS = [
   { href: '/admin/users', label: 'Users', icon: Users },
   { href: '/admin/chat', label: 'Support Chat', icon: MessageSquare },
   { href: '/admin/reviews', label: 'Reviews', icon: Star },
+  { href: '/admin/careers', label: 'Careers', icon: Briefcase },
+  { href: '/admin/roadmap', label: 'Roadmap', icon: Map },
   { href: '/admin/settings', label: 'Settings', icon: Settings },
 ];
 
@@ -51,7 +55,7 @@ export default function AdminClientLayout({ children }: { children: React.ReactN
         <span className="font-semibold text-sm text-muted-foreground">Admin</span>
       </div>
 
-      <nav className="flex-1 space-y-1 p-4">
+      <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto p-4">
         {NAV_ITEMS.map((item) => (
           <Link
             key={item.href}
