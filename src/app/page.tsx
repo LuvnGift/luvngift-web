@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { Gift, Wand2, Package, Truck, Star, ArrowRight, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -8,10 +9,36 @@ import { Footer } from '@/components/layout/footer';
 import { ChatWidget } from '@/components/chat/chat-widget';
 import { AddressBanner } from '@/components/layout/address-banner';
 import { FaqSection } from '@/components/seo/faq-section';
+import { BundleCard } from '@/components/bundles/bundle-card';
+import { OccasionCard } from '@/components/occasions/occasion-card';
 import { GENERAL_FAQS } from '@/content/faqs';
+import type { Bundle, Occasion } from '@luvngift/shared';
 import type { Metadata } from 'next';
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.luvngift.com';
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? '';
+
+async function fetchOccasions(): Promise<Occasion[]> {
+  try {
+    const res = await fetch(`${API_URL}/api/v1/occasions`, { next: { revalidate: 60 } });
+    if (!res.ok) return [];
+    const json = await res.json();
+    return json.data ?? [];
+  } catch {
+    return [];
+  }
+}
+
+async function fetchBundles(): Promise<Bundle[]> {
+  try {
+    const res = await fetch(`${API_URL}/api/v1/bundles`, { next: { revalidate: 60 } });
+    if (!res.ok) return [];
+    const json = await res.json();
+    return json.data ?? [];
+  } catch {
+    return [];
+  }
+}
 
 export const metadata: Metadata = {
   alternates: { canonical: BASE_URL },
@@ -46,54 +73,70 @@ const websiteJsonLd = {
   },
 };
 
-export default function HomePage() {
+export default async function HomePage() {
+  const [occasions, bundles] = await Promise.all([fetchOccasions(), fetchBundles()]);
+  const activeOccasions = occasions.filter((o) => o.isActive).slice(0, 4);
+  const featuredBundles = bundles.filter((b) => b.isActive).slice(0, 4);
+  // Real product photos for the hero collage (only bundles that actually have an image).
+  const heroImages = bundles.filter((b) => b.images?.[0]).slice(0, 4);
+
   return (
 		<div className="flex flex-col min-h-screen">
-			<script
-				type="application/ld+json"
-				dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
-			/>
-			<script
-				type="application/ld+json"
-				dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
-			/>
+			<script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }} />
+			<script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }} />
 			<Navbar />
 			<AddressBanner />
 
 			<main className="flex-1">
 				{/* Hero */}
-				<section className="relative overflow-hidden bg-gradient-to-br from-primary/5 via-background to-secondary/30 py-24 md:py-32">
-					<div className="container mx-auto px-4 text-center">
-						<div className="inline-flex items-center gap-2 rounded-full border bg-background px-4 py-1.5 text-sm text-muted-foreground mb-6 shadow-sm">
-							<Star className="h-3.5 w-3.5 text-primary fill-primary" />
-							Delivering joy from the diaspora to Nigeria
-						</div>
-						<h1 className="text-4xl md:text-6xl font-bold tracking-tight mb-6 max-w-3xl mx-auto">
-							Send the perfect gift to <span className="text-primary">loved ones in Nigeria</span>
-						</h1>
-						<p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-10">Browse curated gift bundles for every occasion — birthdays, Christmas, Eid, and more — or build a completely custom experience. We handle everything from curation to delivery.</p>
-						<div className="flex flex-col sm:flex-row gap-4 justify-center">
-							<Button size="lg" className="gap-2 text-base" asChild>
-								<Link href="/occasions">
-									<Gift className="h-5 w-5" />
-									Shop occasions
-								</Link>
-							</Button>
-							<Button size="lg" variant="outline" className="gap-2 text-base" asChild>
-								<Link href="/custom" prefetch={false}>
-									<Wand2 className="h-5 w-5" />
-									Build custom gift
-								</Link>
-							</Button>
+				<section className="relative overflow-hidden bg-gradient-to-br from-primary/5 via-background to-secondary/30 py-14 md:py-20">
+					<div className="container mx-auto px-4">
+						<div className="grid items-center gap-10 lg:grid-cols-2">
+							{/* Copy */}
+							<div className="text-center lg:text-left">
+								<div className="inline-flex items-center gap-2 rounded-full border bg-background px-4 py-1.5 text-sm text-muted-foreground mb-5 shadow-sm">
+									<Star className="h-3.5 w-3.5 text-primary fill-primary" />
+									Delivering joy from the diaspora to Nigeria
+								</div>
+								<h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-5">
+									Celebrate the people who matter most <span className="text-primary">—wherever you are</span>
+								</h1>
+								<p className="text-lg text-muted-foreground mb-8 max-w-xl mx-auto lg:mx-0">Curated gift bundles for every occasion — birthdays, Christmas, Eid, and more — or build a completely custom experience. We handle curation, delivery, everything.</p>
+								<div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
+									<Button size="lg" className="gap-2 text-base" asChild>
+										<Link href="/occasions">
+											<Gift className="h-5 w-5" />
+											Shop Gifts
+										</Link>
+									</Button>
+									<Button size="lg" variant="outline" className="gap-2 text-base" asChild>
+										<Link href="/custom" prefetch={false}>
+											<Wand2 className="h-5 w-5" />
+											Create a Custom Gift
+										</Link>
+									</Button>
+								</div>
+							</div>
+
+							{/* Real-product collage (hidden if no bundle images are available) */}
+							{heroImages.length > 0 && (
+								<div className="grid grid-cols-2 gap-3 sm:gap-4">
+									{heroImages.map((b, i) => (
+										<Link key={b.id} href={`/bundles/${b.slug}`} className={`group relative aspect-square overflow-hidden rounded-2xl shadow-sm ${i % 2 === 1 ? "translate-y-4 sm:translate-y-6" : ""}`}>
+											<Image src={b.images[0]} alt={b.name} fill className="object-cover transition-transform duration-300 group-hover:scale-105" sizes="(max-width: 1024px) 50vw, 25vw" priority={i < 2} />
+										</Link>
+									))}
+								</div>
+							)}
 						</div>
 					</div>
 				</section>
 
 				<Separator />
 				{/* How it works */}
-				<section className="py-20 bg-background">
+				<section className="py-16 bg-background">
 					<div className="container mx-auto px-4">
-						<div className="text-center mb-14">
+						<div className="text-center mb-10">
 							<h2 className="text-3xl font-bold mb-3">How it works</h2>
 							<p className="text-muted-foreground text-lg max-w-xl mx-auto">Sending a gift to Nigeria has never been this easy.</p>
 						</div>
@@ -135,10 +178,36 @@ export default function HomePage() {
 
 				<Separator />
 
-				{/* Occasions preview */}
-				<section className="py-20 bg-muted/30">
+				{/* Featured gifts */}
+				{featuredBundles.length > 0 && (
+					<section className="py-16 bg-background">
+						<div className="container mx-auto px-4">
+							<div className="flex items-center justify-between mb-8">
+								<div>
+									<h2 className="text-3xl font-bold mb-2">Featured gifts</h2>
+									<p className="text-muted-foreground">Popular bundles, ready to send today.</p>
+								</div>
+								<Button variant="outline" asChild className="hidden sm:flex gap-1">
+									<Link href="/occasions">
+										View all <ArrowRight className="h-4 w-4" />
+									</Link>
+								</Button>
+							</div>
+							<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+								{featuredBundles.map((bundle) => (
+									<BundleCard key={bundle.id} bundle={bundle} />
+								))}
+							</div>
+						</div>
+					</section>
+				)}
+
+				<Separator />
+
+				{/* Shop by occasion */}
+				<section className="py-16 bg-muted/30">
 					<div className="container mx-auto px-4">
-						<div className="flex items-center justify-between mb-10">
+						<div className="flex items-center justify-between mb-8">
 							<div>
 								<h2 className="text-3xl font-bold mb-2">Shop by occasion</h2>
 								<p className="text-muted-foreground">Every celebration, perfectly covered.</p>
@@ -149,19 +218,15 @@ export default function HomePage() {
 								</Link>
 							</Button>
 						</div>
-						<div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-							{[
-								{ emoji: "🎂", name: "Birthday", slug: "birthday" },
-								{ emoji: "🎄", name: "Christmas", slug: "christmas" },
-								{ emoji: "🌙", name: "Eid", slug: "eid" },
-								{ emoji: "💝", name: "Valentine's", slug: "valentines" },
-							].map((o) => (
-								<Link key={o.slug} href={`/occasions/${o.slug}`} className="group flex flex-col items-center justify-center gap-3 rounded-xl border bg-background p-6 hover:border-primary hover:shadow-sm transition-all">
-									<span className="text-4xl group-hover:scale-110 transition-transform">{o.emoji}</span>
-									<span className="font-medium text-sm">{o.name}</span>
-								</Link>
-							))}
-						</div>
+						{activeOccasions.length > 0 ? (
+							<div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+								{activeOccasions.map((occasion) => (
+									<OccasionCard key={occasion.id} occasion={occasion} />
+								))}
+							</div>
+						) : (
+							<p className="text-center text-muted-foreground py-8">Occasions coming soon.</p>
+						)}
 						<div className="text-center mt-6 sm:hidden">
 							<Button variant="outline" asChild>
 								<Link href="/occasions">View all occasions</Link>
@@ -171,9 +236,9 @@ export default function HomePage() {
 				</section>
 
 				{/* Why us */}
-				<section className="py-20 bg-background">
+				<section className="py-16 bg-background">
 					<div className="container mx-auto px-4">
-						<div className="text-center mb-12">
+						<div className="text-center mb-10">
 							<h2 className="text-3xl font-bold mb-3">Why choose Luvngift?</h2>
 						</div>
 						<div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-4xl mx-auto">
@@ -198,14 +263,11 @@ export default function HomePage() {
 				</section>
 
 				{/* FAQ */}
-				<section className="py-20 bg-background">
+				<section className="py-16 bg-background">
 					<div className="container mx-auto px-4 max-w-3xl">
-						<FaqSection
-							faqs={GENERAL_FAQS.slice(0, 6)}
-							title="Frequently asked questions"
-						/>
+						<FaqSection faqs={GENERAL_FAQS.slice(0, 6)} title="Frequently asked questions" />
 						<p className="mt-6 text-center text-sm text-muted-foreground">
-							See all answers on our{' '}
+							See all answers on our{" "}
 							<Link href="/faq" className="font-medium text-primary underline underline-offset-4">
 								FAQ page
 							</Link>
@@ -215,7 +277,7 @@ export default function HomePage() {
 				</section>
 
 				{/* CTA */}
-				<section className="py-20 bg-primary text-primary-foreground">
+				<section className="py-16 bg-primary text-primary-foreground">
 					<div className="container mx-auto px-4 text-center">
 						<h2 className="text-3xl md:text-4xl font-bold mb-4">Ready to make someone's day?</h2>
 						<p className="text-primary-foreground/80 text-lg mb-8 max-w-xl mx-auto">Join thousands of diaspora Nigerians already sending gifts home with LuvNgift.</p>
