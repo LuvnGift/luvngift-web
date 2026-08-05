@@ -8,7 +8,7 @@ import { z } from 'zod';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { useCreateOrder, useUpdateOrder } from '@/hooks/use-orders';
-import { useCreatePaymentIntent, useVerifyPayment } from '@/hooks/use-checkout';
+import { useCreatePaymentIntent, useVerifyPayment, useSetSaveCard } from '@/hooks/use-checkout';
 import { useAuthStore } from '@/store/auth.store';
 import { useUserCurrency } from '@/hooks/use-exchange-rates';
 import { formatCurrency } from '@luvngift/shared';
@@ -359,7 +359,24 @@ function StripePaymentForm({ orderId, onBack }: { orderId: string; onBack: () =>
   const stripe = useStripe();
   const elements = useElements();
   const { mutateAsync: verifyPayment } = useVerifyPayment();
+  const { mutateAsync: setSaveCard } = useSetSaveCard();
   const [isProcessing, setIsProcessing] = useState(false);
+  const [saveCard, setSaveCardState] = useState(false);
+  const [savingPref, setSavingPref] = useState(false);
+
+  // The preference is applied to the PaymentIntent server-side. If that call
+  // fails we revert the checkbox rather than let it silently lie.
+  const handleToggleSaveCard = async (checked: boolean) => {
+    setSaveCardState(checked);
+    setSavingPref(true);
+    try {
+      await setSaveCard({ orderId, savePaymentMethod: checked });
+    } catch {
+      setSaveCardState(!checked);
+    } finally {
+      setSavingPref(false);
+    }
+  };
 
   const handlePay = async () => {
     if (!stripe || !elements) return;
@@ -385,11 +402,29 @@ function StripePaymentForm({ orderId, onBack }: { orderId: string; onBack: () =>
   return (
     <div className="space-y-4">
       <PaymentElement options={{ business: { name: 'Luvngift' } }} />
+
+      <label className="flex items-start gap-2.5 rounded-md border p-3 cursor-pointer hover:bg-muted/40 transition-colors">
+        <input
+          type="checkbox"
+          checked={saveCard}
+          disabled={isProcessing || savingPref}
+          onChange={(e) => handleToggleSaveCard(e.target.checked)}
+          className="mt-0.5 h-4 w-4 shrink-0 accent-[#dd1d4a]"
+        />
+        <span className="text-sm">
+          <span className="font-medium">Save this card for future gifts</span>
+          <span className="block text-xs text-muted-foreground mt-0.5">
+            Securely stored by Stripe so you can check out faster next time. You can remove it
+            any time from your account.
+          </span>
+        </span>
+      </label>
+
       <div className="flex gap-3">
         <Button variant="outline" onClick={onBack} disabled={isProcessing} className="flex-1">
           Back
         </Button>
-        <Button onClick={handlePay} disabled={isProcessing || !stripe} className="flex-1">
+        <Button onClick={handlePay} disabled={isProcessing || savingPref || !stripe} className="flex-1">
           {isProcessing ? <><Spinner size="sm" className="mr-2" />Processing...</> : 'Pay now'}
         </Button>
       </div>
