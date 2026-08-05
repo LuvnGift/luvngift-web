@@ -1,6 +1,6 @@
 'use client';
 
-import { ShoppingCart, DollarSign, MessageSquare, UserPlus, ArrowUpRight } from 'lucide-react';
+import { ShoppingCart, DollarSign, MessageSquare, UserPlus, ArrowUpRight, RefreshCcw } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Spinner } from '@/components/ui/spinner';
 import { useAdminMetrics } from '@/hooks/use-admin';
@@ -17,7 +17,15 @@ export default function AdminDashboardPage() {
     );
   }
 
-  const cards = [
+  const cards: {
+    title: string;
+    value: string | number;
+    subtitle?: string;
+    icon: typeof ShoppingCart;
+    href: string;
+    color: string;
+    bg: string;
+  }[] = [
     {
       title: 'Orders Today',
       value: metrics?.ordersToday ?? 0,
@@ -43,6 +51,20 @@ export default function AdminDashboardPage() {
       bg: 'bg-orange-50',
     },
     {
+      // Cumulative exchange-rate differential absorbed on refunds. Negative = loss.
+      title: 'Refund FX Absorbed',
+      value: (() => {
+        const cents = metrics?.refundFxAbsorbedCad ?? 0;
+        const sign = cents > 0 ? '+' : cents < 0 ? '−' : '';
+        return `${sign}CA$${(Math.abs(cents) / 100).toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+      })(),
+      subtitle: `across ${metrics?.refundCount ?? 0} refund${metrics?.refundCount === 1 ? '' : 's'}`,
+      icon: RefreshCcw,
+      href: '/admin/orders',
+      color: (metrics?.refundFxAbsorbedCad ?? 0) < 0 ? 'text-red-600' : 'text-slate-600',
+      bg: (metrics?.refundFxAbsorbedCad ?? 0) < 0 ? 'bg-red-50' : 'bg-slate-50',
+    },
+    {
       title: 'New Users Today',
       value: metrics?.newUsers ?? 0,
       icon: UserPlus,
@@ -59,7 +81,7 @@ export default function AdminDashboardPage() {
         <p className="text-muted-foreground text-sm">Overview of your platform activity.</p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         {cards.map((card) => (
           <Link key={card.title} href={card.href}>
             <Card className="group hover:shadow-md transition-shadow cursor-pointer">
@@ -76,6 +98,9 @@ export default function AdminDashboardPage() {
                   <span className="text-2xl font-bold">{card.value}</span>
                   <ArrowUpRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                 </div>
+                {card.subtitle && (
+                  <p className="mt-1 text-xs text-muted-foreground">{card.subtitle}</p>
+                )}
               </CardContent>
             </Card>
           </Link>

@@ -45,6 +45,19 @@ function copyText(text: string) {
   navigator.clipboard.writeText(text).then(() => toast.success('Copied'));
 }
 
+/** Signed CAD, for the FX differential. Negative = Luvngift absorbed a loss. */
+function fmtSignedCad(cents: number) {
+  const sign = cents > 0 ? '+' : cents < 0 ? '−' : '';
+  return `${sign}CA$${(Math.abs(cents) / 100).toFixed(2)}`;
+}
+
+const refundStatusColors: Record<string, string> = {
+  succeeded: 'text-green-700',
+  pending: 'text-amber-700',
+  failed: 'text-red-700',
+  canceled: 'text-red-700',
+};
+
 // ─── Order Detail Modal ───────────────────────────────────────────────────────
 
 function OrderDetailModal({ orderId, onClose }: { orderId: string; onClose: () => void }) {
@@ -186,6 +199,70 @@ function OrderDetailModal({ orderId, onClose }: { orderId: string; onClose: () =
             </div>
 
             <Separator />
+
+            {/* Refund + FX differential */}
+            {order.payment?.refundId && (
+              <>
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide font-medium mb-2">Refund</p>
+                  <div className="space-y-1">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Stripe status</span>
+                      <span className={`font-semibold ${refundStatusColors[order.payment.refundStatus ?? ''] ?? ''}`}>
+                        {order.payment.refundStatus ?? '—'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>Amount refunded</span>
+                      <span>
+                        {order.payment.refundAmount != null
+                          ? fmt(order.payment.refundAmount, order.currency)
+                          : '—'}
+                      </span>
+                    </div>
+                    {order.payment.refundedAt && (
+                      <div className="flex justify-between text-muted-foreground">
+                        <span>Refunded at</span>
+                        <span>{new Date(order.payment.refundedAt).toLocaleString()}</span>
+                      </div>
+                    )}
+                    {order.payment.refundCadRate != null && (
+                      <div className="flex justify-between text-muted-foreground">
+                        <span>CAD rate, purchase → refund</span>
+                        <span className="font-mono text-xs">
+                          {order.cadExchangeRate?.toFixed(4)} → {order.payment.refundCadRate.toFixed(4)}
+                        </span>
+                      </div>
+                    )}
+                    {order.payment.refundFxDeltaCad != null && (
+                      <div className="flex justify-between pt-1 border-t mt-1 font-medium">
+                        <span>FX impact (absorbed by Luvngift)</span>
+                        <span className={order.payment.refundFxDeltaCad < 0 ? 'text-red-700' : 'text-green-700'}>
+                          {fmtSignedCad(order.payment.refundFxDeltaCad)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {order.payment.refundStatus && order.payment.refundStatus !== 'succeeded' && (
+                    <p className="mt-2 rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-900">
+                      {order.payment.refundStatus === 'pending'
+                        ? 'Stripe has not confirmed this refund yet. It will reconcile automatically when the webhook arrives.'
+                        : 'This refund did not succeed. The customer has not been credited — resolve manually in Stripe.'}
+                    </p>
+                  )}
+
+                  <div className="mt-2 flex items-center gap-2">
+                    <code className="flex-1 text-xs bg-muted px-2 py-1.5 rounded break-all">{order.payment.refundId}</code>
+                    <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={() => copyText(order.payment!.refundId!)}>
+                      <Copy className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+
+                <Separator />
+              </>
+            )}
 
             {/* Vendor + Invoice */}
             <div className="grid sm:grid-cols-2 gap-4">

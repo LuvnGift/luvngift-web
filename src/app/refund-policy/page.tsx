@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 
 export default function RefundPolicyPage() {
   return (
-    <LegalPage title="Refund Policy" updated="June 15, 2026">
+    <LegalPage title="Refund Policy" updated="August 4, 2026">
       <h2>Overview</h2>
       <p>
         At Luvngift, customer satisfaction is important to us. Refund eligibility depends on the nature of
@@ -66,6 +66,19 @@ export default function RefundPolicyPage() {
       <p>
         Approved refunds are typically processed within 5–10 business days. Processing times may vary by
         financial institution.
+      </p>
+
+      <h2>Currency and exchange rates</h2>
+      <p>
+        Refunds are issued to the original payment method, in the same currency you were charged, for the
+        full approved amount. Luvngift does not deduct exchange-rate differences or payment processing
+        fees from your refund.
+      </p>
+      <p>
+        If your card or bank account is held in a different currency from the one you were charged in,
+        your bank converts the refund at its own rate on the day it is received. Because rates move, the
+        amount credited to you may be slightly higher or lower than the amount originally debited. This
+        difference is determined by your financial institution and is outside Luvngift&apos;s control.
       </p>
 
       <h2>Contact</h2>
