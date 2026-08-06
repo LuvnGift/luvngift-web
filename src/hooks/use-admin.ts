@@ -394,6 +394,181 @@ export interface RoadmapItemInput {
   isActive?: boolean;
 }
 
+// ─── Delivery proof & substitutions ───────────────────────────────────────────
+
+export const useAttachDeliveryProof = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ orderId, file, note }: { orderId: string; file: File; note?: string }) => {
+      const form = new FormData();
+      form.append('photo', file);
+      if (note) form.append('note', note);
+      return api
+        .post(`/api/v1/admin/orders/${orderId}/delivery-proof`, form)
+        .then((r) => r.data.data);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'order'] });
+      qc.invalidateQueries({ queryKey: ['admin', 'orders'] });
+      toast.success('Delivery proof saved — order marked delivered');
+    },
+    onError: (err: any) =>
+      toast.error(err?.response?.data?.error?.message ?? 'Failed to upload photo'),
+  });
+};
+
+export interface SubstitutionRecord {
+  orderItemId: string;
+  deliveredName?: string;
+  substitutedForName?: string;
+  substitutionReason?: string;
+  isOmitted?: boolean;
+}
+
+export const useRecordSubstitutions = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ orderId, items }: { orderId: string; items: SubstitutionRecord[] }) =>
+      api.post(`/api/v1/admin/orders/${orderId}/substitutions`, { items }).then((r) => r.data.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'order'] });
+      toast.success('Substitutions recorded — customer notified');
+    },
+    onError: (err: any) =>
+      toast.error(err?.response?.data?.error?.message ?? 'Failed to record substitutions'),
+  });
+};
+
+// ─── Subscription plans ───────────────────────────────────────────────────────
+
+export interface PlanPriceInput {
+  interval: 'MONTHLY' | 'BIWEEKLY';
+  currency: 'CAD' | 'USD' | 'GBP';
+  amount: number;
+}
+
+export interface PlanInput {
+  name: string;
+  description: string;
+  slotCount: number;
+  image?: string;
+  sortOrder?: number;
+  isActive?: boolean;
+  prices: PlanPriceInput[];
+}
+
+export const useAdminPlans = (page = 1, limit = 50) =>
+  useQuery({
+    queryKey: ['admin', 'subscription-plans', page, limit],
+    queryFn: () =>
+      api
+        .get('/api/v1/admin/subscription-plans', { params: { page, limit } })
+        .then((r) => r.data.data),
+  });
+
+export const useCreatePlan = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: PlanInput) =>
+      api.post('/api/v1/admin/subscription-plans', data).then((r) => r.data.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'subscription-plans'] });
+      qc.invalidateQueries({ queryKey: ['subscriptions', 'plans'] });
+      toast.success('Plan created — Stripe product and prices set up');
+    },
+    onError: (err: any) =>
+      toast.error(err?.response?.data?.error?.message ?? 'Failed to create plan'),
+  });
+};
+
+export const useUpdatePlan = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...data }: Omit<PlanInput, 'prices'> & { id: string }) =>
+      api.patch(`/api/v1/admin/subscription-plans/${id}`, data).then((r) => r.data.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'subscription-plans'] });
+      qc.invalidateQueries({ queryKey: ['subscriptions', 'plans'] });
+      toast.success('Plan updated');
+    },
+    onError: (err: any) =>
+      toast.error(err?.response?.data?.error?.message ?? 'Failed to update plan'),
+  });
+};
+
+export const useDeletePlan = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      api.delete(`/api/v1/admin/subscription-plans/${id}`).then((r) => r.data.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'subscription-plans'] });
+      qc.invalidateQueries({ queryKey: ['subscriptions', 'plans'] });
+      toast.success('Plan deactivated');
+    },
+  });
+};
+
+// ─── Subscription catalogue items ─────────────────────────────────────────────
+
+export interface CatalogueItemInput {
+  name: string;
+  description?: string;
+  price: number;
+  currency?: 'CAD' | 'USD' | 'GBP' | 'NGN';
+  category: string;
+  stock?: number;
+  isActive?: boolean;
+  availableStates?: string[];
+}
+
+export const useAdminCatalogueItems = (page = 1, limit = 50) =>
+  useQuery({
+    queryKey: ['admin', 'catalogue-items', page, limit],
+    queryFn: () =>
+      api.get('/api/v1/admin/catalogue-items', { params: { page, limit } }).then((r) => r.data.data),
+  });
+
+export const useCreateCatalogueItem = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: CatalogueItemInput) =>
+      api.post('/api/v1/admin/catalogue-items', data).then((r) => r.data.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'catalogue-items'] });
+      toast.success('Item added to the catalogue');
+    },
+    onError: (err: any) =>
+      toast.error(err?.response?.data?.error?.message ?? 'Failed to create item'),
+  });
+};
+
+export const useUpdateCatalogueItem = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...data }: CatalogueItemInput & { id: string }) =>
+      api.patch(`/api/v1/admin/catalogue-items/${id}`, data).then((r) => r.data.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'catalogue-items'] });
+      toast.success('Item updated');
+    },
+    onError: (err: any) =>
+      toast.error(err?.response?.data?.error?.message ?? 'Failed to update item'),
+  });
+};
+
+export const useDeleteCatalogueItem = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      api.delete(`/api/v1/admin/catalogue-items/${id}`).then((r) => r.data.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'catalogue-items'] });
+      toast.success('Item deactivated');
+    },
+  });
+};
+
 export const useAdminRoadmap = (page = 1, limit = 50) =>
   useQuery({
     queryKey: ['admin', 'roadmap', page, limit],
@@ -534,6 +709,32 @@ export const useAdminExchangeRates = () =>
     queryKey: ['admin', 'settings', 'exchange-rates'],
     queryFn: () => api.get('/api/v1/admin/settings/exchange-rates').then((r) => r.data.data),
   });
+
+export interface DeliveryWindowSettings {
+  leadDays: number;
+  windowDays: number;
+  defaults: { leadDays: number; windowDays: number };
+}
+
+export const useDeliveryWindow = () =>
+  useQuery<DeliveryWindowSettings>({
+    queryKey: ['admin', 'settings', 'delivery-window'],
+    queryFn: () => api.get('/api/v1/admin/settings/delivery-window').then((r) => r.data.data),
+  });
+
+export const useUpdateDeliveryWindow = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { leadDays: number; windowDays: number }) =>
+      api.put('/api/v1/admin/settings/delivery-window', data).then((r) => r.data.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'settings', 'delivery-window'] });
+      toast.success('Delivery window updated');
+    },
+    onError: (err: any) =>
+      toast.error(err?.response?.data?.error?.message ?? 'Failed to update delivery window'),
+  });
+};
 
 export const useUpdateExchangeRates = () => {
   const qc = useQueryClient();

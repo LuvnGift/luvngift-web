@@ -121,6 +121,32 @@ export default function OrderDetailPage({ params }: Props) {
             </CardContent>
           </Card>
 
+          {/* Proof of delivery */}
+          {(order as any).deliveryProofUrl && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Delivered</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <a href={(order as any).deliveryProofUrl} target="_blank" rel="noopener noreferrer">
+                  {/* Cloudinary-hosted; outside next/image's configured domains */}
+                  <img
+                    src={(order as any).deliveryProofUrl}
+                    alt="Photo taken on delivery"
+                    className="rounded-md border w-full object-cover"
+                  />
+                </a>
+                <p className="text-xs text-muted-foreground">
+                  Photographed on arrival
+                  {(order as any).deliveryProofAt
+                    ? ` — ${new Date((order as any).deliveryProofAt).toLocaleString()}`
+                    : ''}
+                  {(order as any).deliveryProofNote ? `. ${(order as any).deliveryProofNote}` : ''}
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Items */}
           {order.items && order.items.length > 0 && (
             <Card>
@@ -128,15 +154,32 @@ export default function OrderDetailPage({ params }: Props) {
                 <CardTitle className="text-base">Items</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                {order.items.map((item) => (
-                  <div key={item.id} className="flex justify-between text-sm">
-                    <span>
-                      {item.quantity > 1 && (
-                        <span className="text-muted-foreground mr-1">{item.quantity}×</span>
-                      )}
-                      {item.name}
-                    </span>
-                    <span className="font-medium">{symbol}{(item.price / 100).toFixed(2)}</span>
+                {order.items.map((item: any) => (
+                  <div key={item.id} className="text-sm">
+                    <div className="flex justify-between">
+                      <span className={item.isOmitted ? 'text-muted-foreground line-through' : ''}>
+                        {item.quantity > 1 && (
+                          <span className="text-muted-foreground mr-1">{item.quantity}×</span>
+                        )}
+                        {item.name}
+                      </span>
+                      <span className="font-medium">{symbol}{(item.price / 100).toFixed(2)}</span>
+                    </div>
+
+                    {/* Substitution transparency — clause 9 of the substitution policy */}
+                    {item.substitutedForName && (
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Replaced <span className="font-medium">{item.substitutedForName}</span>
+                        {item.substitutionReason ? ` — ${item.substitutionReason}` : ''}
+                      </p>
+                    )}
+                    {item.isOmitted && (
+                      <p className="text-xs text-amber-700 mt-0.5">
+                        Unavailable this time
+                        {item.substitutionReason ? ` — ${item.substitutionReason}` : ''}. We&apos;ll
+                        make it good on your next delivery or refund it.
+                      </p>
+                    )}
                   </div>
                 ))}
                 <Separator />

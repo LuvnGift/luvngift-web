@@ -32,6 +32,11 @@ export function Footer() {
 									Custom Gift
 								</Link>
 							</li>
+							<li>
+								<Link href="/subscriptions" className="hover:text-foreground transition-colors">
+									Monthly Gifting
+								</Link>
+							</li>
 						</ul>
 					</div>
 

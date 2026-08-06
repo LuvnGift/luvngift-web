@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { ChevronLeft, ChevronRight, RefreshCw, Eye, Copy, Trash2, ExternalLink, UserCheck } from 'lucide-react';
+import { DeliveryProofSection } from './delivery-proof-section';
 
 const ORDER_STATUSES = ['PENDING', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'REFUNDED'];
 
@@ -197,6 +198,11 @@ function OrderDetailModal({ orderId, onClose }: { orderId: string; onClose: () =
                 </div>
               </div>
             </div>
+
+            <Separator />
+
+            {/* Substitutions + proof of delivery */}
+            <DeliveryProofSection order={order} />
 
             <Separator />
 
