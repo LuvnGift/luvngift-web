@@ -5,6 +5,7 @@ import { notFound } from 'next/navigation';
 import { ArrowLeft, Clock, Check } from 'lucide-react';
 import { PurchasePanel } from './purchase-panel';
 import { FaqSection } from '@/components/seo/faq-section';
+import { fetchDeliveryWindow, formatDeliveryRange } from '@/lib/delivery';
 import type { FAQ } from '@/content/faqs';
 import type { Bundle } from '@luvngift/shared';
 
@@ -84,6 +85,8 @@ export default async function BundleDetailPage({ params }: Props) {
   if (!bundle) {
     notFound();
   }
+
+  const { windowDays } = await fetchDeliveryWindow();
 
   // priceValidUntil — Google recommends an explicit date on Offers; default to ~1 year out.
   const priceValidUntil = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
@@ -168,7 +171,9 @@ export default async function BundleDetailPage({ params }: Props) {
 
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Clock className="h-4 w-4" />
-            <span>Estimated delivery: {bundle.estimatedDeliveryDays} business days</span>
+            <span>
+              Estimated delivery: {formatDeliveryRange(bundle.estimatedDeliveryDays, windowDays)}
+            </span>
           </div>
 
           <div>

@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ArrowLeft, Wand2, Check } from 'lucide-react';
 import { BundleCard } from '@/components/bundles/bundle-card';
+import { fetchDeliveryWindow } from '@/lib/delivery';
 import { Button } from '@/components/ui/button';
 import { FaqSection } from '@/components/seo/faq-section';
 import type { FAQ } from '@/content/faqs';
@@ -91,6 +92,7 @@ export default async function OccasionDetailPage({ params }: Props) {
   }
 
   const bundles = (occasion.bundles ?? []).filter((b) => b.isActive);
+  const { windowDays } = await fetchDeliveryWindow();
 
   // SEO content comes from the DB (admin-editable). seoIntro is a free-text blob;
   // split it into paragraphs on blank/new lines for rendering.
@@ -171,7 +173,7 @@ export default async function OccasionDetailPage({ params }: Props) {
           <h2 className="text-xl font-semibold mb-6">Available bundles</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {bundles.map((bundle) => (
-              <BundleCard key={bundle.id} bundle={bundle} />
+              <BundleCard key={bundle.id} bundle={bundle} windowDays={windowDays} />
             ))}
           </div>
         </>

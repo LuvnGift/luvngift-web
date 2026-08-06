@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { ArrowLeft, Download, MapPin, Phone, MessageSquare } from 'lucide-react';
 import { useOrder } from '@/hooks/use-orders';
+import { useDeliveryWindow } from '@/hooks/use-subscriptions';
+import { formatDeliveryDates } from '@/lib/delivery';
 import { OrderStatusBadge } from '@/components/orders/order-status-badge';
 import { OrderTimeline } from '@/components/orders/order-timeline';
 import { Button } from '@/components/ui/button';
@@ -27,6 +29,7 @@ export default function OrderDetailPage({ params }: Props) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { data: order, isLoading, isError } = useOrder(id);
+  const { data: deliveryWindow } = useDeliveryWindow();
   const qc = useQueryClient();
 
   // Show success toast and strip sensitive Stripe params from URL
@@ -120,6 +123,31 @@ export default function OrderDetailPage({ params }: Props) {
               <OrderTimeline status={order.status as OrderStatus} />
             </CardContent>
           </Card>
+
+          {/* Expected delivery — hidden once it's actually arrived */}
+          {(order as any).preferredDeliveryDate &&
+            !(order as any).deliveryProofUrl &&
+            order.status !== 'DELIVERED' &&
+            order.status !== 'CANCELLED' &&
+            order.status !== 'REFUNDED' && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Expected delivery</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm font-medium">
+                    {formatDeliveryDates(
+                      (order as any).preferredDeliveryDate,
+                      deliveryWindow?.windowDays ?? 0,
+                    )}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    We promise a range rather than a single day — you&apos;ll get a photo the
+                    moment it arrives.
+                  </p>
+                </CardContent>
+              </Card>
+            )}
 
           {/* Proof of delivery */}
           {(order as any).deliveryProofUrl && (

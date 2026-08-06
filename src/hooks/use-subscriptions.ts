@@ -43,6 +43,14 @@ export interface Address {
 
 const MINE_KEY = ['subscriptions', 'mine'];
 
+/** Platform delivery window, for turning a promised start date into a range. */
+export const useDeliveryWindow = () =>
+  useQuery<{ leadDays: number; windowDays: number }>({
+    queryKey: ['settings', 'delivery-window'],
+    queryFn: () => api.get('/api/v1/settings/delivery-window').then((r) => r.data.data),
+    staleTime: 5 * 60 * 1000,
+  });
+
 // ─── Catalogue ────────────────────────────────────────────────────────────────
 
 export const usePlans = () =>
