@@ -581,7 +581,17 @@ function BoxStep({
 
       {/* Substitution preference */}
       <div className="rounded-lg border p-4 space-y-2">
-        <p className="font-medium text-sm">If something isn&apos;t available</p>
+        <p className="font-medium text-sm">
+          If something isn&apos;t available{' '}
+          <a
+            href="/substitution-policy"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-normal text-xs underline underline-offset-2 text-muted-foreground hover:text-foreground"
+          >
+            read our promise
+          </a>
+        </p>
         {SUBSTITUTION_OPTIONS.map((opt) => (
           <label
             key={opt.value}

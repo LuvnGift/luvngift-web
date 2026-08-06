@@ -109,6 +109,11 @@ export function Footer() {
 								</Link>
 							</li>
 							<li>
+								<Link href="/substitution-policy" className="hover:text-foreground transition-colors">
+									Substitution Promise
+								</Link>
+							</li>
+							<li>
 								<Link href="/cookie-policy" className="hover:text-foreground transition-colors">
 									Cookie Policy
 								</Link>

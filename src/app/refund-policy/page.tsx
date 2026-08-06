@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 
 export default function RefundPolicyPage() {
   return (
-    <LegalPage title="Refund Policy" updated="August 4, 2026">
+    <LegalPage title="Refund Policy" updated="August 5, 2026">
       <h2>Overview</h2>
       <p>
         At Luvngift, customer satisfaction is important to us. Refund eligibility depends on the nature of
@@ -66,6 +66,17 @@ export default function RefundPolicyPage() {
       <p>
         Approved refunds are typically processed within 5–10 business days. Processing times may vary by
         financial institution.
+      </p>
+
+      <h2>Substitutions</h2>
+      <p>
+        If an item in your gift is unavailable when we prepare it, we replace it with something of
+        equal or better quality and value rather than delay your delivery — and if nothing suitable
+        exists, we make it good. Dietary and religious requirements always override a substitution.
+      </p>
+      <p>
+        Full details, including how to set your substitution preference, are in our{' '}
+        <a href="/substitution-policy">Substitution &amp; Quality Promise</a>.
       </p>
 
       <h2>Currency and exchange rates</h2>
