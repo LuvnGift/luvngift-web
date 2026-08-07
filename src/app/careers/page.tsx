@@ -5,6 +5,7 @@ import { Footer } from '@/components/layout/footer';
 import { Badge } from '@/components/ui/badge';
 import { Briefcase, MapPin, ArrowRight } from 'lucide-react';
 import { EMPLOYMENT_LABELS } from './constants';
+import { CACHE_TAGS, CACHE_FALLBACK_SECONDS } from '@/lib/cache-tags';
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.luvngift.com';
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? '';
@@ -33,7 +34,9 @@ interface Job {
 
 async function fetchJobs(): Promise<Job[]> {
   try {
-    const res = await fetch(`${API_URL}/api/v1/jobs`, { next: { revalidate: 60 } });
+    const res = await fetch(`${API_URL}/api/v1/jobs`, {
+      next: { revalidate: CACHE_FALLBACK_SECONDS, tags: [CACHE_TAGS.jobs] },
+    });
     if (!res.ok) return [];
     const json = await res.json();
     return json.data ?? [];

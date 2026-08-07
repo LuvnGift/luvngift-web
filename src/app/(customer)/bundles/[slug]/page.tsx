@@ -5,7 +5,9 @@ import { notFound } from 'next/navigation';
 import { ArrowLeft, Clock, Check } from 'lucide-react';
 import { PurchasePanel } from './purchase-panel';
 import { FaqSection } from '@/components/seo/faq-section';
-import { fetchDeliveryWindow, formatDeliveryRange } from '@/lib/delivery';
+import { fetchResourceOrNull } from '@/lib/api-fetch';
+import { formatDeliveryRange } from '@/lib/delivery';
+import { CACHE_TAGS, CACHE_FALLBACK_SECONDS } from '@/lib/cache-tags';
 import type { FAQ } from '@/content/faqs';
 import type { Bundle } from '@luvngift/shared';
 
@@ -14,21 +16,25 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? '';
 
 // The installed @luvngift/shared types may not yet include the SEO fields; the
 // API returns them on the bundle record.
-type BundleWithSeo = Bundle & { seoBody?: string | null; faqs?: FAQ[] | null };
+type BundleWithSeo = Bundle & {
+  seoBody?: string | null;
+  faqs?: FAQ[] | null;
+  // Embedded by the API so this prerendered route needs no second fetch.
+  deliveryWindowDays?: number;
+};
 
 // Next.js dedupes identical fetch() calls within a single render, so calling this
 // from generateMetadata and the page component results in one network request.
+// Returns null ONLY when the API genuinely answers 404. Every other failure
+// throws, so an API blip can never be cached as a 404 on a real bundle.
+// See lib/api-fetch.ts for why that distinction matters.
 async function fetchBundle(slug: string): Promise<BundleWithSeo | null> {
-  try {
-    const res = await fetch(`${API_URL}/api/v1/bundles/${slug}`, {
-      next: { revalidate: 300 },
-    });
-    if (!res.ok) return null;
-    const json = await res.json();
-    return json.data ?? null;
-  } catch {
-    return null;
-  }
+  return fetchResourceOrNull<BundleWithSeo>(`${API_URL}/api/v1/bundles/${slug}`, {
+    next: {
+      revalidate: CACHE_FALLBACK_SECONDS,
+      tags: [CACHE_TAGS.bundles, CACHE_TAGS.bundle(slug)],
+    },
+  });
 }
 
 export async function generateStaticParams() {
@@ -86,7 +92,6 @@ export default async function BundleDetailPage({ params }: Props) {
     notFound();
   }
 
-  const { windowDays } = await fetchDeliveryWindow();
 
   // priceValidUntil — Google recommends an explicit date on Offers; default to ~1 year out.
   const priceValidUntil = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
@@ -172,7 +177,8 @@ export default async function BundleDetailPage({ params }: Props) {
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Clock className="h-4 w-4" />
             <span>
-              Estimated delivery: {formatDeliveryRange(bundle.estimatedDeliveryDays, windowDays)}
+              Estimated delivery:{' '}
+              {formatDeliveryRange(bundle.estimatedDeliveryDays, bundle.deliveryWindowDays)}
             </span>
           </div>
 

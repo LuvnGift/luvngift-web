@@ -4,6 +4,7 @@ import { Navbar } from '@/components/layout/navbar';
 import { Footer } from '@/components/layout/footer';
 import { Check, Repeat, Camera, PauseCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { CACHE_TAGS, CACHE_FALLBACK_SECONDS } from '@/lib/cache-tags';
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.luvngift.com';
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? '';
@@ -40,7 +41,9 @@ interface Plan {
 
 async function fetchPlans(): Promise<Plan[]> {
   try {
-    const res = await fetch(`${API_URL}/api/v1/subscriptions/plans`, { next: { revalidate: 60 } });
+    const res = await fetch(`${API_URL}/api/v1/subscriptions/plans`, {
+      next: { revalidate: CACHE_FALLBACK_SECONDS, tags: [CACHE_TAGS.subscriptionPlans] },
+    });
     if (!res.ok) return [];
     const json = await res.json();
     return json.data ?? [];

@@ -7,6 +7,8 @@ import { Footer } from '@/components/layout/footer';
 import { Badge } from '@/components/ui/badge';
 import { ApplyForm } from './apply-form';
 import { EMPLOYMENT_LABELS } from '../constants';
+import { fetchResourceOrNull } from '@/lib/api-fetch';
+import { CACHE_TAGS, CACHE_FALLBACK_SECONDS } from '@/lib/cache-tags';
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.luvngift.com';
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? '';
@@ -22,15 +24,15 @@ interface Job {
   createdAt: string;
 }
 
+// Returns null ONLY when the API genuinely answers 404. Every other failure
+// throws rather than becoming a cached 404 on a real job posting.
 async function fetchJob(slug: string): Promise<Job | null> {
-  try {
-    const res = await fetch(`${API_URL}/api/v1/jobs/${slug}`, { next: { revalidate: 60 } });
-    if (!res.ok) return null;
-    const json = await res.json();
-    return json.data ?? null;
-  } catch {
-    return null;
-  }
+  return fetchResourceOrNull<Job>(`${API_URL}/api/v1/jobs/${slug}`, {
+    next: {
+      revalidate: CACHE_FALLBACK_SECONDS,
+      tags: [CACHE_TAGS.jobs, CACHE_TAGS.job(slug)],
+    },
+  });
 }
 
 interface Props {

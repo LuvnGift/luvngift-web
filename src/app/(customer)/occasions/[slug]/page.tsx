@@ -3,7 +3,8 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ArrowLeft, Wand2, Check } from 'lucide-react';
 import { BundleCard } from '@/components/bundles/bundle-card';
-import { fetchDeliveryWindow } from '@/lib/delivery';
+import { fetchResourceOrNull } from '@/lib/api-fetch';
+import { CACHE_TAGS, CACHE_FALLBACK_SECONDS } from '@/lib/cache-tags';
 import { Button } from '@/components/ui/button';
 import { FaqSection } from '@/components/seo/faq-section';
 import type { FAQ } from '@/content/faqs';
@@ -22,21 +23,23 @@ interface Occasion {
   seoIntro?: string | null;
   highlights?: string[];
   faqs?: FAQ[] | null;
+  // Embedded by the API so this prerendered route needs no second fetch.
+  deliveryWindowDays?: number;
 }
 
 // Next.js dedupes identical fetch() calls within a single render, so calling this
 // from both generateMetadata and the page component results in one network request.
+// Returns null ONLY when the API genuinely answers 404. Every other failure
+// throws rather than becoming a cached 404 on a real occasion.
 async function fetchOccasion(slug: string): Promise<Occasion | null> {
-  try {
-    const res = await fetch(`${API_URL}/api/v1/occasions/${slug}`, {
-      next: { revalidate: 60 },
-    });
-    if (!res.ok) return null;
-    const json = await res.json();
-    return json.data ?? null;
-  } catch {
-    return null;
-  }
+  return fetchResourceOrNull<Occasion>(`${API_URL}/api/v1/occasions/${slug}`, {
+    next: {
+      revalidate: CACHE_FALLBACK_SECONDS,
+      // Tagged with `bundles` too: this payload embeds the occasion's bundles,
+      // so a bundle edit must refresh it as well.
+      tags: [CACHE_TAGS.occasions, CACHE_TAGS.occasion(slug), CACHE_TAGS.bundles],
+    },
+  });
 }
 
 export async function generateStaticParams() {
@@ -92,7 +95,6 @@ export default async function OccasionDetailPage({ params }: Props) {
   }
 
   const bundles = (occasion.bundles ?? []).filter((b) => b.isActive);
-  const { windowDays } = await fetchDeliveryWindow();
 
   // SEO content comes from the DB (admin-editable). seoIntro is a free-text blob;
   // split it into paragraphs on blank/new lines for rendering.
@@ -173,7 +175,10 @@ export default async function OccasionDetailPage({ params }: Props) {
           <h2 className="text-xl font-semibold mb-6">Available bundles</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {bundles.map((bundle) => (
-              <BundleCard key={bundle.id} bundle={bundle} windowDays={windowDays} />
+              <BundleCard
+                key={bundle.id}
+                bundle={{ ...bundle, deliveryWindowDays: occasion.deliveryWindowDays }}
+              />
             ))}
           </div>
         </>

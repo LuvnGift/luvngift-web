@@ -10,7 +10,7 @@ import { ChatWidget } from '@/components/chat/chat-widget';
 import { AddressBanner } from '@/components/layout/address-banner';
 import { FaqSection } from '@/components/seo/faq-section';
 import { BundleCard } from '@/components/bundles/bundle-card';
-import { fetchDeliveryWindow } from '@/lib/delivery';
+import { CACHE_TAGS, CACHE_FALLBACK_SECONDS } from '@/lib/cache-tags';
 import { OccasionCard } from '@/components/occasions/occasion-card';
 import { GENERAL_FAQS } from '@/content/faqs';
 import type { Bundle, Occasion } from '@luvngift/shared';
@@ -21,7 +21,9 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? '';
 
 async function fetchOccasions(): Promise<Occasion[]> {
   try {
-    const res = await fetch(`${API_URL}/api/v1/occasions`, { next: { revalidate: 60 } });
+    const res = await fetch(`${API_URL}/api/v1/occasions`, {
+      next: { revalidate: CACHE_FALLBACK_SECONDS, tags: [CACHE_TAGS.occasions] },
+    });
     if (!res.ok) return [];
     const json = await res.json();
     return json.data ?? [];
@@ -32,7 +34,9 @@ async function fetchOccasions(): Promise<Occasion[]> {
 
 async function fetchBundles(): Promise<Bundle[]> {
   try {
-    const res = await fetch(`${API_URL}/api/v1/bundles`, { next: { revalidate: 60 } });
+    const res = await fetch(`${API_URL}/api/v1/bundles`, {
+      next: { revalidate: CACHE_FALLBACK_SECONDS, tags: [CACHE_TAGS.bundles] },
+    });
     if (!res.ok) return [];
     const json = await res.json();
     return json.data ?? [];
@@ -75,11 +79,7 @@ const websiteJsonLd = {
 };
 
 export default async function HomePage() {
-  const [occasions, bundles, deliveryWindow] = await Promise.all([
-    fetchOccasions(),
-    fetchBundles(),
-    fetchDeliveryWindow(),
-  ]);
+  const [occasions, bundles] = await Promise.all([fetchOccasions(), fetchBundles()]);
   const activeOccasions = occasions.filter((o) => o.isActive).slice(0, 4);
   const featuredBundles = bundles.filter((b) => b.isActive).slice(0, 4);
   // Real product photos for the hero collage (only bundles that actually have an image).
@@ -200,7 +200,7 @@ export default async function HomePage() {
 							</div>
 							<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
 								{featuredBundles.map((bundle) => (
-									<BundleCard key={bundle.id} bundle={bundle} windowDays={deliveryWindow.windowDays} />
+									<BundleCard key={bundle.id} bundle={bundle} />
 								))}
 							</div>
 						</div>

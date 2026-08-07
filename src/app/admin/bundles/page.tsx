@@ -175,19 +175,15 @@ function BundleForm({
         )}
       </div>
 
-      {/* Delivery lead time */}
+      {/* Estimated delivery */}
       <div className="space-y-2">
-        <Label>Delivery lead time (days)</Label>
+        <Label>Estimated Delivery (days)</Label>
         <Input
           type="number"
           min="1"
           {...form.register('estimatedDeliveryDays')}
           placeholder="7"
         />
-        <p className="text-xs text-muted-foreground">
-          The earliest we promise. Customers see a range — this plus the delivery window set in
-          Settings (e.g. 7 becomes &ldquo;7–12 days&rdquo;).
-        </p>
         {form.formState.errors.estimatedDeliveryDays && (
           <p className="text-xs text-destructive">
             {form.formState.errors.estimatedDeliveryDays.message}

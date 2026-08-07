@@ -12,16 +12,12 @@ import type { Bundle } from '@luvngift/shared';
 import { formatDeliveryRange } from '@/lib/delivery';
 
 interface BundleCardProps {
-  bundle: Bundle;
-  /**
-   * Platform-wide delivery window width, widening the bundle's lead time into a
-   * promised range. Optional so existing call sites degrade to the lead time
-   * alone rather than breaking.
-   */
-  windowDays?: number;
+  // deliveryWindowDays is supplied by the API alongside the bundle, so no page
+  // needs a separate fetch for it.
+  bundle: Bundle & { deliveryWindowDays?: number };
 }
 
-export function BundleCard({ bundle, windowDays = 0 }: BundleCardProps) {
+export function BundleCard({ bundle }: BundleCardProps) {
   const { currency, convert, ready } = useUserCurrency();
   const displayPrice = ready ? formatCurrency(convert(bundle.price), currency as any) : null;
 
@@ -58,7 +54,9 @@ export function BundleCard({ bundle, windowDays = 0 }: BundleCardProps) {
 
         <div className="flex items-center gap-1 text-xs text-muted-foreground pt-1">
           <Clock className="h-3 w-3" />
-          <span>Est. {formatDeliveryRange(bundle.estimatedDeliveryDays, windowDays)}</span>
+          <span>
+            Est. {formatDeliveryRange(bundle.estimatedDeliveryDays, bundle.deliveryWindowDays)}
+          </span>
         </div>
       </CardContent>
 
