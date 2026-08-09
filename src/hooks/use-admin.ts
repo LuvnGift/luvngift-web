@@ -90,7 +90,11 @@ export const useDeactivateUser = () => {
 export const useEscalatedSessions = () =>
   useQuery({
     queryKey: ['admin', 'chat', 'sessions'],
-    queryFn: () => api.get('/api/v1/admin/chat/sessions').then((r) => r.data.data),
+    // Paginated server-side; the panel shows the newest page of open escalations.
+    queryFn: () =>
+      api
+        .get('/api/v1/admin/chat/sessions', { params: { page: 1, limit: 50 } })
+        .then((r) => r.data.data.data),
     refetchInterval: 15_000,
   });
 
@@ -253,7 +257,10 @@ export const useDeleteBundle = () => {
 export const usePendingReviews = () =>
   useQuery({
     queryKey: ['admin', 'reviews'],
-    queryFn: () => api.get('/api/v1/admin/reviews').then((r) => r.data.data),
+    queryFn: () =>
+      api
+        .get('/api/v1/admin/reviews', { params: { page: 1, limit: 50 } })
+        .then((r) => r.data.data.data),
   });
 
 export const useModerateReview = () => {

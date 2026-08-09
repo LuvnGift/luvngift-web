@@ -15,7 +15,8 @@ import {
   useDeletePlan,
   type PlanPriceInput,
 } from '@/hooks/use-admin';
-import { toast } from 'sonner';
+import { FieldError } from '@/components/ui/field-error';
+import { planFormSchema, planPricesSchema, fieldErrors } from '@/lib/admin-schemas';
 
 const SYMBOLS: Record<string, string> = { CAD: 'CA$', USD: '$', GBP: '£' };
 const CURRENCIES = ['CAD', 'USD', 'GBP'] as const;
@@ -36,6 +37,14 @@ interface Plan {
   _count?: { subscriptions: number };
 }
 
+interface PlanFormState {
+  name: string;
+  description: string;
+  slotCount: string | number;
+  sortOrder: string | number;
+  isActive: boolean;
+}
+
 /** One editable price row in the create form. Amounts are entered in major units. */
 interface PriceRow {
   interval: 'MONTHLY' | 'BIWEEKLY';
@@ -51,7 +60,10 @@ export default function AdminSubscriptionPlansPage() {
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Plan | null>(null);
-  const [form, setForm] = useState({
+  // slotCount/sortOrder hold the raw input value, which is '' when the field is
+  // cleared. Coercing on change would turn that into 0 and silently save a
+  // zero-slot plan; the schema turns it into a named error instead.
+  const [form, setForm] = useState<PlanFormState>({
     name: '',
     description: '',
     slotCount: 5,
@@ -61,6 +73,7 @@ export default function AdminSubscriptionPlansPage() {
   const [prices, setPrices] = useState<PriceRow[]>([
     { interval: 'MONTHLY', currency: 'CAD', amountMajor: '' },
   ]);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const plans: Plan[] = data?.data ?? [];
 
@@ -68,6 +81,7 @@ export default function AdminSubscriptionPlansPage() {
     setEditing(null);
     setForm({ name: '', description: '', slotCount: 5, sortOrder: 0, isActive: true });
     setPrices([{ interval: 'MONTHLY', currency: 'CAD', amountMajor: '' }]);
+    setErrors({});
     setOpen(true);
   };
 
@@ -80,34 +94,37 @@ export default function AdminSubscriptionPlansPage() {
       sortOrder: plan.sortOrder,
       isActive: plan.isActive,
     });
+    setErrors({});
     setOpen(true);
   };
 
   const handleSubmit = async () => {
-    if (!form.name.trim() || form.description.trim().length < 10) {
-      toast.error('Name and a description of at least 10 characters are required');
+    const body = planFormSchema.safeParse(form);
+
+    // Prices are create-only — Stripe Prices are immutable, so editing omits them.
+    const priceResult = editing ? null : planPricesSchema.safeParse(prices);
+
+    if (!body.success || (priceResult && !priceResult.success)) {
+      setErrors({
+        ...(body.success ? {} : fieldErrors(body.error)),
+        ...(priceResult && !priceResult.success ? fieldErrors(priceResult.error) : {}),
+      });
       return;
     }
+    setErrors({});
 
     try {
       if (editing) {
-        await updatePlan.mutateAsync({ id: editing.id, ...form });
+        await updatePlan.mutateAsync({ id: editing.id, ...body.data });
       } else {
-        const parsed = prices.map((p) => ({
-          interval: p.interval,
-          currency: p.currency,
-          amount: Math.round(Number(p.amountMajor) * 100),
-        }));
-        if (parsed.some((p) => !Number.isFinite(p.amount) || p.amount <= 0)) {
-          toast.error('Every price needs an amount greater than zero');
-          return;
-        }
-        const seen = new Set(parsed.map((p) => `${p.interval}-${p.currency}`));
-        if (seen.size !== parsed.length) {
-          toast.error('Each interval + currency combination can only appear once');
-          return;
-        }
-        await createPlan.mutateAsync({ ...form, prices: parsed });
+        await createPlan.mutateAsync({
+          ...body.data,
+          prices: priceResult!.data.map((p) => ({
+            interval: p.interval,
+            currency: p.currency,
+            amount: Math.round(Number(p.amountMajor) * 100),
+          })),
+        });
       }
       setOpen(false);
     } catch {
@@ -231,10 +248,12 @@ export default function AdminSubscriptionPlansPage() {
               <Label htmlFor="name">Name</Label>
               <Input
                 id="name"
+                aria-invalid={!!errors.name}
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
                 placeholder="Standard Grocery Box"
               />
+              <FieldError message={errors.name} />
             </div>
 
             <div className="space-y-1.5">
@@ -242,10 +261,12 @@ export default function AdminSubscriptionPlansPage() {
               <Textarea
                 id="description"
                 rows={3}
+                aria-invalid={!!errors.description}
                 value={form.description}
                 onChange={(e) => setForm({ ...form, description: e.target.value })}
                 placeholder="A month of staples for one or two people — rice, oil, and fresh essentials."
               />
+              <FieldError message={errors.description} />
             </div>
 
             <div className="grid sm:grid-cols-2 gap-3">
@@ -255,9 +276,13 @@ export default function AdminSubscriptionPlansPage() {
                   id="slotCount"
                   type="number"
                   min={1}
+                  aria-invalid={!!errors.slotCount}
                   value={form.slotCount}
-                  onChange={(e) => setForm({ ...form, slotCount: Number(e.target.value) })}
+                  // '' from a cleared input would become NaN via Number(); keep
+                  // the raw string and let the schema reject it by name.
+                  onChange={(e) => setForm({ ...form, slotCount: e.target.value })}
                 />
+                <FieldError message={errors.slotCount} />
                 <p className="text-xs text-muted-foreground">
                   How many catalogue items the subscriber may pick. Quantity doesn&apos;t consume
                   extra slots.
@@ -269,9 +294,11 @@ export default function AdminSubscriptionPlansPage() {
                   id="sortOrder"
                   type="number"
                   min={0}
+                  aria-invalid={!!errors.sortOrder}
                   value={form.sortOrder}
-                  onChange={(e) => setForm({ ...form, sortOrder: Number(e.target.value) })}
+                  onChange={(e) => setForm({ ...form, sortOrder: e.target.value })}
                 />
+                <FieldError message={errors.sortOrder} />
               </div>
             </div>
 
@@ -305,7 +332,8 @@ export default function AdminSubscriptionPlansPage() {
                 </p>
                 <div className="space-y-2">
                   {prices.map((row, i) => (
-                    <div key={i} className="flex gap-2 items-center">
+                    <div key={i} className="space-y-1">
+                      <div className="flex gap-2 items-center">
                       <select
                         className="flex h-9 rounded-md border border-input bg-background px-2 text-sm"
                         value={row.interval}
@@ -345,20 +373,24 @@ export default function AdminSubscriptionPlansPage() {
                         }}
                         className="h-9"
                       />
-                      {prices.length > 1 && (
-                        <Button
-                          type="button"
-                          size="icon"
-                          variant="ghost"
-                          className="h-9 w-9 shrink-0"
-                          onClick={() => setPrices(prices.filter((_, idx) => idx !== i))}
-                        >
-                          ×
-                        </Button>
-                      )}
+                        {prices.length > 1 && (
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            className="h-9 w-9 shrink-0"
+                            onClick={() => setPrices(prices.filter((_, idx) => idx !== i))}
+                          >
+                            ×
+                          </Button>
+                        )}
+                      </div>
+                      {/* Keyed by array index, matching the schema's issue paths. */}
+                      <FieldError message={errors[`${i}.amountMajor`] ?? errors[`${i}.currency`]} />
                     </div>
                   ))}
                 </div>
+                <FieldError message={errors['']} />
               </div>
             )}
 

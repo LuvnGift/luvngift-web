@@ -16,7 +16,8 @@ import {
   useDeleteCatalogueItem,
   type CatalogueItemInput,
 } from '@/hooks/use-admin';
-import { toast } from 'sonner';
+import { FieldError } from '@/components/ui/field-error';
+import { catalogueItemFormSchema, fieldErrors } from '@/lib/admin-schemas';
 
 interface CatalogueItem extends CatalogueItemInput {
   id: string;
@@ -48,6 +49,7 @@ export default function AdminCataloguePage() {
   const [form, setForm] = useState<CatalogueItemInput>(EMPTY);
   // Price is entered in major units; the API stores the smallest unit.
   const [priceMajor, setPriceMajor] = useState('');
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const items: CatalogueItem[] = data?.data ?? [];
 
@@ -61,6 +63,7 @@ export default function AdminCataloguePage() {
     setEditing(null);
     setForm(EMPTY);
     setPriceMajor('');
+    setErrors({});
     setOpen(true);
   };
 
@@ -77,6 +80,7 @@ export default function AdminCataloguePage() {
       availableStates: item.availableStates ?? [],
     });
     setPriceMajor((item.price / 100).toString());
+    setErrors({});
     setOpen(true);
   };
 
@@ -91,16 +95,22 @@ export default function AdminCataloguePage() {
   };
 
   const handleSubmit = async () => {
-    const price = Math.round(Number(priceMajor) * 100);
-    if (!form.name.trim() || !form.category.trim()) {
-      toast.error('Name and category are required');
+    const parsed = catalogueItemFormSchema.safeParse({
+      ...form,
+      priceMajor,
+      description: form.description || undefined,
+      availableStates: form.availableStates ?? [],
+    });
+
+    if (!parsed.success) {
+      setErrors(fieldErrors(parsed.error));
       return;
     }
-    if (!Number.isFinite(price) || price <= 0) {
-      toast.error('Enter a price greater than zero');
-      return;
-    }
-    const payload = { ...form, price };
+    setErrors({});
+
+    const { priceMajor: major, ...rest } = parsed.data;
+    const payload = { ...rest, price: Math.round(Number(major) * 100) };
+
     try {
       if (editing) await updateItem.mutateAsync({ id: editing.id, ...payload });
       else await createItem.mutateAsync(payload);
@@ -222,19 +232,23 @@ export default function AdminCataloguePage() {
                 <Label htmlFor="name">Name</Label>
                 <Input
                   id="name"
+                  aria-invalid={!!errors.name}
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                   placeholder="Bag of rice (5kg)"
                 />
+                <FieldError message={errors.name} />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="category">Category</Label>
                 <Input
                   id="category"
+                  aria-invalid={!!errors.category}
                   value={form.category}
                   onChange={(e) => setForm({ ...form, category: e.target.value })}
                   placeholder="Staples"
                 />
+                <FieldError message={errors.category} />
               </div>
             </div>
 
@@ -243,9 +257,11 @@ export default function AdminCataloguePage() {
               <Textarea
                 id="description"
                 rows={2}
+                aria-invalid={!!errors.description}
                 value={form.description}
                 onChange={(e) => setForm({ ...form, description: e.target.value })}
               />
+              <FieldError message={errors.description} />
             </div>
 
             <div className="grid sm:grid-cols-3 gap-3">
@@ -256,10 +272,12 @@ export default function AdminCataloguePage() {
                   type="number"
                   min={0}
                   step="0.01"
+                  aria-invalid={!!errors.priceMajor}
                   value={priceMajor}
                   onChange={(e) => setPriceMajor(e.target.value)}
                   placeholder="8500.00"
                 />
+                <FieldError message={errors.priceMajor} />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="currency">Currency</Label>
@@ -280,9 +298,15 @@ export default function AdminCataloguePage() {
                   id="stock"
                   type="number"
                   min={0}
+                  aria-invalid={!!errors.stock}
                   value={form.stock}
-                  onChange={(e) => setForm({ ...form, stock: Number(e.target.value) })}
+                  // A cleared number input reads '' — Number('') is 0, but NaN
+                  // would render as an empty controlled input and get sent on.
+                  onChange={(e) =>
+                    setForm({ ...form, stock: e.target.value === '' ? 0 : Number(e.target.value) })
+                  }
                 />
+                <FieldError message={errors.stock} />
               </div>
             </div>
 

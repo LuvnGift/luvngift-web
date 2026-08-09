@@ -3,6 +3,10 @@
 import { useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { z } from 'zod';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { createAddressSchema } from '@luvngift/shared';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { Check, ArrowLeft, MapPin, PackageOpen, ShieldAlert } from 'lucide-react';
@@ -12,6 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import { Separator } from '@/components/ui/separator';
+import { FieldError } from '@/components/ui/field-error';
 import { useAuthStore } from '@/store/auth.store';
 import { NIGERIAN_STATES } from '@/lib/nigerian-states';
 import {
@@ -56,6 +61,25 @@ const fmt = (cents: number, currency: string) =>
   `${SYMBOLS[currency] ?? currency}${(cents / 100).toFixed(2)}`;
 
 type Step = 'recipient' | 'box' | 'payment';
+
+/**
+ * Derived from the shared address schema rather than restated, so the rules the
+ * API enforces are the rules the buyer sees. `country` is fixed to Nigeria and
+ * `postalCode` is optional, so neither is a form field.
+ *
+ * Dietary flags are deliberately not collected here — they're captured on the
+ * box step and belong to the subscription, and asking twice invites two
+ * conflicting answers to a safety question.
+ */
+const recipientFormSchema = createAddressSchema.pick({
+  recipientName: true,
+  recipientPhone: true,
+  street: true,
+  city: true,
+  state: true,
+});
+
+type RecipientFormValues = z.infer<typeof recipientFormSchema>;
 
 export function SubscribeFlow() {
   const router = useRouter();
@@ -273,29 +297,29 @@ function RecipientStep({
   const { data: addresses, isLoading } = useAddresses();
   const { mutateAsync: createAddress, isPending } = useCreateAddress();
   const [adding, setAdding] = useState(false);
-  const [form, setForm] = useState({
-    recipientName: '',
-    recipientPhone: '',
-    street: '',
-    city: '',
-    state: '',
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm<RecipientFormValues>({
+    resolver: zodResolver(recipientFormSchema),
+    defaultValues: { recipientName: '', recipientPhone: '', street: '', city: '', state: '' },
   });
 
   const showForm = adding || (!isLoading && (addresses?.length ?? 0) === 0);
 
-  const handleAdd = async () => {
-    if (!form.recipientName || !form.recipientPhone || !form.street || !form.city || !form.state) {
-      toast.error('Please complete every field');
-      return;
-    }
+  const handleAdd = handleSubmit(async (values) => {
     try {
-      const created = await createAddress({ ...form, country: 'Nigeria' });
+      const created = await createAddress({ ...values, country: 'Nigeria' });
       onSelect(created.id);
       setAdding(false);
+      reset();
     } catch {
       // surfaced by the hook
     }
-  };
+  });
 
   if (isLoading) return <div className="flex justify-center py-10"><Spinner /></div>;
 
@@ -332,70 +356,67 @@ function RecipientStep({
       )}
 
       {showForm ? (
-        <div className="rounded-lg border p-4 space-y-3">
+        <form onSubmit={handleAdd} noValidate className="rounded-lg border p-4 space-y-3">
           <p className="font-medium text-sm">New recipient</p>
           <div className="grid sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="recipientName">Full name</Label>
               <Input
                 id="recipientName"
-                value={form.recipientName}
-                onChange={(e) => setForm({ ...form, recipientName: e.target.value })}
+                aria-invalid={!!errors.recipientName}
+                {...register('recipientName')}
               />
+              <FieldError message={errors.recipientName?.message} />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="recipientPhone">Phone</Label>
               <Input
                 id="recipientPhone"
                 placeholder="+234 801 234 5678"
-                value={form.recipientPhone}
-                onChange={(e) => setForm({ ...form, recipientPhone: e.target.value })}
+                aria-invalid={!!errors.recipientPhone}
+                {...register('recipientPhone')}
               />
+              <FieldError message={errors.recipientPhone?.message} />
             </div>
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="street">Street address</Label>
-            <Input
-              id="street"
-              value={form.street}
-              onChange={(e) => setForm({ ...form, street: e.target.value })}
-            />
+            <Input id="street" aria-invalid={!!errors.street} {...register('street')} />
+            <FieldError message={errors.street?.message} />
           </div>
           <div className="grid sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="city">City</Label>
-              <Input
-                id="city"
-                value={form.city}
-                onChange={(e) => setForm({ ...form, city: e.target.value })}
-              />
+              <Input id="city" aria-invalid={!!errors.city} {...register('city')} />
+              <FieldError message={errors.city?.message} />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="state">State</Label>
               <select
                 id="state"
+                aria-invalid={!!errors.state}
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                value={form.state}
-                onChange={(e) => setForm({ ...form, state: e.target.value })}
+                {...register('state')}
               >
                 <option value="">Select state…</option>
                 {NIGERIAN_STATES.map((s) => (
                   <option key={s} value={s}>{s}</option>
                 ))}
               </select>
+              <FieldError message={errors.state?.message} />
             </div>
           </div>
           <div className="flex gap-2">
-            <Button onClick={handleAdd} disabled={isPending} size="sm">
+            <Button type="submit" disabled={isPending} size="sm">
               {isPending ? <><Spinner size="sm" className="mr-2" />Saving…</> : 'Save recipient'}
             </Button>
             {(addresses?.length ?? 0) > 0 && (
-              <Button variant="ghost" size="sm" onClick={() => setAdding(false)}>
+              <Button type="button" variant="ghost" size="sm" onClick={() => setAdding(false)}>
                 Cancel
               </Button>
             )}
           </div>
-        </div>
+        </form>
       ) : (
         <Button variant="outline" size="sm" onClick={() => setAdding(true)}>
           Add a different recipient
