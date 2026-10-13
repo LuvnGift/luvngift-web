@@ -38,8 +38,34 @@ export class ApiUnavailableError extends Error {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+/**
+ * Correlation id for the render → API hop.
+ *
+ * This is the boundary that made the 404 incident hard to explain: Railway
+ * logged a 200 while the visitor saw a 404, and nothing proved the two were or
+ * were not the same request. The API echoes this id and logs it, so a bad
+ * render can now be traced to the exact upstream call — including at build
+ * time, where `vercel-build` identifies the prerender pass that produced it.
+ */
+function renderRequestId(): string {
+  const scope = process.env.VERCEL_ENV === undefined ? 'local' : 'vercel-build';
+  return `${scope}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 async function attempt(url: string, init?: RequestInit): Promise<Response> {
-  return fetch(url, { signal: AbortSignal.timeout(TIMEOUT_MS), ...init });
+  const requestId = renderRequestId();
+  const res = await fetch(url, {
+    signal: AbortSignal.timeout(TIMEOUT_MS),
+    ...init,
+    headers: { ...(init?.headers ?? {}), 'x-request-id': requestId },
+  });
+
+  // A failed render is the thing we could not see before. Log it where it
+  // happens, with the id the API logged on its side.
+  if (!res.ok && res.status !== 404) {
+    console.error(`[api-fetch] ${url} -> HTTP ${res.status} [request-id: ${requestId}]`);
+  }
+  return res;
 }
 
 /**
@@ -60,6 +86,7 @@ export async function fetchResourceOrNull<T>(
       res = await attempt(url, init);
     } catch (err) {
       lastCause = (err as Error)?.message ?? 'network error';
+      console.error(`[api-fetch] ${url} -> ${lastCause} (attempt ${i + 1}/2)`);
       continue; // network/timeout — worth one retry
     }
 
