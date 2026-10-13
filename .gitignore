@@ -3,3 +3,6 @@ node_modules/
 .env
 .env.local
 coverage/
+
+# TypeScript incremental build cache — rewritten by every tsc run, never source
+*.tsbuildinfo

@@ -1,11 +1,14 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import {
   useAdmins,
   useLookupUserByEmail,
   useUpdateUserRole,
+  useAuditLog,
   type AdminUser,
+  type AuditEntry,
 } from '@/hooks/use-admin';
 import { useMe } from '@/hooks/use-auth';
 import { Card, CardContent } from '@/components/ui/card';
@@ -15,7 +18,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Spinner } from '@/components/ui/spinner';
 import { Separator } from '@/components/ui/separator';
-import { ShieldCheck, ShieldMinus, Search, AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
+import { ShieldCheck, ShieldMinus, Search, AlertTriangle, CheckCircle, XCircle, ShieldAlert, History } from 'lucide-react';
 
 /**
  * Granting admin access lives on its own page, reached deliberately from the
@@ -31,6 +34,7 @@ export default function AdminAccessPage() {
   const { data: me } = useMe();
   const lookup = useLookupUserByEmail();
   const updateRole = useUpdateUserRole();
+  const { data: audit } = useAuditLog(1, 25);
 
   const [email, setEmail] = useState('');
   const [found, setFound] = useState<AdminUser | null>(null);
@@ -75,6 +79,26 @@ export default function AdminAccessPage() {
           read customer data and change settings.
         </p>
       </div>
+
+      {/* Warn-only for now: enforcing 2FA at requireAdmin would lock out every
+          existing admin the moment it deployed. */}
+      {me && !me.twoFactorEnabled && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-amber-200 bg-amber-50 p-4 text-amber-900">
+          <div className="flex gap-2">
+            <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0" />
+            <div>
+              <p className="font-medium">Your account has no two-factor authentication</p>
+              <p className="text-sm">
+                Admins can issue refunds and read every customer&apos;s details. Right now a
+                password is the only thing protecting that.
+              </p>
+            </div>
+          </div>
+          <Button asChild variant="outline">
+            <Link href="/account">Set up 2FA</Link>
+          </Button>
+        </div>
+      )}
 
       <Card>
         <CardContent className="space-y-4 p-6">
@@ -186,6 +210,11 @@ export default function AdminAccessPage() {
                       )}
                     </p>
                     <p className="text-muted-foreground text-sm">{admin.email}</p>
+                    {!admin.twoFactorEnabled && (
+                      <p className="mt-1 flex items-center gap-1 text-xs text-amber-700">
+                        <ShieldAlert className="h-3 w-3" /> No 2FA
+                      </p>
+                    )}
                   </div>
                   {me?.id === admin.id ? (
                     <span className="text-muted-foreground text-xs">
@@ -213,6 +242,36 @@ export default function AdminAccessPage() {
             The last remaining admin cannot be removed, and you cannot change your own role —
             either would lock everyone out of this dashboard.
           </p>
+        </CardContent>
+      </Card>
+
+      {/* Audit trail */}
+      <Card>
+        <CardContent className="p-6">
+          <h2 className="flex items-center gap-2 font-semibold">
+            <History className="h-4 w-4" />
+            Recent admin activity
+          </h2>
+          <p className="text-muted-foreground mb-4 text-sm">
+            Role changes, refunds and account deactivations, newest first.
+          </p>
+
+          {(audit?.data ?? []).length === 0 ? (
+            <p className="text-muted-foreground py-6 text-center text-sm">
+              Nothing recorded yet. Entries appear here as admins act.
+            </p>
+          ) : (
+            <div className="divide-y">
+              {(audit?.data ?? []).map((entry: AuditEntry) => (
+                <div key={entry.id} className="py-3">
+                  <p className="text-sm">{entry.summary}</p>
+                  <p className="text-muted-foreground mt-0.5 text-xs">
+                    {entry.actorEmail} · {new Date(entry.createdAt).toLocaleString()}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

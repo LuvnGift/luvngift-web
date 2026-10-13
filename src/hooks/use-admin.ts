@@ -123,11 +123,25 @@ export const useCancelTestModeOrders = () => {
 };
 
 // ---------- Users ----------
-export const useAdminUsers = (page = 1, limit = 20) =>
+export const useAdminUsers = (
+  page = 1,
+  limit = 20,
+  opts: { search?: string; includeDeactivated?: boolean } = {},
+) =>
   useQuery({
-    queryKey: ['admin', 'users', page, limit],
+    queryKey: ['admin', 'users', page, limit, opts.search ?? '', opts.includeDeactivated ?? false],
     queryFn: () =>
-      api.get('/api/v1/admin/users', { params: { page, limit } }).then((r) => r.data.data),
+      api
+        .get('/api/v1/admin/users', {
+          params: {
+            page,
+            limit,
+            ...(opts.search ? { search: opts.search } : {}),
+            ...(opts.includeDeactivated ? { includeDeactivated: 'true' } : {}),
+          },
+        })
+        .then((r) => r.data.data),
+    placeholderData: (prev: unknown) => prev,
   });
 
 export interface AdminUser {
@@ -136,6 +150,7 @@ export interface AdminUser {
   email: string;
   role?: 'ADMIN' | 'CUSTOMER';
   emailVerified: boolean;
+  twoFactorEnabled?: boolean;
   createdAt: string;
 }
 
@@ -183,6 +198,37 @@ export const useUpdateUserRole = () => {
   });
 };
 
+export const useReactivateUser = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      api.patch(`/api/v1/admin/users/${id}/reactivate`).then((r) => r.data.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'users'] });
+      toast.success('User reactivated');
+    },
+    onError: (err: any) =>
+      toast.error(err?.response?.data?.error?.message ?? 'Could not reactivate that user'),
+  });
+};
+
+export interface AuditEntry {
+  id: string;
+  actorEmail: string;
+  action: string;
+  targetType: string | null;
+  targetId: string | null;
+  summary: string;
+  createdAt: string;
+}
+
+export const useAuditLog = (page = 1, limit = 50) =>
+  useQuery({
+    queryKey: ['admin', 'audit', page, limit],
+    queryFn: () =>
+      api.get('/api/v1/admin/audit', { params: { page, limit } }).then((r) => r.data.data),
+  });
+
 export const useDeactivateUser = () => {
   const qc = useQueryClient();
   return useMutation({
@@ -192,6 +238,10 @@ export const useDeactivateUser = () => {
       qc.invalidateQueries({ queryKey: ['admin', 'users'] });
       toast.success('User deactivated');
     },
+    // The API refuses to deactivate an admin account; say why rather than
+    // failing silently.
+    onError: (err: any) =>
+      toast.error(err?.response?.data?.error?.message ?? 'Could not deactivate that user'),
   });
 };
 
