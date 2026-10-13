@@ -61,8 +61,15 @@ export function BundleCard({ bundle }: BundleCardProps) {
       </CardContent>
 
       <CardFooter className="flex items-center justify-between p-4 pt-0">
-        <span className="text-lg font-bold">
-          {displayPrice ?? <span className="inline-block h-5 w-16 animate-pulse rounded bg-muted" />}
+        <span className="flex flex-col">
+          <span className="text-lg font-bold">
+            {displayPrice ?? <span className="inline-block h-5 w-16 animate-pulse rounded bg-muted" />}
+          </span>
+          {/* No delivery fee exists in the system — total is subtotal + tax.
+              Saying so removes the buyer's main unanswered question at this
+              point. If a delivery fee is ever introduced, this line and the
+              one on the review step must change together. */}
+          <span className="text-muted-foreground text-xs">Delivery included</span>
         </span>
         <Button size="sm" asChild>
           <Link href={`/bundles/${bundle.slug}`}>View bundle</Link>

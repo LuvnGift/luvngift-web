@@ -149,7 +149,7 @@ export function PurchasePanel({ bundle }: Props) {
         Continue to checkout
       </Button>
       <p className="text-muted-foreground mt-2 text-center text-xs">
-        You&apos;ll review the full order and total before any payment is taken.
+        Delivery included. You&apos;ll review the full order and total before any payment is taken.
       </p>
 
       {/* Checkout Dialog */}
@@ -333,8 +333,9 @@ function OrderSummary({ order, bundleName }: { order: Order; bundleName: string 
           <span>{fmt(order.total)}</span>
         </div>
         <p className="text-muted-foreground pt-1 text-xs">
-          Your card is charged when you complete payment. We&apos;ll email your order
-          confirmation and delivery updates.
+          Delivery to Nigeria is included — there is no separate delivery fee. Your card is
+          charged when you complete payment, and we&apos;ll email your order confirmation and
+          delivery updates.
         </p>
       </div>
 

@@ -17,12 +17,22 @@ export const GENERAL_FAQS: FAQ[] = [
   {
     question: 'How long does delivery to Nigeria take?',
     answer:
-      'Most gifts are delivered within 2 to 4 business days of payment, depending on the bundle and the destination city. You’ll receive real-time status updates by email and SMS, and you can track the order from your account at every stage.',
+      'Each bundle shows its own estimated delivery window, and you’ll see that window again on the order review before you pay. Timing depends on the bundle and the destination — major cities are quickest, and more remote areas take longer. You’ll receive status updates by email and SMS, and you can track the order from your account at every stage.',
   },
   {
     question: 'Which parts of Nigeria do you deliver to?',
     answer:
-      'We deliver nationwide — including Lagos, Abuja, Port Harcourt, Ibadan, Kano, Benin City, Enugu, and beyond. If your recipient has an address in Nigeria, we can reach them.',
+      'We deliver nationwide — including Lagos, Abuja, Port Harcourt, Ibadan, Kano, Benin City, Enugu, and beyond. If your recipient has an address in Nigeria, we can reach them. Deliveries outside the major cities can take a little longer.',
+  },
+  {
+    question: 'How much does delivery cost?',
+    answer:
+      'Delivery within Nigeria is included in the bundle price — there is no separate delivery fee. The total shown on the order review before you pay is the amount you are charged.',
+  },
+  {
+    question: 'When will I be charged?',
+    answer:
+      'Your card is charged when you complete payment at checkout, after you have reviewed the full order and total. Nothing is taken before that. Custom gift requests work differently: you submit the request with no payment, we price it, and you pay only once you have seen and accepted the quote.',
   },
   {
     question: 'What currencies can I pay in?',
