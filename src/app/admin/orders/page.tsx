@@ -4,6 +4,7 @@ import { useState } from 'react';
 import {
   useAdminOrders, useAdminOrder, useUpdateOrderStatus,
   useRefundOrder, useDeleteOrder, useAssignVendor, useVendors,
+  useReconcilePayments, type ReconcileResult,
 } from '@/hooks/use-admin';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -16,7 +17,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { ChevronLeft, ChevronRight, RefreshCw, Eye, Copy, Trash2, ExternalLink, UserCheck } from 'lucide-react';
+import { ChevronLeft, ChevronRight, RefreshCw, Eye, Copy, Trash2, ExternalLink, UserCheck, ShieldCheck, AlertTriangle } from 'lucide-react';
 import { DeliveryProofSection } from './delivery-proof-section';
 
 const ORDER_STATUSES = ['PENDING', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'REFUNDED'];
@@ -40,6 +41,17 @@ const paymentColors: Record<string, string> = {
 function fmt(cents: number, currency: string) {
   const sym: Record<string, string> = { CAD: 'CA$', USD: '$', GBP: '£', NGN: '₦' };
   return `${sym[currency] ?? currency}${(cents / 100).toFixed(2)}`;
+}
+
+/**
+ * A custom gift request that has not been priced yet.
+ *
+ * These are created with subtotal/tax/total at 0 on purpose — the price only
+ * exists once an admin quotes them. Without a marker they render as an
+ * ordinary "PENDING $0.00" row, indistinguishable from a broken order.
+ */
+function isAwaitingQuote(order: { bundleId?: string | null; total: number }) {
+  return !order.bundleId && order.total === 0;
 }
 
 function copyText(text: string) {
@@ -103,6 +115,11 @@ function OrderDetailModal({ orderId, onClose }: { orderId: string; onClose: () =
               <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusColors[order.status] ?? ''}`}>
                 {order.status}
               </span>
+              {isAwaitingQuote(order) && (
+                <span className="inline-flex rounded-full bg-purple-100 px-2.5 py-0.5 text-xs font-semibold text-purple-800">
+                  Custom — awaiting your quote
+                </span>
+              )}
               {order.payment && (
                 <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${paymentColors[order.payment.status] ?? ''}`}>
                   Payment: {order.payment.status}
@@ -197,6 +214,12 @@ function OrderDetailModal({ orderId, onClose }: { orderId: string; onClose: () =
                   <span>Total</span><span>{fmt(order.total, order.currency)}</span>
                 </div>
               </div>
+              {isAwaitingQuote(order) && (
+                <p className="mt-2 rounded-md border border-purple-200 bg-purple-50 p-3 text-xs text-purple-900">
+                  This is a custom request, so it has no price until you quote it. Set a
+                  price to email the customer and let them pay — it is not a free order.
+                </p>
+              )}
             </div>
 
             <Separator />
@@ -526,6 +549,132 @@ function AssignVendorDialog({ order, onClose }: { order: any; onClose: () => voi
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
+/**
+ * Asks Stripe for the real payment status of every PENDING order and completes
+ * the ones that actually paid.
+ *
+ * Always previews first. The apply step sends confirmation emails and queues
+ * invoices, so it must never run on a click-through — a buyer receiving a
+ * confirmation for an order that was not paid is worse than the stranding.
+ */
+function ReconcilePaymentsDialog() {
+  const [open, setOpen] = useState(false);
+  const [preview, setPreview] = useState<ReconcileResult | null>(null);
+  const reconcile = useReconcilePayments();
+
+  function start() {
+    setPreview(null);
+    setOpen(true);
+    reconcile.mutate({ dryRun: true }, { onSuccess: setPreview });
+  }
+
+  function apply() {
+    reconcile.mutate(
+      { dryRun: false },
+      {
+        onSuccess: () => {
+          setOpen(false);
+          setPreview(null);
+        },
+      },
+    );
+  }
+
+  const busy = reconcile.isPending;
+  const recoverable = preview?.recovered.length ?? 0;
+
+  return (
+    <>
+      <Button variant="outline" onClick={start} disabled={busy}>
+        <ShieldCheck className="mr-2 h-4 w-4" />
+        Reconcile payments
+      </Button>
+
+      <Dialog open={open} onOpenChange={(o) => !busy && setOpen(o)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Reconcile stranded payments</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 text-sm">
+            <p className="text-muted-foreground">
+              Checks every pending order against Stripe and completes the ones that were
+              really paid. Orders that were not paid are left untouched.
+            </p>
+
+            {busy && !preview && (
+              <div className="flex items-center gap-2 py-6">
+                <Spinner />
+                <span className="text-muted-foreground">Asking Stripe…</span>
+              </div>
+            )}
+
+            {preview && (
+              <div className="space-y-3">
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div className="rounded-md border p-3">
+                    <div className="text-xl font-semibold">{preview.scanned}</div>
+                    <div className="text-muted-foreground text-xs">Pending checked</div>
+                  </div>
+                  <div className="rounded-md border p-3">
+                    <div className="text-xl font-semibold text-green-700">{recoverable}</div>
+                    <div className="text-muted-foreground text-xs">Paid but stuck</div>
+                  </div>
+                  <div className="rounded-md border p-3">
+                    <div className="text-xl font-semibold">{preview.stillUnpaid.length}</div>
+                    <div className="text-muted-foreground text-xs">Genuinely unpaid</div>
+                  </div>
+                </div>
+
+                {recoverable > 0 && (
+                  <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-amber-900">
+                    <div className="flex gap-2">
+                      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                      <p>
+                        Applying this moves {recoverable} order{recoverable === 1 ? '' : 's'} to
+                        PROCESSING and sends {recoverable === 1 ? 'its' : 'their'} confirmation
+                        email and invoice. {recoverable === 1 ? 'This buyer has' : 'These buyers have'} already been charged.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {preview.failed.length > 0 && (
+                  <div className="rounded-md border border-red-200 bg-red-50 p-3 text-red-900">
+                    <p className="font-medium">Could not be checked</p>
+                    <ul className="mt-1 space-y-1">
+                      {preview.failed.map((f) => (
+                        <li key={f.orderId} className="font-mono text-xs">
+                          {f.orderId.slice(0, 8)} — {f.reason}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {recoverable === 0 && preview.failed.length === 0 && (
+                  <p className="text-muted-foreground">
+                    Nothing to recover. Every pending order matches Stripe.
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpen(false)} disabled={busy}>
+              Close
+            </Button>
+            <Button onClick={apply} disabled={busy || recoverable === 0}>
+              {busy && preview ? 'Recovering…' : `Recover ${recoverable || ''} order${recoverable === 1 ? '' : 's'}`.trim()}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
 export default function AdminOrdersPage() {
   const [page, setPage] = useState(1);
   const { data, isLoading } = useAdminOrders(page);
@@ -543,9 +692,12 @@ export default function AdminOrdersPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Orders</h1>
-        <p className="text-muted-foreground text-sm">Manage customer orders, update statuses, and process refunds.</p>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold">Orders</h1>
+          <p className="text-muted-foreground text-sm">Manage customer orders, update statuses, and process refunds.</p>
+        </div>
+        <ReconcilePaymentsDialog />
       </div>
 
       <Card>
@@ -582,9 +734,16 @@ export default function AdminOrdersPage() {
                         <div className="text-xs text-muted-foreground">{order.user?.email}</div>
                       </td>
                       <td className="px-4 py-3">
-                        <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${statusColors[order.status] ?? ''}`}>
-                          {order.status}
-                        </span>
+                        <div className="flex flex-col items-start gap-1">
+                          <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${statusColors[order.status] ?? ''}`}>
+                            {order.status}
+                          </span>
+                          {isAwaitingQuote(order) && (
+                            <span className="inline-flex rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-800">
+                              Awaiting quote
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">
                         {order.vendor?.name ?? '—'}

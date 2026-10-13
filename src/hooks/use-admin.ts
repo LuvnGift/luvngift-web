@@ -66,6 +66,42 @@ export const useRefundOrder = () => {
   });
 };
 
+/**
+ * Result of asking Stripe for the true payment status of every PENDING order.
+ *
+ * Recovers orders stranded by the old webhook, which discarded Stripe retries
+ * older than 5 minutes: the card was charged but the order never left PENDING,
+ * so the buyer got no confirmation and no invoice.
+ */
+export interface ReconcileResult {
+  scanned: number;
+  recovered: string[];
+  stillUnpaid: string[];
+  failed: { orderId: string; reason: string }[];
+  dryRun: boolean;
+}
+
+export const useReconcilePayments = () => {
+  const qc = useQueryClient();
+  return useMutation<ReconcileResult, unknown, { dryRun: boolean }>({
+    mutationFn: ({ dryRun }) =>
+      api
+        .post('/api/v1/admin/orders/reconcile-payments', null, { params: { dryRun } })
+        .then((r) => r.data.data),
+    onSuccess: (result) => {
+      if (result.dryRun) return; // The dialog reports a preview; a toast would duplicate it.
+      qc.invalidateQueries({ queryKey: ['admin', 'orders'] });
+      qc.invalidateQueries({ queryKey: ['admin', 'metrics'] });
+      toast.success(
+        result.recovered.length
+          ? `Recovered ${result.recovered.length} paid order${result.recovered.length === 1 ? '' : 's'}`
+          : 'No stranded orders found',
+      );
+    },
+    onError: () => toast.error('Could not reconcile payments'),
+  });
+};
+
 // ---------- Users ----------
 export const useAdminUsers = (page = 1, limit = 20) =>
   useQuery({
