@@ -20,6 +20,7 @@ import {
   Briefcase,
   Repeat,
   ShoppingBasket,
+  ShieldCheck,
 } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -39,6 +40,7 @@ const NAV_ITEMS = [
   { href: '/admin/reviews', label: 'Reviews', icon: Star },
   { href: '/admin/careers', label: 'Careers', icon: Briefcase },
   { href: '/admin/roadmap', label: 'Roadmap', icon: Map },
+  { href: '/admin/admin-access', label: 'Admin Access', icon: ShieldCheck },
   { href: '/admin/settings', label: 'Settings', icon: Settings },
 ];
 

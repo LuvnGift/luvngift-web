@@ -130,6 +130,33 @@ export const useAdminUsers = (page = 1, limit = 20) =>
       api.get('/api/v1/admin/users', { params: { page, limit } }).then((r) => r.data.data),
   });
 
+export interface AdminUser {
+  id: string;
+  username: string;
+  email: string;
+  role?: 'ADMIN' | 'CUSTOMER';
+  emailVerified: boolean;
+  createdAt: string;
+}
+
+export const useAdmins = () =>
+  useQuery<AdminUser[]>({
+    queryKey: ['admin', 'admins'],
+    queryFn: () => api.get('/api/v1/admin/users/admins').then((r) => r.data.data),
+  });
+
+/**
+ * Exact-match lookup for the grant-admin flow. Not a search box — it is
+ * admin-only and exact on purpose, so it cannot be used to enumerate customers.
+ */
+export const useLookupUserByEmail = () =>
+  useMutation<AdminUser, any, string>({
+    mutationFn: (email: string) =>
+      api
+        .get('/api/v1/admin/users/lookup', { params: { email } })
+        .then((r) => r.data.data),
+  });
+
 /**
  * Promote to ADMIN or demote to CUSTOMER.
  *
@@ -144,6 +171,7 @@ export const useUpdateUserRole = () => {
       api.patch(`/api/v1/admin/users/${id}/role`, { role }).then((r) => r.data.data),
     onSuccess: (user) => {
       qc.invalidateQueries({ queryKey: ['admin', 'users'] });
+      qc.invalidateQueries({ queryKey: ['admin', 'admins'] });
       toast.success(
         user.role === 'ADMIN'
           ? `${user.username} is now an admin`
