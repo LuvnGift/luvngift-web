@@ -4,7 +4,7 @@ import { useState } from 'react';
 import {
   useAdminOrders, useAdminOrder, useUpdateOrderStatus,
   useRefundOrder, useDeleteOrder, useAssignVendor, useVendors,
-  useReconcilePayments, type ReconcileResult,
+  useReconcilePayments, useCancelTestModeOrders, type ReconcileResult,
 } from '@/hooks/use-admin';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -41,6 +41,11 @@ const paymentColors: Record<string, string> = {
 function fmt(cents: number, currency: string) {
   const sym: Record<string, string> = { CAD: 'CA$', USD: '$', GBP: '£', NGN: '₦' };
   return `${sym[currency] ?? currency}${(cents / 100).toFixed(2)}`;
+}
+
+/** The order reference shown everywhere in admin: #, last 8 chars, uppercase. */
+function shortId(id: string) {
+  return `#${id.slice(-8).toUpperCase()}`;
 }
 
 /**
@@ -561,6 +566,7 @@ function ReconcilePaymentsDialog() {
   const [open, setOpen] = useState(false);
   const [preview, setPreview] = useState<ReconcileResult | null>(null);
   const reconcile = useReconcilePayments();
+  const cancelTestMode = useCancelTestModeOrders();
 
   function start() {
     setPreview(null);
@@ -580,8 +586,15 @@ function ReconcilePaymentsDialog() {
     );
   }
 
-  const busy = reconcile.isPending;
+  const busy = reconcile.isPending || cancelTestMode.isPending;
   const recoverable = preview?.recovered.length ?? 0;
+  const testModeIds = preview?.testMode ?? [];
+
+  function clearTestMode() {
+    cancelTestMode.mutate(testModeIds, {
+      onSuccess: () => reconcile.mutate({ dryRun: true }, { onSuccess: setPreview }),
+    });
+  }
 
   return (
     <>
@@ -626,6 +639,31 @@ function ReconcilePaymentsDialog() {
                   </div>
                 </div>
 
+                {testModeIds.length > 0 && (
+                  <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+                    <p className="font-medium">
+                      {testModeIds.length} test-mode leftover{testModeIds.length === 1 ? '' : 's'}
+                    </p>
+                    <p className="text-muted-foreground mt-1">
+                      Created before the Stripe key was switched to live, so no real payment
+                      was ever taken and they can never be recovered. Cancelling them keeps
+                      the record but clears them out of pending.
+                    </p>
+                    <p className="mt-2 font-mono text-xs">
+                      {testModeIds.map(shortId).join(', ')}
+                    </p>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="mt-3"
+                      onClick={clearTestMode}
+                      disabled={busy}
+                    >
+                      {cancelTestMode.isPending ? 'Cancelling…' : 'Cancel these orders'}
+                    </Button>
+                  </div>
+                )}
+
                 {recoverable > 0 && (
                   <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-amber-900">
                     <div className="flex gap-2">
@@ -645,14 +683,14 @@ function ReconcilePaymentsDialog() {
                     <ul className="mt-1 space-y-1">
                       {preview.failed.map((f) => (
                         <li key={f.orderId} className="font-mono text-xs">
-                          {f.orderId.slice(0, 8)} — {f.reason}
+                          {shortId(f.orderId)} — {f.reason}
                         </li>
                       ))}
                     </ul>
                   </div>
                 )}
 
-                {recoverable === 0 && preview.failed.length === 0 && (
+                {recoverable === 0 && preview.failed.length === 0 && testModeIds.length === 0 && (
                   <p className="text-muted-foreground">
                     Nothing to recover. Every pending order matches Stripe.
                   </p>

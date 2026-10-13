@@ -146,8 +146,11 @@ export function PurchasePanel({ bundle }: Props) {
         onClick={() => { setCheckoutOpen(true); setCheckoutStep('recipient'); setOrder(null); }}
       >
         <ShoppingBag className="h-4 w-4" />
-        Send this bundle
+        Continue to checkout
       </Button>
+      <p className="text-muted-foreground mt-2 text-center text-xs">
+        You&apos;ll review the full order and total before any payment is taken.
+      </p>
 
       {/* Checkout Dialog */}
       <Dialog open={checkoutOpen} onOpenChange={setCheckoutOpen}>
@@ -329,6 +332,10 @@ function OrderSummary({ order, bundleName }: { order: Order; bundleName: string 
           <span>Total due</span>
           <span>{fmt(order.total)}</span>
         </div>
+        <p className="text-muted-foreground pt-1 text-xs">
+          Your card is charged when you complete payment. We&apos;ll email your order
+          confirmation and delivery updates.
+        </p>
       </div>
 
       <Separator />

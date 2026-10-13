@@ -130,7 +130,7 @@ export function Footer() {
 				<Separator className="my-8" />
 
 				<div className="flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
-					<p>&copy; {new Date().getFullYear()} LuvNgift. All rights reserved.</p>
+					<p>&copy; {new Date().getFullYear()} Luvngift. All rights reserved.</p>
 					<p className="text-xs">Accepting CAD · USD · GBP. Delivering across Nigeria.</p>
 				</div>
 			</div>

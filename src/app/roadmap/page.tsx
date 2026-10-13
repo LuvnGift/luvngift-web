@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import type { Metadata } from 'next';
 import { Navbar } from '@/components/layout/navbar';
 import { Footer } from '@/components/layout/footer';
@@ -79,8 +80,27 @@ export default async function RoadmapPage() {
         <section className="py-16">
           <div className="container mx-auto max-w-3xl px-4">
             {items.length === 0 ? (
-              <div className="py-20 text-center text-muted-foreground">
-                <p>Nothing to show yet — check back soon!</p>
+              /* Safety net: the page is linked from the footer, so an empty
+                 list must still give the visitor somewhere to go rather than
+                 reading as a dead end. */
+              <div className="py-20 text-center">
+                <p className="text-muted-foreground">
+                  We&apos;re updating this page. In the meantime, browse what&apos;s available today.
+                </p>
+                <div className="mt-6 flex flex-wrap justify-center gap-3">
+                  <Link
+                    href="/occasions"
+                    className="bg-primary text-primary-foreground rounded-md px-5 py-2.5 text-sm font-semibold"
+                  >
+                    Browse gifts
+                  </Link>
+                  <Link
+                    href="/contact"
+                    className="rounded-md border px-5 py-2.5 text-sm font-semibold"
+                  >
+                    Ask us anything
+                  </Link>
+                </div>
               </div>
             ) : (
               <div className="space-y-14">

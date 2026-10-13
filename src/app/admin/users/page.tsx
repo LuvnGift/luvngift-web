@@ -1,21 +1,33 @@
 'use client';
 
 import { useState } from 'react';
-import { useAdminUsers, useDeactivateUser } from '@/hooks/use-admin';
+import { useAdminUsers, useDeactivateUser, useUpdateUserRole } from '@/hooks/use-admin';
+import { useMe } from '@/hooks/use-auth';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Spinner } from '@/components/ui/spinner';
-import { ChevronLeft, ChevronRight, UserX, CheckCircle, XCircle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, UserX, CheckCircle, XCircle, ShieldPlus, ShieldMinus } from 'lucide-react';
 
 export default function AdminUsersPage() {
   const [page, setPage] = useState(1);
   const { data, isLoading } = useAdminUsers(page);
   const deactivate = useDeactivateUser();
+  const updateRole = useUpdateUserRole();
+  const { data: me } = useMe();
 
   const handleDeactivate = (userId: string, username: string) => {
     if (!confirm(`Deactivate user "${username}"? This is a soft delete and can be reversed.`)) return;
     deactivate.mutate(userId);
+  };
+
+  const handleRoleChange = (user: { id: string; username: string; role: string }) => {
+    const promoting = user.role !== 'ADMIN';
+    const message = promoting
+      ? `Make "${user.username}" an admin? They will get full access to this dashboard — orders, refunds, customer data and settings.`
+      : `Remove admin access from "${user.username}"? They will become a normal customer.`;
+    if (!confirm(message)) return;
+    updateRole.mutate({ id: user.id, role: promoting ? 'ADMIN' : 'CUSTOMER' });
   };
 
   if (isLoading) {
@@ -78,17 +90,43 @@ export default function AdminUsersPage() {
                         {new Date(user.createdAt).toLocaleDateString()}
                       </td>
                       <td className="px-4 py-3 text-right">
-                        {user.role !== 'ADMIN' && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-destructive hover:text-destructive"
-                            onClick={() => handleDeactivate(user.id, user.username)}
-                            disabled={deactivate.isPending}
-                          >
-                            <UserX className="h-3 w-3 mr-1" />
-                            Deactivate
-                          </Button>
+                        {/* You cannot act on your own account here: demoting
+                            yourself is the quickest way to lock everyone out.
+                            The API enforces this too. */}
+                        {me?.id === user.id ? (
+                          <span className="text-muted-foreground text-xs">This is you</span>
+                        ) : (
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleRoleChange(user)}
+                              disabled={updateRole.isPending || (user.role !== 'ADMIN' && !user.emailVerified)}
+                              title={
+                                user.role !== 'ADMIN' && !user.emailVerified
+                                  ? 'This user has not verified their email yet'
+                                  : undefined
+                              }
+                            >
+                              {user.role === 'ADMIN' ? (
+                                <><ShieldMinus className="mr-1 h-3 w-3" />Remove admin</>
+                              ) : (
+                                <><ShieldPlus className="mr-1 h-3 w-3" />Make admin</>
+                              )}
+                            </Button>
+                            {user.role !== 'ADMIN' && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-destructive hover:text-destructive"
+                                onClick={() => handleDeactivate(user.id, user.username)}
+                                disabled={deactivate.isPending}
+                              >
+                                <UserX className="h-3 w-3 mr-1" />
+                                Deactivate
+                              </Button>
+                            )}
+                          </div>
                         )}
                       </td>
                     </tr>

@@ -77,6 +77,8 @@ export interface ReconcileResult {
   scanned: number;
   recovered: string[];
   stillUnpaid: string[];
+  /** Orders whose PaymentIntent exists only in Stripe test mode — unrecoverable. */
+  testMode: string[];
   failed: { orderId: string; reason: string }[];
   dryRun: boolean;
 }
@@ -102,6 +104,24 @@ export const useReconcilePayments = () => {
   });
 };
 
+export const useCancelTestModeOrders = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (orderIds: string[]) =>
+      api
+        .post('/api/v1/admin/orders/cancel-test-mode', { orderIds })
+        .then((r) => r.data.data as { cancelled: string[] }),
+    onSuccess: (result) => {
+      qc.invalidateQueries({ queryKey: ['admin', 'orders'] });
+      qc.invalidateQueries({ queryKey: ['admin', 'metrics'] });
+      toast.success(
+        `Cancelled ${result.cancelled.length} test-mode order${result.cancelled.length === 1 ? '' : 's'}`,
+      );
+    },
+    onError: () => toast.error('Could not cancel test-mode orders'),
+  });
+};
+
 // ---------- Users ----------
 export const useAdminUsers = (page = 1, limit = 20) =>
   useQuery({
@@ -109,6 +129,31 @@ export const useAdminUsers = (page = 1, limit = 20) =>
     queryFn: () =>
       api.get('/api/v1/admin/users', { params: { page, limit } }).then((r) => r.data.data),
   });
+
+/**
+ * Promote to ADMIN or demote to CUSTOMER.
+ *
+ * The API refuses self-demotion and removing the last admin; both would lock
+ * everyone out of the dashboard. Surface its message rather than a generic one,
+ * because the reason is the useful part.
+ */
+export const useUpdateUserRole = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, role }: { id: string; role: 'ADMIN' | 'CUSTOMER' }) =>
+      api.patch(`/api/v1/admin/users/${id}/role`, { role }).then((r) => r.data.data),
+    onSuccess: (user) => {
+      qc.invalidateQueries({ queryKey: ['admin', 'users'] });
+      toast.success(
+        user.role === 'ADMIN'
+          ? `${user.username} is now an admin`
+          : `${user.username} is no longer an admin`,
+      );
+    },
+    onError: (err: any) =>
+      toast.error(err?.response?.data?.error?.message ?? 'Could not change that user’s role'),
+  });
+};
 
 export const useDeactivateUser = () => {
   const qc = useQueryClient();
