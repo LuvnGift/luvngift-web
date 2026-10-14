@@ -29,8 +29,20 @@ interface SendMessageInput {
   guestKey?: string | null;
 }
 
+/**
+ * The server reports session state explicitly. The widget used to infer it by
+ * regex-matching the bot's own wording, which broke as soon as the copy
+ * changed — an escalation went unnoticed and the next message came back as
+ * "Session is with a human agent".
+ */
+export interface ChatReply {
+  message: ChatMessage;
+  escalated: boolean;
+  needsContact: boolean;
+}
+
 export const useSendChatMessage = () =>
-  useMutation<ChatMessage, Error, SendMessageInput>({
+  useMutation<ChatReply, Error, SendMessageInput>({
     mutationFn: (data) =>
       api
         .post(
