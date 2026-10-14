@@ -196,7 +196,17 @@ function OrderDetailModal({ orderId, onClose }: { orderId: string; onClose: () =
                         <span className="text-muted-foreground">
                           {item.quantity > 1 ? `${item.quantity}× ` : ''}{item.name}
                         </span>
-                        <span className="font-medium">{fmt(item.price, order.currency)}</span>
+                        {/* Bundle items carry no individual price — a bundle is
+                            priced as a whole, and OrderItem.price is 0 only
+                            because the column is non-nullable. Rendering that
+                            as CA$0.00 reads like a pricing bug. Subscription
+                            cycle items DO have real per-item prices, so show
+                            the amount whenever there is one. */}
+                        {item.price > 0 ? (
+                          <span className="font-medium">{fmt(item.price, order.currency)}</span>
+                        ) : (
+                          <span className="text-muted-foreground text-xs">Included in bundle</span>
+                        )}
                       </div>
                     ))}
                   </div>

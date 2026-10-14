@@ -191,7 +191,12 @@ export default function OrderDetailPage({ params }: Props) {
                         )}
                         {item.name}
                       </span>
-                      <span className="font-medium">{symbol}{(item.price / 100).toFixed(2)}</span>
+                      {/* Bundle items have no individual price (a bundle is priced as a whole; OrderItem.price is 0 only because the column is non-nullable). Showing 0.00 reads as free. Subscription cycle items DO carry real prices. */}
+                      {item.price > 0 ? (
+                        <span className="font-medium">{symbol}{(item.price / 100).toFixed(2)}</span>
+                      ) : (
+                        <span className="text-muted-foreground text-xs">Included</span>
+                      )}
                     </div>
 
                     {/* Substitution transparency — clause 9 of the substitution policy */}
