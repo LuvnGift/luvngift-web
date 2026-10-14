@@ -59,6 +59,27 @@ export function middleware(request: NextRequest) {
   // 'unsafe-eval' is required by Next.js React Refresh in development (hot reload).
   // It is intentionally excluded from production builds.
   const isDev = process.env.NODE_ENV !== 'production';
+
+  /**
+   * Sentry's browser SDK POSTs events to the ingest host encoded in the DSN,
+   * which is a different origin — so without it in `connect-src` the browser
+   * blocks every event. The failure reads like a CORS error in the console,
+   * which is misleading: nothing is wrong with Sentry, the page's own policy
+   * is refusing the request.
+   *
+   * Derived from the DSN rather than hardcoded, so it stays correct across
+   * Sentry regions (o123.ingest.us.sentry.io, .de., ...) and stays empty —
+   * granting nothing — when no DSN is configured.
+   */
+  const sentryIngestOrigin = (() => {
+    const dsn = process.env.NEXT_PUBLIC_SENTRY_DSN;
+    if (!dsn) return '';
+    try {
+      return new URL(dsn).origin;
+    } catch {
+      return '';
+    }
+  })();
   response.headers.set(
     'Content-Security-Policy',
     [
@@ -67,7 +88,7 @@ export function middleware(request: NextRequest) {
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https://res.cloudinary.com https://*.stripe.com",
       "font-src 'self'",
-      `connect-src 'self' ${process.env.NEXT_PUBLIC_API_URL} ${process.env.NEXT_PUBLIC_SOCKET_URL} ${(process.env.NEXT_PUBLIC_SOCKET_URL ?? '').replace(/^http/, 'ws')} https://api.stripe.com wss:`,
+      `connect-src 'self' ${process.env.NEXT_PUBLIC_API_URL} ${process.env.NEXT_PUBLIC_SOCKET_URL} ${(process.env.NEXT_PUBLIC_SOCKET_URL ?? '').replace(/^http/, 'ws')} https://api.stripe.com wss:${sentryIngestOrigin ? ` ${sentryIngestOrigin}` : ''}`,
       "frame-src 'self' https://js.stripe.com https://hooks.stripe.com",
       "object-src 'none'",
       "base-uri 'self'",
