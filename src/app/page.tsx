@@ -106,7 +106,7 @@ export default async function HomePage() {
 								<h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-5">
 									Celebrate the people who matter most <span className="text-primary">—wherever you are</span>
 								</h1>
-								<p className="text-lg text-muted-foreground mb-8 max-w-xl mx-auto lg:mx-0">Curated gift bundles for every occasion — birthdays, Christmas, Eid, and more — or build a completely custom experience. We handle curation, delivery, everything.</p>
+								<p className="text-lg text-muted-foreground mb-8 max-w-xl mx-auto lg:mx-0">Curated gift bundles for every occasion — birthdays, Christmas, Eid, and more — or design a fully custom gift. From sourcing to doorstep delivery, we handle everything.</p>
 								<div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
 									<Button size="lg" className="gap-2 text-base" asChild>
 										<Link href="/occasions">
@@ -143,7 +143,7 @@ export default async function HomePage() {
 					<div className="container mx-auto px-4">
 						<div className="text-center mb-10">
 							<h2 className="text-3xl font-bold mb-3">How it works</h2>
-							<p className="text-muted-foreground text-lg max-w-xl mx-auto">Sending a gift to Nigeria has never been this easy.</p>
+							<p className="text-muted-foreground text-lg max-w-xl mx-auto">Sending a gift to Nigeria, made effortless.</p>
 						</div>
 						<div className="grid md:grid-cols-3 gap-8">
 							{[
@@ -151,13 +151,13 @@ export default async function HomePage() {
 									icon: Gift,
 									step: "01",
 									title: "Choose or build",
-									desc: "Pick from our curated occasion bundles or describe exactly what you want with our custom gift builder.",
+									desc: "Choose a curated occasion bundle, or describe exactly what you want in our custom gift builder.",
 								},
 								{
 									icon: Package,
 									step: "02",
 									title: "We curate & confirm",
-									desc: "Our Nigeria-based team sources, packs, and confirms your order with a personalised message.",
+									desc: "Our Nigeria-based team sources, quality-checks, and packs your order — with your personal message presented alongside the gift.",
 								},
 								{
 									icon: Truck,
@@ -190,7 +190,7 @@ export default async function HomePage() {
 							<div className="flex items-center justify-between mb-8">
 								<div>
 									<h2 className="text-3xl font-bold mb-2">Featured gifts</h2>
-									<p className="text-muted-foreground">Popular bundles, ready to send today.</p>
+									<p className="text-muted-foreground">Our most-loved bundles — ready to send today.</p>
 								</div>
 								<Button variant="outline" asChild className="hidden sm:flex gap-1">
 									<Link href="/occasions">
@@ -248,12 +248,12 @@ export default async function HomePage() {
 						</div>
 						<div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-4xl mx-auto">
 							{[
-								{ title: "Pay in CAD, USD or GBP", desc: "No currency headaches. Pay from anywhere in the world using your local currency." },
+								{ title: "Pay in CAD, USD or GBP", desc: "Pay in your local currency — CAD, USD, or GBP — with no conversion surprises at checkout." },
 								{ title: "Real-time delivery tracking", desc: "Know exactly when your gift arrives. Live updates sent to you the moment status changes." },
-								{ title: "Curated by locals", desc: "Every bundle is handpicked by our Nigeria-based team who know what recipients love." },
+								{ title: "Curated by locals", desc: "Every bundle is handpicked by our Nigeria-based team — people who know what recipients love because it&apos;s home." },
 								{ title: "Custom gifts, done right", desc: "Describe what you want. We source it, pack it, and deliver it — no compromise." },
 								{ title: "Secure payments via Stripe", desc: "Your payment data never touches our servers. Powered by Stripe's bank-grade security." },
-								{ title: "Delivering across Nigeria", desc: "Lagos, Abuja, Port Harcourt, and beyond. If they're in Nigeria, we'll reach them." },
+								{ title: "Delivering across Nigeria", desc: "Lagos, Abuja, Port Harcourt, and beyond. If your recipient has an address in Nigeria, we can reach them." },
 							].map((item) => (
 								<Card key={item.title} className="border-none shadow-none bg-muted/40">
 									<CardContent className="p-5">
@@ -272,7 +272,7 @@ export default async function HomePage() {
 					<div className="container mx-auto px-4 max-w-3xl">
 						<FaqSection faqs={GENERAL_FAQS.slice(0, 6)} title="Frequently asked questions" />
 						<p className="mt-6 text-center text-sm text-muted-foreground">
-							See all answers on our{" "}
+							Find every answer on our{" "}
 							<Link href="/faq" className="font-medium text-primary underline underline-offset-4">
 								FAQ page
 							</Link>
@@ -288,7 +288,7 @@ export default async function HomePage() {
 						<p className="text-primary-foreground/80 text-lg mb-8 max-w-xl mx-auto">Pick a gift, add the recipient&apos;s details, and review the full order before you pay. We&apos;ll keep you updated from confirmation through delivery.</p>
 						<div className="flex flex-col sm:flex-row gap-4 justify-center">
 							<Button size="lg" variant="secondary" asChild className="text-base font-semibold px-8">
-								<Link href="/register">Create free account</Link>
+								<Link href="/register">Create a free account</Link>
 							</Button>
 							<Button size="lg" variant="outline" asChild className="text-base font-semibold px-8 border-2 border-white/70 text-white bg-transparent hover:bg-white/10 hover:text-white">
 								<Link href="/occasions">Browse occasions</Link>

@@ -514,9 +514,14 @@ export default function AdminBundlesPage() {
                       <td className="px-4 py-3 text-muted-foreground">
                         {occasionMap.get(bundle.occasionId) ?? '—'}
                       </td>
+                      {/* Always USD, matching the "Price (USD)" input above.
+                          This read `bundle.currency`, which defaults to CAD in
+                          the schema and plays no part in pricing — so the list
+                          showed "CA$30.00" for a figure the checkout converts
+                          FROM USD, i.e. a price that is not CA$30 to any buyer. */}
                       <td className="px-4 py-3">
-                        {currencySymbols[bundle.currency] ?? bundle.currency}
-                        {(bundle.price / 100).toFixed(2)}
+                        ${(bundle.price / 100).toFixed(2)}
+                        <span className="text-muted-foreground text-xs ml-1">USD</span>
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">
                         {bundle.items?.length ?? 0}

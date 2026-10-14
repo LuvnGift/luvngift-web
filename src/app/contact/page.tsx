@@ -8,7 +8,7 @@ const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.luvngift.com';
 export const metadata: Metadata = {
   title: 'Contact Us',
   description:
-    'Get in touch with the Luvngift team. We\'re here to help with orders, questions, and feedback — and we reply within 24-48 hours.',
+    'Get in touch with the Luvngift team. We\'re here to help with orders, questions, and feedback — and we reply within 24–48 hours.',
   alternates: { canonical: `${BASE_URL}/contact` },
   openGraph: {
     title: 'Contact Us | Luvngift',

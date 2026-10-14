@@ -34,7 +34,7 @@ export default function RefundPolicyPage() {
       <p>Refunds are generally not available for:</p>
       <ul>
         <li>Change of mind</li>
-        <li>Personalized items</li>
+        <li>Personalised items</li>
         <li>Custom-made products</li>
         <li>Perishable goods</li>
         <li>Digital products already delivered</li>

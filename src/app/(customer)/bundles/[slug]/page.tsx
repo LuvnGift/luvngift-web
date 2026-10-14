@@ -110,7 +110,12 @@ export default async function BundleDetailPage({ params }: Props) {
       '@type': 'Offer',
       // Bundle prices are stored in the bundle's own currency (CAD/USD/GBP),
       // not NGN — the recipient is in Nigeria but the buyer pays in their currency.
-      priceCurrency: bundle.currency ?? 'USD',
+      // Catalogue prices are stored in USD — `orders.service` runs them through
+      // `convertFromUSD` at checkout — but `Bundle.currency` defaults to CAD in
+      // the schema and is never used for pricing. Reading it here published the
+      // wrong currency to Google for every bundle, understating each price by
+      // the USD→CAD spread in rich results.
+      priceCurrency: 'USD',
       price: (bundle.price / 100).toFixed(2),
       priceValidUntil,
       availability: 'https://schema.org/InStock',

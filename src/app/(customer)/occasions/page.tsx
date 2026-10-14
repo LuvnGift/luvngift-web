@@ -69,7 +69,7 @@ export default async function OccasionsPage() {
       <div className="mb-12 text-center max-w-2xl mx-auto">
         <h1 className="text-4xl font-bold tracking-tight mb-3">Send a gift to Nigeria</h1>
         <p className="text-muted-foreground text-lg mb-6">
-          Choose an occasion below to explore curated bundles, or build a custom gift from scratch.
+          Choose an occasion to browse curated bundles — or build a custom gift from scratch.
         </p>
         <Link
           href="/custom"

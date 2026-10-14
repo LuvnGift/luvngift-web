@@ -33,7 +33,7 @@ const values = [
   {
     icon: Globe,
     title: 'Built for the diaspora',
-    body: 'We understand the unique experience of Nigerians living in Canada, the US, and the UK. Every part of our platform is designed around your real needs — pay in your currency, we handle the rest in Nigeria.',
+    body: 'We understand the experience of Nigerians living in Canada, the US, and the UK. Every part of our platform is built around your real needs — pay in your currency; we handle the rest in Nigeria.',
   },
   {
     icon: ShieldCheck,

@@ -48,11 +48,11 @@ const NAME_RE = /^[a-zA-ZÀ-ÖØ-öø-ÿ'\-\s]+$/;
 // Local form schema. Names + address are split for better UX/validation, then
 // concatenated to the API's recipientName / deliveryCity (no schema/DB change).
 const customFormSchema = z.object({
-  occasionType: z.string().min(1, 'Please select an occasion'),
+  occasionType: z.string().min(1, 'Please choose an occasion to continue.'),
   preferredDate: z.string().optional(),
   firstName: z.string().trim().min(1, 'First name is required').max(50).regex(NAME_RE, 'Letters only'),
   lastName: z.string().trim().min(1, 'Last name is required').max(50).regex(NAME_RE, 'Letters only'),
-  recipientPhone: z.string().regex(/^\d{11}$/, 'Enter a valid 11-digit phone number'),
+  recipientPhone: z.string().regex(/^\d{11}$/, 'Enter a valid 11-digit Nigerian phone number'),
   street: z
     .string()
     .trim()
@@ -474,7 +474,8 @@ export default function CustomGiftPage() {
                         }}
                       />
                       <p className="text-xs text-muted-foreground">
-                        Your currency is automatically set to {currency} based on your account location.
+                        Budgets are set in {currency}, based on your account location. You can pay
+                        in CAD, USD, or GBP at checkout.
                       </p>
                       {errors.estimatedBudget && (
                         <p className="text-destructive text-xs">{errors.estimatedBudget.message}</p>
@@ -600,7 +601,7 @@ export default function CustomGiftPage() {
             </Button>
           ) : (
             <Button type="submit" disabled={isPending}>
-              {isPending ? 'Submitting...' : 'Submit request'}
+              {isPending ? 'Sending your request…' : 'Submit request'}
             </Button>
           )}
         </div>

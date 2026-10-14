@@ -62,7 +62,7 @@ const HOW_IT_WORKS = [
   {
     icon: Check,
     title: 'Pick a plan and build the box',
-    body: 'Each plan lets you choose a set number of items from our catalogue — or take our pre-picked box if you would rather not decide.',
+    body: 'Each plan lets you choose a set number of items from our catalogue — or take our pre-picked box if you’d rather not decide.',
   },
   {
     icon: Repeat,
@@ -94,7 +94,7 @@ export default async function SubscriptionsPage() {
           </h1>
           <p className="mt-4 text-muted-foreground text-lg">
             Set it up once and we take care of the rest: sourcing, delivery, and proof it arrived.
-            No sending money home and hoping someone follows through.
+            No more sending money home and hoping someone follows through.
           </p>
         </header>
 
@@ -181,8 +181,8 @@ export default async function SubscriptionsPage() {
         </section>
 
         <p className="mt-12 text-xs text-muted-foreground max-w-3xl">
-          Subscriptions renew automatically until you cancel. Prices are charged in your local
-          currency. You can skip, pause or cancel at any time from your account — see our{' '}
+          Subscriptions renew automatically until you cancel, and are charged in your local
+          currency. Skip, pause, or cancel at any time from your account — see our{' '}
           <Link href="/terms" className="underline underline-offset-2">
             Terms
           </Link>{' '}

@@ -50,8 +50,8 @@ export function SavedCardsCard() {
           <div className="flex justify-center py-6"><Spinner /></div>
         ) : !cards || cards.length === 0 ? (
           <p className="text-sm text-muted-foreground py-2">
-            No saved cards yet. Tick &ldquo;Save this card for future gifts&rdquo; at checkout to
-            add one.
+            No saved cards yet. Tick &ldquo;Save this card for future gifts&rdquo; at checkout and
+            it will appear here.
           </p>
         ) : (
           <ul className="space-y-2">

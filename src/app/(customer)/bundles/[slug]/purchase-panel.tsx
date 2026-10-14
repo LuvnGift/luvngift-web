@@ -124,7 +124,7 @@ export function PurchasePanel({ bundle }: Props) {
       const provinceName = buyerProvince ? PROVINCE_NAMES[buyerProvince] ?? buyerProvince : null;
       const taxLabel = buyerProvince ? PROVINCE_TAX_LABEL[buyerProvince] ?? 'GST (5%)' : 'GST (5%)';
       return provinceName
-        ? `${taxLabel} will be applied — ${provinceName} billing address`
+        ? `Tax (${taxLabel}) will be applied, based on your ${provinceName} billing address`
         : 'Canadian tax will be applied based on your billing address';
     }
     return null;
@@ -278,6 +278,9 @@ export function PurchasePanel({ bundle }: Props) {
                 >
                   <StripePaymentForm
                     orderId={order.id}
+                    amountLabel={`${currencySymbols[order.currency] ?? order.currency}${(
+                      order.total / 100
+                    ).toFixed(2)}`}
                     onBack={() => setCheckoutStep('recipient')}
                   />
                 </Elements>
@@ -344,8 +347,14 @@ function OrderSummary({ order, bundleName }: { order: Order; bundleName: string 
       <div className="space-y-0.5">
         <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Delivering to</p>
         <p className="font-medium">{order.recipientName}</p>
+        {/* The street was missing here. This is the last screen before the card
+            is charged, so a buyer could confirm a delivery without ever seeing
+            the address they typed — the one field most likely to hold a typo,
+            and the one that decides whether the gift arrives. */}
+        <p className="text-muted-foreground">{order.deliveryStreet}</p>
         <p className="text-muted-foreground">{order.deliveryCity}, {order.deliveryState}</p>
         <p className="text-muted-foreground">Nigeria</p>
+        <p className="text-muted-foreground pt-1">{order.recipientPhone}</p>
       </div>
 
       {order.personalMessage && (
@@ -363,7 +372,16 @@ function OrderSummary({ order, bundleName }: { order: Order; bundleName: string 
 
 // ─── Stripe payment form ──────────────────────────────────────────────────────
 
-function StripePaymentForm({ orderId, onBack }: { orderId: string; onBack: () => void }) {
+function StripePaymentForm({
+  orderId,
+  amountLabel,
+  onBack,
+}: {
+  orderId: string;
+  /** Pre-formatted total, shown on the button so the charge is never a surprise. */
+  amountLabel: string;
+  onBack: () => void;
+}) {
   const stripe = useStripe();
   const elements = useElements();
   const { mutateAsync: verifyPayment } = useVerifyPayment();
@@ -433,7 +451,11 @@ function StripePaymentForm({ orderId, onBack }: { orderId: string; onBack: () =>
           Back
         </Button>
         <Button onClick={handlePay} disabled={isProcessing || savingPref || !stripe} className="flex-1">
-          {isProcessing ? <><Spinner size="sm" className="mr-2" />Processing...</> : 'Pay now'}
+          {isProcessing ? (
+            <><Spinner size="sm" className="mr-2" />Processing...</>
+          ) : (
+            `Pay ${amountLabel}`
+          )}
         </Button>
       </div>
       <p className="text-center text-xs text-muted-foreground">

@@ -30,7 +30,7 @@ const BENEFITS = [
 
 const STEPS = [
   { icon: Store, title: 'Apply', desc: 'Tell us about your business and what you can fulfil across Nigeria.' },
-  { icon: BadgeCheck, title: 'Get approved', desc: 'We review your application and send your onboarding details.' },
+  { icon: BadgeCheck, title: 'Get approved', desc: 'We review your application and send your onboarding pack.' },
   { icon: PackageCheck, title: 'Receive orders', desc: 'We assign orders to you with full delivery details by email and SMS.' },
   { icon: Truck, title: 'Fulfil & earn', desc: 'Deliver the gift, keep us updated, and get paid on our payout schedule.' },
 ];

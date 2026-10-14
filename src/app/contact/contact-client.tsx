@@ -61,7 +61,7 @@ export function ContactClient() {
             <div>
               <p className="font-semibold text-sm">Email us</p>
               <p className="text-sm text-muted-foreground">info@luvngift.com</p>
-              <p className="text-xs text-muted-foreground mt-1">We reply within 24-48 hours</p>
+              <p className="text-xs text-muted-foreground mt-1">We reply within 24–48 hours</p>
             </div>
           </div>
 
@@ -82,7 +82,7 @@ export function ContactClient() {
                 <div>
                   <h2 className="text-xl font-semibold mb-2">Message sent!</h2>
                   <p className="text-muted-foreground">
-                    Thanks for reaching out. We'll get back to you within 24-48 hours.
+                    Thanks for reaching out. We'll get back to you within 24–48 hours.
                   </p>
                 </div>
                 <Button variant="outline" onClick={() => setSubmitted(false)}>
