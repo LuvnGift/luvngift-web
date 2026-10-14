@@ -23,11 +23,29 @@
  * shipping a 404.
  */
 
-/** Railway can be slow to wake; don't let one cold start hang a render. */
-const TIMEOUT_MS = 10_000;
+/**
+ * Build-time and runtime want opposite things from a retry policy.
+ *
+ * At RUNTIME a visitor is waiting, so patience is a cost: two quick attempts,
+ * then fail and let the error boundary show something.
+ *
+ * At BUILD time nobody is waiting and the alternative to waiting is a failed
+ * deploy. The API's start command is
+ * `prisma migrate deploy && node dist/server.js`, so on every deploy AND every
+ * restart there is a window of tens of seconds where Railway has nothing to
+ * route to and answers 502. A three-second retry budget cannot ride that out,
+ * which is exactly how a healthy API produced
+ * "Error occurred prerendering page /bundles/thinking-of-you".
+ *
+ * So the build waits up to ~40s per page before giving up. That is cheap
+ * compared to re-running the whole pipeline.
+ */
+const IS_BUILD = process.env.NEXT_PHASE === 'phase-production-build';
 
-/** One retry absorbs a cold start, which is the common trigger here. */
-const RETRY_DELAY_MS = 1_500;
+const TIMEOUT_MS = IS_BUILD ? 20_000 : 10_000;
+
+/** Backoff schedule; its length is the attempt count. */
+const RETRY_DELAYS_MS = IS_BUILD ? [2_000, 5_000, 10_000, 20_000] : [1_500];
 
 export class ApiUnavailableError extends Error {
   constructor(url: string, cause: string) {
@@ -65,6 +83,7 @@ async function attempt(url: string, init?: RequestInit): Promise<Response> {
   if (!res.ok && res.status !== 404) {
     console.error(`[api-fetch] ${url} -> HTTP ${res.status} [request-id: ${requestId}]`);
   }
+
   return res;
 }
 
@@ -77,17 +96,18 @@ export async function fetchResourceOrNull<T>(
   init?: RequestInit & { next?: { revalidate?: number } },
 ): Promise<T | null> {
   let lastCause = 'unknown';
+  const attempts = RETRY_DELAYS_MS.length + 1;
 
-  for (let i = 0; i < 2; i++) {
-    if (i > 0) await sleep(RETRY_DELAY_MS);
+  for (let i = 0; i < attempts; i++) {
+    if (i > 0) await sleep(RETRY_DELAYS_MS[i - 1]);
 
     let res: Response;
     try {
       res = await attempt(url, init);
     } catch (err) {
       lastCause = (err as Error)?.message ?? 'network error';
-      console.error(`[api-fetch] ${url} -> ${lastCause} (attempt ${i + 1}/2)`);
-      continue; // network/timeout — worth one retry
+      console.error(`[api-fetch] ${url} -> ${lastCause} (attempt ${i + 1}/${attempts})`);
+      continue; // network/timeout — worth retrying
     }
 
     if (res.status === 404) return null; // the only real "missing"

@@ -135,11 +135,11 @@ export function ChatWidget() {
     ]);
 
     try {
-      const response = await sendMessage({ sessionId, message: text, guestKey });
-      setMessages((prev) => [...prev, response]);
-      // The assistant hands over by saying so; guests then need to leave contact
-      // details, which is the one thing a socket reply cannot substitute for.
-      if (!user && /name and email/i.test(response.content)) setStage('contact');
+      const reply = await sendMessage({ sessionId, message: text, guestKey });
+      setMessages((prev) => [...prev, reply.message]);
+      // Driven by the server's flags, never by the wording of the reply.
+      if (reply.needsContact) setStage('contact');
+      else if (reply.escalated) setStage('handed-over');
     } catch {
       setMessages((prev) => [
         ...prev,
