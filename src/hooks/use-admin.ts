@@ -449,6 +449,59 @@ export const useAssignVendor = () => {
   });
 };
 
+// ---------- Vendor status link ----------
+
+export interface VendorLinkState {
+  assigned: boolean;
+  vendor?: { id: string; name: string };
+  link: {
+    issuedAt: string;
+    expiresAt: string;
+    lastUsedAt: string | null;
+    expired: boolean;
+    vendorEmail: string;
+    vendorPhone: string;
+  } | null;
+}
+
+/**
+ * Describes the order's vendor link. There is no URL in this response and
+ * there cannot be — the API stores only a hash of the token, so a link is
+ * unrecoverable once it has been sent. `lastUsedAt === null` is the useful
+ * signal: the vendor has never opened the work.
+ */
+export const useVendorLink = (orderId: string, enabled = true) =>
+  useQuery<VendorLinkState>({
+    queryKey: ['admin', 'vendor-link', orderId],
+    queryFn: () =>
+      api.get(`/api/v1/admin/orders/${orderId}/vendor-link`).then((r) => r.data.data),
+    enabled: enabled && !!orderId,
+    // Cheap and the whole point is freshness — an admin opens this panel
+    // precisely to find out whether the vendor has looked yet.
+    staleTime: 0,
+  });
+
+/**
+ * Replaces the link. `notify: true` re-sends it by email and SMS; `false`
+ * returns a copyable URL for pasting into WhatsApp. Either way the previous
+ * link stops working immediately, so this is never a silent operation.
+ */
+export const useReissueVendorLink = (orderId: string) => {
+  const qc = useQueryClient();
+  return useMutation<{ sent: boolean; url: string | null }, unknown, { notify: boolean }>({
+    mutationFn: ({ notify }) =>
+      api
+        .post(`/api/v1/admin/orders/${orderId}/vendor-link`, { notify })
+        .then((r) => r.data.data),
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ['admin', 'vendor-link', orderId] });
+      if (data.sent) toast.success('Link resent to the vendor by email and SMS');
+    },
+    onError: (err: any) =>
+      toast.error(err?.response?.data?.error?.message ?? 'Could not issue a new link'),
+  });
+};
+
 // ---------- Vendors ----------
 export interface VendorInput {
   name: string;

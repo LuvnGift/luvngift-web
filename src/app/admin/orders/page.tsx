@@ -19,6 +19,7 @@ import {
 import { toast } from 'sonner';
 import { ChevronLeft, ChevronRight, RefreshCw, Eye, Copy, Trash2, ExternalLink, UserCheck, ShieldCheck, AlertTriangle } from 'lucide-react';
 import { DeliveryProofSection } from './delivery-proof-section';
+import { VendorLinkSection } from './vendor-link-section';
 
 const ORDER_STATUSES = ['PENDING', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'REFUNDED'];
 
@@ -343,6 +344,9 @@ function OrderDetailModal({ orderId, onClose }: { orderId: string; onClose: () =
                 )}
               </div>
             </div>
+
+            {/* Vendor status link — only renders once a vendor is assigned. */}
+            <VendorLinkSection orderId={order.id} />
 
             {/* Personal message + admin notes */}
             {(order.personalMessage || order.adminNotes) && (
