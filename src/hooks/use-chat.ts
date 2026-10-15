@@ -36,7 +36,8 @@ interface SendMessageInput {
  * "Session is with a human agent".
  */
 export interface ChatReply {
-  message: ChatMessage;
+  /** Null once a human owns the conversation: the message is kept for them and the bot stays quiet. */
+  message: ChatMessage | null;
   escalated: boolean;
   needsContact: boolean;
 }
@@ -75,8 +76,15 @@ export const useStartChat = () =>
   });
 
 /** Resumes the stored guest conversation, so a reload does not lose the thread. */
+export interface ResumedGuestChat {
+  session: GuestChatSession;
+  messages: ChatMessage[];
+  /** Restored so a reload lands in the right stage rather than back at 'chat'. */
+  isEscalated: boolean;
+}
+
 export const useResumeGuestChat = () =>
-  useMutation<{ session: GuestChatSession; messages: ChatMessage[] } | null, Error, void>({
+  useMutation<ResumedGuestChat | null, Error, void>({
     mutationFn: async () => {
       const stored = readGuestChat();
       if (!stored) return null;
@@ -84,7 +92,11 @@ export const useResumeGuestChat = () =>
         const res = await api.get(`/api/v1/chat/sessions/${stored.sessionId}`, {
           headers: guestHeaders(stored.guestKey),
         });
-        return { session: stored, messages: res.data.data.messages ?? [] };
+        return {
+          session: stored,
+          messages: res.data.data.messages ?? [],
+          isEscalated: Boolean(res.data.data.isEscalated),
+        };
       } catch {
         // Session deleted, expired, or the key no longer matches. Start fresh
         // rather than surfacing an error for something the visitor cannot act on.

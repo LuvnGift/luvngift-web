@@ -75,6 +75,7 @@ export function ChatWidget() {
         setSessionId(resumed.session.sessionId);
         setGuestKey(resumed.session.guestKey);
         setMessages(resumed.messages);
+        if (resumed.isEscalated) setStage('handed-over');
         return;
       }
     }
@@ -136,7 +137,8 @@ export function ChatWidget() {
 
     try {
       const reply = await sendMessage({ sessionId, message: text, guestKey });
-      setMessages((prev) => [...prev, reply.message]);
+      const botMessage = reply.message;
+      if (botMessage) setMessages((prev) => [...prev, botMessage]);
       // Driven by the server's flags, never by the wording of the reply.
       if (reply.needsContact) setStage('contact');
       else if (reply.escalated) setStage('handed-over');
@@ -334,14 +336,21 @@ export function ChatWidget() {
                       void handleSend();
                     }
                   }}
-                  placeholder={sessionId ? 'Type a message…' : 'Starting chat…'}
-                  disabled={sending || !sessionId || stage === 'handed-over'}
+                  placeholder={
+                    !sessionId
+                      ? 'Starting chat…'
+                      : stage === 'handed-over'
+                        ? 'Add anything the team should know…'
+                        : 'Type a message…'
+                  }
+                  // Still open after a handover: follow-ups are kept for the person.
+                  disabled={sending || !sessionId}
                   className="text-sm"
                 />
                 <Button
                   size="icon"
                   onClick={() => void handleSend()}
-                  disabled={sending || !input.trim() || !sessionId || stage === 'handed-over'}
+                  disabled={sending || !input.trim() || !sessionId}
                   aria-label="Send message"
                 >
                   {sending ? <Spinner size="sm" /> : <Send className="h-4 w-4" />}
