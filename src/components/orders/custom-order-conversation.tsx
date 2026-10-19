@@ -142,6 +142,11 @@ function QuoteSummary({ quote }: { quote: CustomOrderQuote }) {
         </p>
         <p className="text-lg font-semibold">{formatMoney(quote.total, quote.currency)}</p>
       </div>
+      {quote.tax > 0 && (
+        <p className="text-xs text-muted-foreground">
+          {formatMoney(quote.subtotal, quote.currency)} + {formatMoney(quote.tax, quote.currency)} tax
+        </p>
+      )}
       <div>
         <p className="text-xs uppercase tracking-wide text-muted-foreground">What we will deliver</p>
         <p className="text-sm whitespace-pre-wrap">{quote.scope}</p>

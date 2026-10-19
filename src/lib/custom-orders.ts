@@ -46,6 +46,13 @@ export interface OrderConversation {
   quoteStatus: QuoteStatus;
   quotes: CustomOrderQuote[];
   messages: OrderMessage[];
+  /** Admin view only: the buyer's tax rate, so a quote can be previewed. */
+  tax?: { rate: number; label: string };
+}
+
+/** Same rounding as the API's `calculateTax`. */
+export function taxOn(subtotal: number, rate: number): number {
+  return Math.round(subtotal * rate);
 }
 
 export type QuoteAction = 'ACCEPT' | 'REQUEST_CHANGES' | 'DECLINE';

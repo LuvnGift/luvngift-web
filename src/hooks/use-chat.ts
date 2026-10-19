@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { getSocket } from '@/lib/socket';
+import { useSocket } from '@/lib/socket';
 import type { ChatMessage } from '@luvngift/shared';
 import {
   clearGuestChat,
@@ -159,10 +159,12 @@ export const useChatSocket = (
   onMessage: (msg: ChatMessage) => void,
   guestKey?: string | null,
 ) => {
+  // The instance is replaced when auth state changes; listening on the one that
+  // existed at mount means listening on a socket that has been discarded.
+  const socket = useSocket();
+
   useEffect(() => {
-    if (!sessionId) return;
-    const socket = getSocket();
-    if (!socket) return;
+    if (!sessionId || !socket) return;
 
     const join = () => socket.emit('join:chat', sessionId, guestKey ?? undefined);
 
@@ -175,5 +177,5 @@ export const useChatSocket = (
       socket.off('connect', join);
       socket.off('chat:message', onMessage);
     };
-  }, [sessionId, onMessage, guestKey]);
+  }, [socket, sessionId, onMessage, guestKey]);
 };

@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { useQueryClient, type QueryKey } from '@tanstack/react-query';
-import { getSocket } from '@/lib/socket';
+import { useSocket } from '@/lib/socket';
 
 /**
  * Keeps an order's queries fresh while its page is open.
@@ -23,9 +23,10 @@ export function useOrderLive(
 ) {
   const qc = useQueryClient();
   const keys = JSON.stringify(queryKeys);
+  // Re-runs when the socket instance is swapped (anonymous → authenticated).
+  const socket = useSocket();
 
   useEffect(() => {
-    const socket = getSocket();
     if (!socket || !orderId) return;
 
     const join = () => socket.emit('join:order', orderId);
@@ -48,5 +49,5 @@ export function useOrderLive(
       socket.off('order:conversation', refresh);
       socket.off('order:status', status);
     };
-  }, [orderId, keys, qc, onStatus]);
+  }, [socket, orderId, keys, qc, onStatus]);
 }

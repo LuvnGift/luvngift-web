@@ -19,6 +19,7 @@ import {
   ADMIN_STAGE,
   MESSAGE_MAX,
   formatMoney,
+  taxOn,
   type CustomOrderQuote,
   type OrderConversation,
   type QuoteStatus,
@@ -164,7 +165,7 @@ function QuoteForm({
         {replacing ? 'Replace the quote the customer has not answered yet' : conversation.quotes.length ? 'Send a revised quote' : 'Send a quote'}
       </p>
       <div className="space-y-1.5">
-        <Label>Price ({order.currency})</Label>
+        <Label>Price before tax ({order.currency})</Label>
         <Input
           inputMode="decimal"
           value={values.priceMajor}
@@ -207,15 +208,32 @@ function QuoteForm({
         </span>
       </label>
       <div className="flex items-center justify-between gap-2">
-        <p className="text-xs text-muted-foreground">
-          {values.priceMajor && !errors.priceMajor && Number(values.priceMajor) > 0
-            ? `Customer will see ${formatMoney(toMinorUnits(values.priceMajor), order.currency)}`
-            : 'Tax is not added to custom quotes.'}
-        </p>
+        <p className="text-xs text-muted-foreground">{previewText(values.priceMajor, order.currency, conversation.tax)}</p>
         <Button size="sm" onClick={submit} disabled={sendQuote.isPending}>
           {sendQuote.isPending ? 'Sending…' : 'Send quote'}
         </Button>
       </div>
     </div>
   );
+}
+
+/**
+ * What the customer will be asked to pay. Tax is added by the API exactly as on
+ * a bundle order (by the buyer's province — only Canadian buyers are taxed), so
+ * the preview applies the same rate rather than leaving the admin to guess.
+ */
+function previewText(
+  priceMajor: string,
+  currency: string,
+  tax: OrderConversation['tax'],
+): string {
+  const rate = tax?.rate ?? 0;
+  const subtotal = toMinorUnits(priceMajor);
+  if (!(subtotal > 0)) {
+    if (rate === 0) return 'No tax applies for this buyer.';
+    return `${tax!.label} of ${Math.round(rate * 10000) / 100}% will be added.`;
+  }
+  if (rate === 0) return `Customer will see ${formatMoney(subtotal, currency)} (no tax for this buyer)`;
+  const total = subtotal + taxOn(subtotal, rate);
+  return `Customer will see ${formatMoney(total, currency)} incl. ${tax!.label}`;
 }
