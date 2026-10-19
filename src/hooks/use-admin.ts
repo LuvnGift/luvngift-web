@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
 import type { OrderConversation } from '@/lib/custom-orders';
+import type { OrderListParams, OrderTab } from '@/lib/admin-order-tabs';
 
 // ---------- Metrics ----------
 export const useAdminMetrics = () =>
@@ -14,11 +15,26 @@ export const useAdminMetrics = () =>
   });
 
 // ---------- Orders ----------
-export const useAdminOrders = (page = 1, limit = 20) =>
-  useQuery({
-    queryKey: ['admin', 'orders', page, limit],
+export interface AdminOrderList {
+  data: any[];
+  meta: { total: number; page: number; limit: number; totalPages: number };
+  /** Orders per tab for the current search — drives the tab bar's counts. */
+  counts: Record<OrderTab, number>;
+}
+
+/**
+ * Filtered on the server: the list is paginated, so filtering in the browser
+ * would only ever see the current page. Keeps the previous result on screen
+ * while a new tab loads, so switching tabs doesn't flash a spinner.
+ */
+export const useAdminOrders = ({ tab, q, sort, page }: OrderListParams, limit = 20) =>
+  useQuery<AdminOrderList>({
+    queryKey: ['admin', 'orders', 'list', { tab, q, sort, page, limit }],
     queryFn: () =>
-      api.get('/api/v1/admin/orders', { params: { page, limit } }).then((r) => r.data.data),
+      api
+        .get('/api/v1/admin/orders', { params: { tab, q: q || undefined, sort, page, limit } })
+        .then((r) => r.data.data),
+    placeholderData: (prev) => prev,
   });
 
 export const useAdminOrder = (id: string | null) =>

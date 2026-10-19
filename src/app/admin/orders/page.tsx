@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   useAdminOrders, useAdminOrder, useUpdateOrderStatus,
@@ -20,6 +20,13 @@ import {
 import { toast } from 'sonner';
 import { ChevronLeft, ChevronRight, RefreshCw, Eye, Copy, Trash2, ExternalLink, UserCheck, ShieldCheck, AlertTriangle } from 'lucide-react';
 import { DeliveryProofSection } from './delivery-proof-section';
+import { OrderFilters } from './order-filters';
+import {
+  ORDER_TABS,
+  parseOrderListParams,
+  withOrderListParams,
+  type OrderListParams,
+} from '@/lib/admin-order-tabs';
 import { VendorLinkSection } from './vendor-link-section';
 import { CustomOrderSection, customOrderStatusBlock, customOrderVendorBlock } from './custom-order-section';
 import { ADMIN_STAGE, type QuoteStatus } from '@/lib/custom-orders';
@@ -796,13 +803,33 @@ function ReconcilePaymentsDialog() {
   );
 }
 
-export default function AdminOrdersPage() {
-  const [page, setPage] = useState(1);
-  const { data, isLoading } = useAdminOrders(page);
+/** What an empty list means depends on the tab — "nothing to do" is good news. */
+function emptyMessage(tab: string, q: string): string {
+  if (q) return `No orders match “${q}” in this tab.`;
+  if (tab === 'needs-action') return 'Nothing needs your attention right now.';
+  const label = ORDER_TABS.find((t) => t.id === tab)?.label ?? 'this tab';
+  return `No orders in ${label}.`;
+}
 
-  const [detailOrderId, setDetailOrderId] = useState<string | null>(null);
+export default function AdminOrdersPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
+
+  // Tab, search, sort and page live in the URL, so refresh, back and shared
+  // links keep the view. Changing any of them replaces the URL in place.
+  const listParams = parseOrderListParams(searchParams);
+  const { tab, q, page } = listParams;
+  const { data, isLoading, isPlaceholderData } = useAdminOrders(listParams);
+  const searchString = searchParams.toString();
+  const updateList = useCallback(
+    (next: Partial<OrderListParams>) => {
+      const qs = withOrderListParams(searchString, next);
+      router.replace(qs ? `/admin/orders?${qs}` : '/admin/orders', { scroll: false });
+    },
+    [router, searchString],
+  );
+
+  const [detailOrderId, setDetailOrderId] = useState<string | null>(null);
 
   // Admin alert emails deep-link to `?order=<id>` so an alert opens the order
   // it is about, rather than the first page of every order.
@@ -830,7 +857,9 @@ export default function AdminOrdersPage() {
         <ReconcilePaymentsDialog />
       </div>
 
-      <Card>
+      <OrderFilters params={listParams} counts={data?.counts} onChange={updateList} />
+
+      <Card className={isPlaceholderData ? 'opacity-60 transition-opacity' : 'transition-opacity'}>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -848,7 +877,7 @@ export default function AdminOrdersPage() {
                 {orders.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="px-4 py-12 text-center text-muted-foreground">
-                      No orders found.
+                      {emptyMessage(tab, q)}
                     </td>
                   </tr>
                 ) : (
@@ -924,10 +953,10 @@ export default function AdminOrdersPage() {
             Page {meta.page} of {meta.totalPages} ({meta.total} orders)
           </p>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
+            <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => updateList({ page: page - 1 })}>
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <Button variant="outline" size="sm" disabled={page >= meta.totalPages} onClick={() => setPage((p) => p + 1)}>
+            <Button variant="outline" size="sm" disabled={page >= meta.totalPages} onClick={() => updateList({ page: page + 1 })}>
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
@@ -941,7 +970,13 @@ export default function AdminOrdersPage() {
             setDetailOrderId(null);
             // Clear the deep link, or opening the same order again from an alert
             // would not change the URL and the panel would stay shut.
-            if (linkedOrderId) router.replace('/admin/orders', { scroll: false });
+            if (linkedOrderId) {
+              // Drop only ?order=, keeping the tab and search the admin was on.
+              const params = new URLSearchParams(searchString);
+              params.delete('order');
+              const qs = params.toString();
+              router.replace(qs ? `/admin/orders?${qs}` : '/admin/orders', { scroll: false });
+            }
           }}
         />
       )}

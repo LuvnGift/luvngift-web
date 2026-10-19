@@ -14,6 +14,7 @@ import {
   Camera,
   AlertTriangle,
   CheckCircle2,
+  MessageSquareQuote,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAdminMetrics } from '@/hooks/use-admin';
@@ -159,11 +160,20 @@ export default function AdminDashboardPage() {
   const orderDelta = (metrics?.ordersToday ?? 0) - (metrics?.ordersYesterday ?? 0);
   const fxAbsorbed = metrics?.refundFxAbsorbedCad ?? 0;
 
+  // Each card opens the orders tab holding exactly what it counts — the
+  // "Needs action" tab is built from the same two rules as the first two cards.
   const queue: QueueItem[] = [
+    {
+      label: 'custom requests need you',
+      count: metrics?.customAwaitingAdmin ?? 0,
+      href: '/admin/orders?tab=needs-action',
+      icon: MessageSquareQuote,
+      hint: 'Quote, revise, or re-quote after a decline',
+    },
     {
       label: 'orders need a vendor',
       count: metrics?.unassignedOrders ?? 0,
-      href: '/admin/orders',
+      href: '/admin/orders?tab=needs-action',
       icon: UserCheck,
       hint: 'Paid and waiting on assignment',
     },
@@ -184,7 +194,7 @@ export default function AdminDashboardPage() {
     {
       label: 'deliveries lack a photo',
       count: metrics?.undeliveredProof ?? 0,
-      href: '/admin/orders',
+      href: '/admin/orders?tab=shipped',
       icon: Camera,
       hint: 'Shipped but proof not uploaded',
     },
