@@ -38,7 +38,8 @@ export function CustomOrderConversation({ order, onPaid }: Props) {
     return <Card><CardContent className="flex justify-center py-10"><Spinner /></CardContent></Card>;
   }
 
-  const quote = openQuote(conversation);
+  // Only a PENDING order can answer a quote; the API refuses otherwise.
+  const quote = order.status === 'PENDING' ? openQuote(conversation) : null;
   const awaitingPayment =
     conversation.quoteStatus === 'ACCEPTED' &&
     order.status === 'PENDING' &&
@@ -49,7 +50,7 @@ export function CustomOrderConversation({ order, onPaid }: Props) {
     <Card>
       <CardHeader className="space-y-1">
         <CardTitle className="text-base">Your custom gift request</CardTitle>
-        <p className="text-sm text-muted-foreground">{stageHint(conversation, awaitingPayment)}</p>
+        <p className="text-sm text-muted-foreground">{stageHint(conversation, awaitingPayment, order.status)}</p>
       </CardHeader>
       <CardContent className="space-y-5">
         {quote && <OpenQuote orderId={order.id} quote={quote} onAccepted={() => setPaying(true)} />}
@@ -66,7 +67,8 @@ export function CustomOrderConversation({ order, onPaid }: Props) {
   );
 }
 
-function stageHint(conversation: OrderConversation, awaitingPayment: boolean): string {
+function stageHint(conversation: OrderConversation, awaitingPayment: boolean, status: string): string {
+  if (status === 'CANCELLED') return 'This request was cancelled. Nothing was charged unless you had already paid.';
   if (awaitingPayment) return 'You accepted our quote. Pay to confirm and we will start sourcing your gift.';
   switch (conversation.quoteStatus) {
     case 'AWAITING_QUOTE':
@@ -74,7 +76,7 @@ function stageHint(conversation: OrderConversation, awaitingPayment: boolean): s
     case 'CHANGES_REQUESTED':
       return 'Thanks — we are revising the quote based on your feedback.';
     case 'DECLINED':
-      return 'You declined this quote, so the request was cancelled. Nothing was charged.';
+      return 'You declined this quote and nothing was charged. We may come back with another option — you can still message us here.';
     default:
       return CUSTOMER_STAGE[conversation.quoteStatus];
   }

@@ -44,7 +44,9 @@ interface Props {
   };
 }
 
-const QUOTABLE: QuoteStatus[] = ['AWAITING_QUOTE', 'QUOTED', 'CHANGES_REQUESTED'];
+// Mirrors the API. DECLINED is included: a decline keeps the request open so a
+// new quote can win the customer back; cancelling is a separate admin action.
+const QUOTABLE: QuoteStatus[] = ['AWAITING_QUOTE', 'QUOTED', 'CHANGES_REQUESTED', 'DECLINED'];
 
 export function CustomOrderSection({ order }: Props) {
   const { data: conversation, isLoading } = useAdminOrderConversation(order.id);
@@ -77,6 +79,34 @@ export function CustomOrderSection({ order }: Props) {
       {canQuote && <QuoteForm order={order} conversation={conversation} />}
     </div>
   );
+}
+
+function quoteFormTitle(conversation: OrderConversation, replacing: boolean): string {
+  if (replacing) return 'Replace the quote the customer has not answered yet';
+  if (conversation.quoteStatus === 'DECLINED') {
+    return 'The customer declined — send a new quote, or cancel the order with the Status button';
+  }
+  return conversation.quotes.length ? 'Send a revised quote' : 'Send a quote';
+}
+
+/** Statuses that put a custom gift into fulfilment. */
+const FULFILMENT_STATUSES = new Set(['PROCESSING', 'SHIPPED', 'DELIVERED']);
+
+/**
+ * Why a custom order cannot be moved to `status`, or null if it can. Mirrors
+ * the API's `assertCustomOrderStatusChange`: cancel or reopen any time, but no
+ * fulfilment before the quote is accepted and paid, and no refund unpaid.
+ */
+export function customOrderStatusBlock(
+  order: { quoteStatus?: QuoteStatus | null; payment?: { status: string } | null },
+  status: string,
+): string | null {
+  if (!order.quoteStatus) return null;
+  if (FULFILMENT_STATUSES.has(status)) return customOrderVendorBlock(order);
+  if (status === 'REFUNDED' && !['SUCCEEDED', 'REFUNDED'].includes(order.payment?.status ?? '')) {
+    return 'Never paid, so there is nothing to refund';
+  }
+  return null;
 }
 
 /**
@@ -162,7 +192,7 @@ function QuoteForm({
     <div className="space-y-3 rounded-md border border-purple-200 bg-purple-50/50 p-3">
       <p className="text-sm font-medium flex items-center gap-1.5">
         <Tag className="h-4 w-4" />
-        {replacing ? 'Replace the quote the customer has not answered yet' : conversation.quotes.length ? 'Send a revised quote' : 'Send a quote'}
+        {quoteFormTitle(conversation, replacing)}
       </p>
       <div className="space-y-1.5">
         <Label>Price before tax ({order.currency})</Label>
