@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   useAdminOrders, useAdminOrder, useUpdateOrderStatus,
   useRefundOrder, useDeleteOrder, useAssignVendor, useVendors,
@@ -21,7 +21,7 @@ import { toast } from 'sonner';
 import { ChevronLeft, ChevronRight, RefreshCw, Eye, Copy, Trash2, ExternalLink, UserCheck, ShieldCheck, AlertTriangle } from 'lucide-react';
 import { DeliveryProofSection } from './delivery-proof-section';
 import { VendorLinkSection } from './vendor-link-section';
-import { CustomOrderSection, customOrderVendorBlock } from './custom-order-section';
+import { CustomOrderSection, customOrderStatusBlock, customOrderVendorBlock } from './custom-order-section';
 import { ADMIN_STAGE, type QuoteStatus } from '@/lib/custom-orders';
 
 const ORDER_STATUSES = ['PENDING', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'REFUNDED'];
@@ -482,12 +482,29 @@ function UpdateStatusDialog({ order, onClose }: { order: any; onClose: () => voi
             <Select value={newStatus} onValueChange={setNewStatus}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                {ORDER_STATUSES.map((s) => (
-                  <SelectItem key={s} value={s}>{s}</SelectItem>
-                ))}
+                {ORDER_STATUSES.map((s) => {
+                  const blocked = customOrderStatusBlock(order, s);
+                  return (
+                    <SelectItem key={s} value={s} disabled={!!blocked}>
+                      {s}{blocked ? ` — ${blocked}` : ''}
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
           </div>
+          {order.quoteStatus && newStatus === 'CANCELLED' && order.status !== 'CANCELLED' && (
+            <p className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+              Cancelling withdraws any open quote and closes the conversation. The customer is
+              emailed that the order was cancelled — if you want to tell them why, send a
+              message from the order first.
+            </p>
+          )}
+          {order.quoteStatus && order.status === 'CANCELLED' && newStatus === 'PENDING' && (
+            <p className="rounded-md border border-sky-200 bg-sky-50 p-3 text-xs text-sky-900">
+              Reopening lets you message the customer and send a new quote again.
+            </p>
+          )}
           <div className="space-y-1.5">
             <Label>Admin Notes <span className="text-muted-foreground">(optional)</span></Label>
             <Textarea
@@ -756,6 +773,7 @@ export default function AdminOrdersPage() {
 
   const [detailOrderId, setDetailOrderId] = useState<string | null>(null);
   const searchParams = useSearchParams();
+  const router = useRouter();
 
   // Admin alert emails deep-link to `?order=<id>` so an alert opens the order
   // it is about, rather than the first page of every order.
@@ -888,7 +906,15 @@ export default function AdminOrdersPage() {
       )}
 
       {detailOrderId && (
-        <OrderDetailModal orderId={detailOrderId} onClose={() => setDetailOrderId(null)} />
+        <OrderDetailModal
+          orderId={detailOrderId}
+          onClose={() => {
+            setDetailOrderId(null);
+            // Clear the deep link, or opening the same order again from an alert
+            // would not change the URL and the panel would stay shut.
+            if (linkedOrderId) router.replace('/admin/orders', { scroll: false });
+          }}
+        />
       )}
 
       {updateOrder && (

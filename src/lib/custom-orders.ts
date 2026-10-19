@@ -110,7 +110,7 @@ export const CUSTOMER_STAGE: Record<QuoteStatus, string> = {
   QUOTED: 'Your quote is ready',
   CHANGES_REQUESTED: 'We are revising your quote',
   ACCEPTED: 'Quote accepted',
-  DECLINED: 'Request declined',
+  DECLINED: 'Quote declined',
 };
 
 /** Admin-facing wording: what, if anything, is waiting on us. */
@@ -119,5 +119,5 @@ export const ADMIN_STAGE: Record<QuoteStatus, { label: string; className: string
   QUOTED: { label: 'Quote sent', className: 'bg-sky-100 text-sky-800' },
   CHANGES_REQUESTED: { label: 'Changes requested', className: 'bg-amber-100 text-amber-900' },
   ACCEPTED: { label: 'Quote accepted', className: 'bg-green-100 text-green-800' },
-  DECLINED: { label: 'Quote declined', className: 'bg-gray-100 text-gray-700' },
+  DECLINED: { label: 'Quote declined — re-quote or cancel', className: 'bg-rose-100 text-rose-800' },
 };

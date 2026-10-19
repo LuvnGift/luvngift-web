@@ -51,6 +51,9 @@ export const useUpdateOrderStatus = () => {
       qc.invalidateQueries({ queryKey: ['admin', 'metrics'] });
       toast.success('Order status updated');
     },
+    // The API explains a refusal (e.g. a custom order not yet paid) — show it.
+    onError: (err: any) =>
+      toast.error(err?.response?.data?.error?.message ?? 'Failed to update status'),
   });
 };
 

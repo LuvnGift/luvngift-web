@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { useQueryClient, type QueryKey } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { useSocket } from '@/lib/socket';
 
 /**
@@ -50,4 +51,36 @@ export function useOrderLive(
       socket.off('order:status', status);
     };
   }, [socket, orderId, keys, qc, onStatus]);
+}
+
+/**
+ * Admin-wide: refresh order data and alert when a CUSTOMER acts on a custom
+ * request (message, accept, request changes, decline) — on any admin page.
+ *
+ * Before this only the open order panel listened, so the orders list kept
+ * showing a stale stage and nothing told ops a customer had replied. Events an
+ * admin caused (`by: 'ADMIN'`) refresh silently rather than alerting ops about
+ * its own message.
+ */
+export function useAdminOrderActivity(onOpen: (orderId: string) => void) {
+  const qc = useQueryClient();
+  const socket = useSocket();
+
+  useEffect(() => {
+    if (!socket) return;
+    const onConversation = (payload: { orderId?: string; by?: 'CUSTOMER' | 'ADMIN' }) => {
+      if (!payload?.orderId) return;
+      qc.invalidateQueries({ queryKey: ['admin', 'orders'] });
+      if (payload.by !== 'CUSTOMER') return;
+      const orderId = payload.orderId;
+      toast.info(`Customer replied on custom order #${orderId.slice(-8).toUpperCase()}`, {
+        action: { label: 'Open', onClick: () => onOpen(orderId) },
+        duration: 15_000,
+      });
+    };
+    socket.on('order:conversation', onConversation);
+    return () => {
+      socket.off('order:conversation', onConversation);
+    };
+  }, [socket, qc, onOpen]);
 }
