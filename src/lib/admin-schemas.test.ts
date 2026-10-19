@@ -4,6 +4,8 @@ import {
   planFormSchema,
   planPricesSchema,
   fieldErrors,
+  quoteFormSchema,
+  toMinorUnits,
 } from './admin-schemas';
 
 /**
@@ -141,5 +143,36 @@ describe('fieldErrors', () => {
       expect(errors.name).toBeDefined();
       expect(errors.priceMajor).toBeDefined();
     }
+  });
+});
+
+describe('quoteFormSchema', () => {
+  const valid = {
+    priceMajor: '45.50',
+    scope: 'Red velvet cake, 12 roses and a handwritten card',
+    note: '',
+    isFinal: false,
+  };
+
+  it('accepts a well-formed quote', () => {
+    expect(quoteFormSchema.safeParse(valid).success).toBe(true);
+  });
+
+  it('rejects a zero or blank price', () => {
+    expect(quoteFormSchema.safeParse({ ...valid, priceMajor: '0' }).success).toBe(false);
+    expect(quoteFormSchema.safeParse({ ...valid, priceMajor: '' }).success).toBe(false);
+  });
+
+  it('requires a scope the vendor can work from (API min 10)', () => {
+    expect(quoteFormSchema.safeParse({ ...valid, scope: 'Cake' }).success).toBe(false);
+  });
+
+  it('caps scope at the API limit of 4000', () => {
+    expect(quoteFormSchema.safeParse({ ...valid, scope: 'x'.repeat(4001) }).success).toBe(false);
+  });
+
+  it('converts to the smallest unit without float drift', () => {
+    expect(toMinorUnits('45.50')).toBe(4550);
+    expect(toMinorUnits('19.99')).toBe(1999);
   });
 });

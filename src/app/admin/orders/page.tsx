@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   useAdminOrders, useAdminOrder, useUpdateOrderStatus,
   useRefundOrder, useDeleteOrder, useAssignVendor, useVendors,
@@ -20,6 +21,8 @@ import { toast } from 'sonner';
 import { ChevronLeft, ChevronRight, RefreshCw, Eye, Copy, Trash2, ExternalLink, UserCheck, ShieldCheck, AlertTriangle } from 'lucide-react';
 import { DeliveryProofSection } from './delivery-proof-section';
 import { VendorLinkSection } from './vendor-link-section';
+import { CustomOrderSection, customOrderVendorBlock } from './custom-order-section';
+import { ADMIN_STAGE, type QuoteStatus } from '@/lib/custom-orders';
 
 const ORDER_STATUSES = ['PENDING', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'REFUNDED'];
 
@@ -50,14 +53,20 @@ function shortId(id: string) {
 }
 
 /**
- * A custom gift request that has not been priced yet.
+ * Where a custom gift request is, as a badge. Null for every other order.
  *
- * These are created with subtotal/tax/total at 0 on purpose — the price only
- * exists once an admin quotes them. Without a marker they render as an
+ * Custom requests are created with a zero total on purpose — the price only
+ * exists once an admin quotes them — so without this they render as an
  * ordinary "PENDING $0.00" row, indistinguishable from a broken order.
  */
-function isAwaitingQuote(order: { bundleId?: string | null; total: number }) {
-  return !order.bundleId && order.total === 0;
+function QuoteStageBadge({ quoteStatus }: { quoteStatus?: QuoteStatus | null }) {
+  if (!quoteStatus) return null;
+  const stage = ADMIN_STAGE[quoteStatus];
+  return (
+    <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${stage.className}`}>
+      Custom · {stage.label}
+    </span>
+  );
 }
 
 function copyText(text: string) {
@@ -121,11 +130,7 @@ function OrderDetailModal({ orderId, onClose }: { orderId: string; onClose: () =
               <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusColors[order.status] ?? ''}`}>
                 {order.status}
               </span>
-              {isAwaitingQuote(order) && (
-                <span className="inline-flex rounded-full bg-purple-100 px-2.5 py-0.5 text-xs font-semibold text-purple-800">
-                  Custom — awaiting your quote
-                </span>
-              )}
+              <QuoteStageBadge quoteStatus={order.quoteStatus} />
               {order.payment && (
                 <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${paymentColors[order.payment.status] ?? ''}`}>
                   Payment: {order.payment.status}
@@ -184,6 +189,20 @@ function OrderDetailModal({ orderId, onClose }: { orderId: string; onClose: () =
               </div>
             </div>
 
+            {/* Custom request: what was asked for, then the quote conversation */}
+            {order.quoteStatus && (
+              <>
+                <Separator />
+                {order.specialInstructions && (
+                  <div>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide font-medium mb-1.5">Request</p>
+                    <pre className="whitespace-pre-wrap font-sans text-sm text-muted-foreground">{order.specialInstructions}</pre>
+                  </div>
+                )}
+                <CustomOrderSection order={order} />
+              </>
+            )}
+
             <Separator />
 
             {/* Items */}
@@ -230,10 +249,10 @@ function OrderDetailModal({ orderId, onClose }: { orderId: string; onClose: () =
                   <span>Total</span><span>{fmt(order.total, order.currency)}</span>
                 </div>
               </div>
-              {isAwaitingQuote(order) && (
+              {order.quoteStatus === 'AWAITING_QUOTE' && (
                 <p className="mt-2 rounded-md border border-purple-200 bg-purple-50 p-3 text-xs text-purple-900">
-                  This is a custom request, so it has no price until you quote it. Set a
-                  price to email the customer and let them pay — it is not a free order.
+                  This is a custom request, so it has no price until you quote it below —
+                  it is not a free order.
                 </p>
               )}
             </div>
@@ -323,10 +342,14 @@ function OrderDetailModal({ orderId, onClose }: { orderId: string; onClose: () =
                   size="sm"
                   className="mt-1 gap-1"
                   onClick={() => setShowAssign(true)}
+                  disabled={!!customOrderVendorBlock(order)}
                 >
                   <UserCheck className="h-3 w-3" />
                   {order.vendor ? 'Reassign vendor' : 'Assign vendor'}
                 </Button>
+                {customOrderVendorBlock(order) && (
+                  <p className="mt-1 text-xs text-muted-foreground">{customOrderVendorBlock(order)}</p>
+                )}
               </div>
               <div>
                 <p className="text-xs text-muted-foreground uppercase tracking-wide font-medium mb-1.5">Invoice</p>
@@ -732,6 +755,14 @@ export default function AdminOrdersPage() {
   const { data, isLoading } = useAdminOrders(page);
 
   const [detailOrderId, setDetailOrderId] = useState<string | null>(null);
+  const searchParams = useSearchParams();
+
+  // Admin alert emails deep-link to `?order=<id>` so an alert opens the order
+  // it is about, rather than the first page of every order.
+  const linkedOrderId = searchParams.get('order');
+  useEffect(() => {
+    if (linkedOrderId && /^[a-z0-9]{25}$/.test(linkedOrderId)) setDetailOrderId(linkedOrderId);
+  }, [linkedOrderId]);
   const [updateOrder, setUpdateOrder] = useState<any>(null);
   const [assignOrder, setAssignOrder] = useState<any>(null);
 
@@ -790,11 +821,7 @@ export default function AdminOrdersPage() {
                           <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${statusColors[order.status] ?? ''}`}>
                             {order.status}
                           </span>
-                          {isAwaitingQuote(order) && (
-                            <span className="inline-flex rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-800">
-                              Awaiting quote
-                            </span>
-                          )}
+                          <QuoteStageBadge quoteStatus={order.quoteStatus} />
                         </div>
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">
@@ -819,6 +846,8 @@ export default function AdminOrdersPage() {
                             size="sm"
                             className="gap-1"
                             onClick={() => setAssignOrder(order)}
+                            disabled={!!customOrderVendorBlock(order)}
+                            title={customOrderVendorBlock(order) ?? undefined}
                           >
                             <UserCheck className="h-3.5 w-3.5" />
                             {order.vendor ? 'Reassign' : 'Assign'}
