@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   useAdminOrders, useAdminOrder, useUpdateOrderStatus,
   useRefundOrder, useDeleteOrder, useAssignVendor, useVendors,
@@ -756,6 +756,7 @@ export default function AdminOrdersPage() {
 
   const [detailOrderId, setDetailOrderId] = useState<string | null>(null);
   const searchParams = useSearchParams();
+  const router = useRouter();
 
   // Admin alert emails deep-link to `?order=<id>` so an alert opens the order
   // it is about, rather than the first page of every order.
@@ -888,7 +889,15 @@ export default function AdminOrdersPage() {
       )}
 
       {detailOrderId && (
-        <OrderDetailModal orderId={detailOrderId} onClose={() => setDetailOrderId(null)} />
+        <OrderDetailModal
+          orderId={detailOrderId}
+          onClose={() => {
+            setDetailOrderId(null);
+            // Clear the deep link, or opening the same order again from an alert
+            // would not change the URL and the panel would stay shut.
+            if (linkedOrderId) router.replace('/admin/orders', { scroll: false });
+          }}
+        />
       )}
 
       {updateOrder && (

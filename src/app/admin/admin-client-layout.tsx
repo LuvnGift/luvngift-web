@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard,
   ShoppingCart,
@@ -22,10 +22,11 @@ import {
   ShoppingBasket,
   ShieldCheck,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useLogout } from '@/hooks/use-auth';
 import { cn } from '@/lib/utils';
+import { useAdminOrderActivity } from '@/hooks/use-order-live';
 
 const NAV_ITEMS = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
@@ -45,6 +46,13 @@ const NAV_ITEMS = [
 ];
 
 export default function AdminClientLayout({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
+  // A customer reply on a custom order alerts ops on whichever admin page is open.
+  const openOrder = useCallback(
+    (orderId: string) => router.push(`/admin/orders?order=${orderId}`),
+    [router],
+  );
+  useAdminOrderActivity(openOrder);
   const pathname = usePathname();
   const { mutate: logout } = useLogout();
   const [sidebarOpen, setSidebarOpen] = useState(false);
