@@ -16,6 +16,7 @@ import {
 import { ChatMessageRole } from '@luvngift/shared';
 import type { ChatMessage } from '@luvngift/shared';
 import { cn } from '@/lib/utils';
+import { clearGuestChat } from '@/lib/guest-chat';
 
 /**
  * Support chat, available without an account.
@@ -43,6 +44,7 @@ export function ChatWidget() {
   const [stage, setStage] = useState<Stage>('chat');
   const [contact, setContact] = useState({ name: '', email: '' });
   const [contactError, setContactError] = useState<string | null>(null);
+  const [confirmingClose, setConfirmingClose] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -156,6 +158,35 @@ export function ChatWidget() {
     }
   }
 
+  /**
+   * Closing asks whether to keep the conversation. A guest's chat is stored in
+   * this browser so they can return to an agent's reply, but nothing ever ended
+   * it — the same thread reappeared on every visit, with no way out.
+   */
+  function handleClose() {
+    const hasConversation = messages.some((m) => m.role === ChatMessageRole.USER);
+    if (hasConversation) setConfirmingClose(true);
+    else setIsOpen(false);
+  }
+
+  function keepForLater() {
+    setConfirmingClose(false);
+    setIsOpen(false);
+  }
+
+  function endChat() {
+    clearGuestChat();
+    setSessionId(null);
+    setGuestKey(null);
+    setMessages([]);
+    setStage('chat');
+    setInput('');
+    setContact({ name: '', email: '' });
+    setContactError(null);
+    setConfirmingClose(false);
+    setIsOpen(false);
+  }
+
   async function requestHuman() {
     if (!sessionId) return;
     if (!user) {
@@ -204,7 +235,7 @@ export function ChatWidget() {
               </div>
             </div>
             <button
-              onClick={() => setIsOpen(false)}
+              onClick={handleClose}
               className="text-primary-foreground/80 transition-colors hover:text-primary-foreground"
               aria-label="Close chat"
             >
@@ -276,7 +307,23 @@ export function ChatWidget() {
             <div ref={bottomRef} />
           </div>
 
-          {stage === 'contact' ? (
+          {confirmingClose ? (
+            <div className="space-y-2 border-t p-3">
+              <p className="text-xs text-muted-foreground">
+                {stage === 'handed-over'
+                  ? 'End this chat? The team will still reply by email.'
+                  : 'End this chat, or keep it for when you come back?'}
+              </p>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" className="flex-1" onClick={keepForLater}>
+                  Keep for later
+                </Button>
+                <Button size="sm" className="flex-1" onClick={endChat}>
+                  End chat
+                </Button>
+              </div>
+            </div>
+          ) : stage === 'contact' ? (
             <div className="space-y-2 border-t p-3">
               <p className="text-xs text-muted-foreground">
                 Leave your name and email and a person will get back to you — this is how we reach

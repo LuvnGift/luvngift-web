@@ -5,7 +5,12 @@ import { useMutation } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { getSocket } from '@/lib/socket';
 import type { ChatMessage } from '@luvngift/shared';
-import { readGuestChat, writeGuestChat, type GuestChatSession } from '@/lib/guest-chat';
+import {
+  clearGuestChat,
+  readGuestChat,
+  writeGuestChat,
+  type GuestChatSession,
+} from '@/lib/guest-chat';
 
 /**
  * Chat works without an account.
@@ -75,6 +80,13 @@ export const useStartChat = () =>
     },
   });
 
+/**
+ * A stored conversation older than this is not resumed. It exists so a guest
+ * waiting on a person can come back to the thread, not so a chat from last
+ * month greets them on every visit.
+ */
+const GUEST_CHAT_MAX_IDLE_MS = 3 * 24 * 60 * 60 * 1000;
+
 /** Resumes the stored guest conversation, so a reload does not lose the thread. */
 export interface ResumedGuestChat {
   session: GuestChatSession;
@@ -92,14 +104,22 @@ export const useResumeGuestChat = () =>
         const res = await api.get(`/api/v1/chat/sessions/${stored.sessionId}`, {
           headers: guestHeaders(stored.guestKey),
         });
+        const data = res.data.data;
+        const idleMs = Date.now() - new Date(data.updatedAt).getTime();
+        // Resolved by an agent, or long idle: the conversation is over.
+        if (data.isResolved || !(idleMs < GUEST_CHAT_MAX_IDLE_MS)) {
+          clearGuestChat();
+          return null;
+        }
         return {
           session: stored,
-          messages: res.data.data.messages ?? [],
-          isEscalated: Boolean(res.data.data.isEscalated),
+          messages: data.messages ?? [],
+          isEscalated: Boolean(data.isEscalated),
         };
       } catch {
         // Session deleted, expired, or the key no longer matches. Start fresh
         // rather than surfacing an error for something the visitor cannot act on.
+        clearGuestChat();
         return null;
       }
     },
