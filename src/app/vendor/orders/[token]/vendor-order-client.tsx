@@ -42,6 +42,8 @@ interface VendorOrder {
   deliveryState: string;
   personalMessage: string | null;
   specialInstructions: string | null;
+  /** For a custom gift: what the customer agreed to. This is the brief. */
+  agreedBrief?: string | null;
   preferredDeliveryDate: string | null;
   hasProof: boolean;
   canMarkShipped: boolean;
@@ -235,8 +237,17 @@ export function VendorOrderClient({ token }: { token: string }) {
         )}
       </Section>
 
+      {order.agreedBrief && (
+        <Section icon={<AlertCircle className="h-4 w-4" />} title="What to deliver (agreed with the customer)">
+          <p className="whitespace-pre-wrap font-medium">{order.agreedBrief}</p>
+        </Section>
+      )}
+
       {order.specialInstructions && (
-        <Section icon={<AlertCircle className="h-4 w-4" />} title="Special instructions">
+        <Section
+          icon={<AlertCircle className="h-4 w-4" />}
+          title={order.agreedBrief ? 'Original request (the agreed brief above takes priority)' : 'Special instructions'}
+        >
           <p className="whitespace-pre-wrap">{order.specialInstructions}</p>
         </Section>
       )}

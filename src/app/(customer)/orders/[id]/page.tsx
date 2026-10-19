@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useEffect } from 'react';
+import { use, useCallback, useEffect } from 'react';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { ArrowLeft, Download, MapPin, Phone, MessageSquare } from 'lucide-react';
@@ -15,8 +15,9 @@ import { Separator } from '@/components/ui/separator';
 import { Spinner } from '@/components/ui/spinner';
 import { toast } from 'sonner';
 import { OrderStatus } from '@luvngift/shared';
-import { getSocket } from '@/lib/socket';
-import { useQueryClient } from '@tanstack/react-query';
+import { useOrderLive } from '@/hooks/use-order-live';
+import { CustomOrderConversation } from '@/components/orders/custom-order-conversation';
+import type { QuoteStatus } from '@/lib/custom-orders';
 
 const currencySymbols: Record<string, string> = { CAD: 'CA$', USD: '$', GBP: '£', NGN: '₦' };
 
@@ -30,7 +31,6 @@ export default function OrderDetailPage({ params }: Props) {
   const router = useRouter();
   const { data: order, isLoading, isError } = useOrder(id);
   const { data: deliveryWindow } = useDeliveryWindow();
-  const qc = useQueryClient();
 
   // Show success toast and strip sensitive Stripe params from URL
   useEffect(() => {
@@ -40,21 +40,9 @@ export default function OrderDetailPage({ params }: Props) {
     }
   }, [searchParams, id, router]);
 
-  // Real-time order status updates via Socket.io
-  useEffect(() => {
-    const socket = getSocket();
-    if (!socket || !id) return;
-
-    socket.emit('order:join', { orderId: id });
-    socket.on('order:status', ({ status }: { orderId: string; status: string }) => {
-      toast.info(`Order status updated: ${status}`);
-      qc.invalidateQueries({ queryKey: ['orders', id] });
-    });
-
-    return () => {
-      socket.off('order:status');
-    };
-  }, [id, qc]);
+  // Real-time status and conversation updates via Socket.io.
+  const onStatus = useCallback((status: string) => toast.info(`Order status updated: ${status}`), []);
+  useOrderLive(id, [['orders', id], ['orders', id, 'conversation']], onStatus);
 
   if (isLoading) {
     return <div className="flex justify-center py-32"><Spinner size="lg" /></div>;
@@ -72,6 +60,7 @@ export default function OrderDetailPage({ params }: Props) {
   }
 
   const symbol = currencySymbols[order.currency] ?? order.currency;
+  const quoteStatus = (order as { quoteStatus?: QuoteStatus | null }).quoteStatus ?? null;
   const subtotal = (order.subtotal / 100).toFixed(2);
   const tax = (order.tax / 100).toFixed(2);
   const total = (order.total / 100).toFixed(2);
@@ -114,6 +103,13 @@ export default function OrderDetailPage({ params }: Props) {
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Left: Timeline + Items */}
         <div className="lg:col-span-2 space-y-6">
+          {/* Custom request: the quote conversation, then what was originally asked for */}
+          {quoteStatus && (
+            <CustomOrderConversation
+              order={order as any}
+              onPaid={() => toast.success('Payment successful! Your order is confirmed.')}
+            />
+          )}
           {/* Order tracking */}
           <Card>
             <CardHeader>
@@ -229,11 +225,10 @@ export default function OrderDetailPage({ params }: Props) {
             </Card>
           )}
 
-          {/* Custom order details */}
           {order.specialInstructions && order.specialInstructions.startsWith('[CUSTOM REQUEST]') && (
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Custom gift request</CardTitle>
+                <CardTitle className="text-base">What you asked for</CardTitle>
               </CardHeader>
               <CardContent>
                 <pre className="text-sm text-muted-foreground whitespace-pre-wrap font-sans">

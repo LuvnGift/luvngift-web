@@ -101,6 +101,27 @@ export const planPricesSchema = z
 
 export type PlanFormValues = z.infer<typeof planFormSchema>;
 
+/**
+ * Mirrors `sendQuoteSchema` in
+ * `luvngift-api/src/modules/custom-orders/custom-orders.validation.ts`.
+ * The price is entered in major units of the ORDER's currency (the buyer's).
+ */
+export const quoteFormSchema = z.object({
+  priceMajor: majorAmount('Price'),
+  scope: z
+    .string()
+    .trim()
+    .min(10, 'Describe what will be delivered — the vendor works from this')
+    .max(4000),
+  note: z.string().trim().max(2000),
+  isFinal: z.boolean(),
+});
+
+export type QuoteFormValues = z.infer<typeof quoteFormSchema>;
+
+/** Major-unit string → smallest unit, as the API expects. */
+export const toMinorUnits = (major: string): number => Math.round(Number(major) * 100);
+
 /** Flattens a ZodError into `{ fieldName: 'first message' }` for inline display. */
 export function fieldErrors(error: z.ZodError): Record<string, string> {
   const out: Record<string, string> = {};

@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
+import type { OrderConversation } from '@/lib/custom-orders';
 
 // ---------- Metrics ----------
 export const useAdminMetrics = () =>
@@ -445,7 +446,50 @@ export const useAssignVendor = () => {
       qc.invalidateQueries({ queryKey: ['admin', 'vendors'] });
       toast.success('Vendor assigned — they will be notified by email and SMS');
     },
-    onError: () => toast.error('Failed to assign vendor'),
+    // The API explains WHY it refused (e.g. a custom order not yet accepted or
+    // paid), and that reason is the whole point — don't swap it for a generic one.
+    onError: (err: any) =>
+      toast.error(err?.response?.data?.error?.message ?? 'Failed to assign vendor'),
+  });
+};
+
+// ---------- Custom gift requests ----------
+
+export const useAdminOrderConversation = (orderId: string, enabled = true) =>
+  useQuery<OrderConversation>({
+    queryKey: ['admin', 'orders', orderId, 'conversation'],
+    queryFn: () =>
+      api.get(`/api/v1/admin/orders/${orderId}/conversation`).then((r) => r.data.data),
+    enabled: !!orderId && enabled,
+  });
+
+export const useAdminSendOrderMessage = (orderId: string) => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: string) =>
+      api.post(`/api/v1/admin/orders/${orderId}/messages`, { body }).then((r) => r.data.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'orders', orderId, 'conversation'] });
+      toast.success('Sent — the customer has been emailed');
+    },
+    onError: (err: any) =>
+      toast.error(err?.response?.data?.error?.message ?? 'Message could not be sent'),
+  });
+};
+
+export const useSendQuote = (orderId: string) => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (quote: { subtotal: number; scope: string; note?: string; isFinal: boolean }) =>
+      api.post(`/api/v1/admin/orders/${orderId}/quotes`, quote).then((r) => r.data.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'orders'] });
+      toast.success('Quote sent — the customer has been emailed');
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.error?.message ?? 'Quote could not be sent');
+      qc.invalidateQueries({ queryKey: ['admin', 'orders', orderId, 'conversation'] });
+    },
   });
 };
 
