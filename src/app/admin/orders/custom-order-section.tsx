@@ -42,13 +42,15 @@ interface Props {
     currency: string;
     quoteStatus: QuoteStatus;
   };
+  /** Opens the order's status dialog preselected to this status. */
+  onChangeStatus?: (status: string) => void;
 }
 
 // Mirrors the API. DECLINED is included: a decline keeps the request open so a
 // new quote can win the customer back; cancelling is a separate admin action.
 const QUOTABLE: QuoteStatus[] = ['AWAITING_QUOTE', 'QUOTED', 'CHANGES_REQUESTED', 'DECLINED'];
 
-export function CustomOrderSection({ order }: Props) {
+export function CustomOrderSection({ order, onChangeStatus }: Props) {
   const { data: conversation, isLoading } = useAdminOrderConversation(order.id);
   useOrderLive(order.id, [['admin', 'orders']]);
 
@@ -77,8 +79,49 @@ export function CustomOrderSection({ order }: Props) {
 
       {!closed && <AdminComposer orderId={order.id} />}
       {canQuote && <QuoteForm order={order} conversation={conversation} />}
+      {onChangeStatus && <RequestStatusActions status={order.status} onChangeStatus={onChangeStatus} />}
     </div>
   );
+}
+
+/**
+ * The two status changes ops actually needs on a custom request, in plain
+ * words, right where the request is worked on. Both open the ordinary status
+ * dialog preselected, so the API's guards and the customer email still apply.
+ */
+function RequestStatusActions({
+  status,
+  onChangeStatus,
+}: {
+  status: string;
+  onChangeStatus: (status: string) => void;
+}) {
+  if (status === 'PENDING') {
+    return (
+      <div className="flex items-center justify-between gap-2 rounded-md border border-dashed p-3">
+        <p className="text-xs text-muted-foreground">Not going ahead with this request?</p>
+        <Button
+          size="sm"
+          variant="outline"
+          className="text-destructive hover:text-destructive"
+          onClick={() => onChangeStatus('CANCELLED')}
+        >
+          Cancel request
+        </Button>
+      </div>
+    );
+  }
+  if (status === 'CANCELLED') {
+    return (
+      <div className="flex items-center justify-between gap-2 rounded-md border border-dashed p-3">
+        <p className="text-xs text-muted-foreground">Want to make the customer another offer?</p>
+        <Button size="sm" variant="outline" onClick={() => onChangeStatus('PENDING')}>
+          Reopen request
+        </Button>
+      </div>
+    );
+  }
+  return null;
 }
 
 function quoteFormTitle(conversation: OrderConversation, replacing: boolean): string {

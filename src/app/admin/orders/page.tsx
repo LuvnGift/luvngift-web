@@ -94,6 +94,10 @@ function OrderDetailModal({ orderId, onClose }: { orderId: string; onClose: () =
   const deleteOrder = useDeleteOrder();
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [showAssign, setShowAssign] = useState(false);
+  // The status control used to exist only as a button at the end of each table
+  // row — off-screen on a phone, and absent from this panel, which is where a
+  // custom order is worked on (and where alert emails land).
+  const [statusTarget, setStatusTarget] = useState<string | null>(null);
 
   const handleRefund = () => {
     if (!order) return;
@@ -126,7 +130,7 @@ function OrderDetailModal({ orderId, onClose }: { orderId: string; onClose: () =
           <div className="space-y-5 text-sm">
 
             {/* Status badges */}
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusColors[order.status] ?? ''}`}>
                 {order.status}
               </span>
@@ -141,6 +145,14 @@ function OrderDetailModal({ orderId, onClose }: { orderId: string; onClose: () =
                   {order.bundle.name}
                 </span>
               )}
+              <Button
+                variant="outline"
+                size="sm"
+                className="ml-auto h-7"
+                onClick={() => setStatusTarget(order.status)}
+              >
+                Change status
+              </Button>
             </div>
 
             <Separator />
@@ -199,7 +211,7 @@ function OrderDetailModal({ orderId, onClose }: { orderId: string; onClose: () =
                     <pre className="whitespace-pre-wrap font-sans text-sm text-muted-foreground">{order.specialInstructions}</pre>
                   </div>
                 )}
-                <CustomOrderSection order={order} />
+                <CustomOrderSection order={order} onChangeStatus={setStatusTarget} />
               </>
             )}
 
@@ -406,6 +418,14 @@ function OrderDetailModal({ orderId, onClose }: { orderId: string; onClose: () =
           <AssignVendorDialog order={order} onClose={() => setShowAssign(false)} />
         )}
 
+        {statusTarget && order && (
+          <UpdateStatusDialog
+            order={order}
+            initialStatus={statusTarget}
+            onClose={() => setStatusTarget(null)}
+          />
+        )}
+
         <DialogFooter className="flex-col-reverse sm:flex-row sm:justify-between gap-2 pt-4 border-t">
           {/* Delete — left side */}
           <div>
@@ -458,8 +478,17 @@ function OrderDetailModal({ orderId, onClose }: { orderId: string; onClose: () =
 
 // ─── Update Status Dialog ─────────────────────────────────────────────────────
 
-function UpdateStatusDialog({ order, onClose }: { order: any; onClose: () => void }) {
-  const [newStatus, setNewStatus] = useState(order.status);
+function UpdateStatusDialog({
+  order,
+  onClose,
+  initialStatus,
+}: {
+  order: any;
+  onClose: () => void;
+  /** Preselect a status, e.g. CANCELLED from a custom order's "Cancel request". */
+  initialStatus?: string;
+}) {
+  const [newStatus, setNewStatus] = useState(initialStatus ?? order.status);
   const [adminNotes, setAdminNotes] = useState('');
   const updateStatus = useUpdateOrderStatus();
 
