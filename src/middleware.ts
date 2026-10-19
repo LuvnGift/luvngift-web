@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { safeNextPath, sessionRefreshUrl } from '@/lib/auth-redirect';
 
 // Routes that require the user to be logged in.
 // Note: /custom is intentionally public — guests can build a custom gift; auth is
@@ -11,49 +12,86 @@ const GUEST_ONLY = ['/login', '/register', '/verify-email', '/forgot-password', 
 // Routes that require admin role
 const ADMIN_ONLY = ['/admin'];
 
+/**
+ * Reads the `session` hint cookie. It is only a hint — it lives 7 days and is
+ * never verified here — so it is trusted only while a refresh token exists to
+ * back it. A hint with no refresh token behind it is stale (`stale: true`) and
+ * is treated as signed out, then cleared.
+ */
 function parseSessionCookie(request: NextRequest) {
   const raw = request.cookies.get('session')?.value;
-  if (!raw) return { isAuth: false, role: null };
+  if (!raw) return { isAuth: false, role: null, stale: false };
+  const hasRefreshToken = !!request.cookies.get('refreshToken')?.value;
   try {
     const parsed = JSON.parse(raw);
+    const claimsAuth = !!parsed?.isAuth;
     return {
-      isAuth: !!parsed?.isAuth,
+      isAuth: claimsAuth && hasRefreshToken,
       role: parsed?.role ?? null,
+      stale: claimsAuth && !hasRefreshToken,
     };
   } catch {
-    return { isAuth: false, role: null };
+    return { isAuth: false, role: null, stale: true };
   }
 }
 
-export function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+/** Sign-in page that returns to where the visitor was going. */
+function loginRedirect(request: NextRequest, next: string) {
+  const loginUrl = new URL('/login', request.url);
+  loginUrl.searchParams.set('redirect', next);
+  return NextResponse.redirect(loginUrl);
+}
+
+/**
+ * The auth redirect for this request, or null to let it through.
+ *
+ * The admin rules are what break the old redirect loop (see
+ * `app/api/auth/session/route.ts`): an admin whose 15-minute access token has
+ * expired is sent to renew it, rather than to /login — which bounced straight
+ * back to /admin because the 7-day session hint still said "admin".
+ */
+function authRedirect(request: NextRequest) {
+  const { pathname, search } = request.nextUrl;
   const { isAuth, role } = parseSessionCookie(request);
 
-  // Redirect logged-in users away from guest-only pages
   if (isAuth && GUEST_ONLY.some((p) => pathname.startsWith(p))) {
-    const dest = role === 'ADMIN' ? '/admin' : '/';
+    // Honour ?redirect= so a re-login lands on the page an alert email linked to.
+    const fallback = role === 'ADMIN' ? '/admin' : '/';
+    const dest = safeNextPath(request.nextUrl.searchParams.get('redirect'), fallback);
     return NextResponse.redirect(new URL(dest, request.url));
   }
 
-  // Redirect unauthenticated users away from protected pages
   if (!isAuth && AUTH_REQUIRED.some((p) => pathname.startsWith(p))) {
-    const loginUrl = new URL('/login', request.url);
-    loginUrl.searchParams.set('redirect', pathname);
-    return NextResponse.redirect(loginUrl);
+    return loginRedirect(request, pathname);
   }
 
-  // Restrict admin section to admin role only
   if (ADMIN_ONLY.some((p) => pathname.startsWith(p))) {
-    if (!isAuth) {
-      return NextResponse.redirect(new URL('/login', request.url));
-    }
-    if (role !== 'ADMIN') {
-      return NextResponse.redirect(new URL('/', request.url));
+    if (!isAuth) return loginRedirect(request, pathname + search);
+    if (role !== 'ADMIN') return NextResponse.redirect(new URL('/', request.url));
+    if (!request.cookies.get('accessToken')?.value) {
+      return NextResponse.redirect(new URL(sessionRefreshUrl(pathname + search), request.url));
     }
   }
+  return null;
+}
+
+export function middleware(request: NextRequest) {
+  const { stale } = parseSessionCookie(request);
+  const redirect = authRedirect(request);
+  if (redirect) {
+    if (stale) redirect.cookies.set('session', '', { path: '/', maxAge: 0 });
+    return redirect;
+  }
+
+  // The admin layout needs the requested path to send a failed verification
+  // through the session refresh and back again; server components cannot read
+  // the URL otherwise.
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set('x-pathname', request.nextUrl.pathname + request.nextUrl.search);
 
   // Add security headers
-  const response = NextResponse.next();
+  const response = NextResponse.next({ request: { headers: requestHeaders } });
+  if (stale) response.cookies.set('session', '', { path: '/', maxAge: 0 });
 
   // Content Security Policy
   // 'unsafe-eval' is required by Next.js React Refresh in development (hot reload).
