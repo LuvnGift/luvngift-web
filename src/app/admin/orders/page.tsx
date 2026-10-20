@@ -20,6 +20,7 @@ import {
 import { toast } from 'sonner';
 import { ChevronLeft, ChevronRight, RefreshCw, Eye, Copy, Trash2, ExternalLink, UserCheck, ShieldCheck, AlertTriangle } from 'lucide-react';
 import { DeliveryProofSection } from './delivery-proof-section';
+import { SubscriptionBoxSection } from './subscription-box-section';
 import { OrderFilters } from './order-filters';
 import {
   ORDER_TABS,
@@ -290,6 +291,13 @@ function OrderDetailModal({ orderId, onClose }: { orderId: string; onClose: () =
             </div>
 
             <Separator />
+
+            {order.subscription && (
+              <>
+                <SubscriptionBoxSection order={order} />
+                <Separator />
+              </>
+            )}
 
             {/* Substitutions + proof of delivery */}
             <DeliveryProofSection order={order} />

@@ -18,6 +18,7 @@ import {
   type SubstitutionPreference,
 } from '@/hooks/use-subscriptions';
 import { DietaryEditor } from './dietary-editor';
+import { BoxEditor } from './box-editor';
 
 const SYMBOLS: Record<string, string> = { CAD: 'CA$', USD: '$', GBP: '£', NGN: '₦' };
 
@@ -125,10 +126,11 @@ function SubscriptionRow({ sub }: { sub: Subscription }) {
       {sub.items.length === 0 && (
         <p className="text-xs text-muted-foreground mt-3">
           {/* Possible only for subscriptions from before boxes had to be filled. */}
-          <span className="font-medium text-foreground">Box:</span> no items chosen yet. Contact
-          us and we&apos;ll help you fill it before your next delivery.
+          <span className="font-medium text-foreground">Box:</span> no items chosen yet. Choose
+          them before your next delivery so we know what to send.
         </p>
       )}
+      {!ended && <BoxEditor sub={sub} />}
 
       <DietaryEditor sub={sub} readOnly={ended} />
 
