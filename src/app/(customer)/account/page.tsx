@@ -249,7 +249,7 @@ export default function AccountPage() {
                   {locationForm.formState.errors.buyerProvince && (
                     <p className="text-destructive text-xs">{locationForm.formState.errors.buyerProvince.message}</p>
                   )}
-                  <p className="text-xs text-muted-foreground">Canadian orders are subject to GST/HST/PST based on your province.</p>
+                  <p className="text-xs text-muted-foreground">Your gift is delivered in Nigeria, so no Canadian sales tax is added.</p>
                 </div>
               )}
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ShoppingBag, Info } from 'lucide-react';
+import { ShoppingBag } from 'lucide-react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -9,7 +9,6 @@ import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { useCreateOrder, useUpdateOrder } from '@/hooks/use-orders';
 import { useCreatePaymentIntent, useVerifyPayment, useSetSaveCard } from '@/hooks/use-checkout';
-import { useAuthStore } from '@/store/auth.store';
 import { useUserCurrency } from '@/hooks/use-exchange-rates';
 import { formatCurrency } from '@luvngift/shared';
 import { Button } from '@/components/ui/button';
@@ -29,21 +28,6 @@ import type { Bundle, Order } from '@luvngift/shared';
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 
 const currencySymbols: Record<string, string> = { CAD: 'CA$', USD: '$', GBP: '£', NGN: '₦' };
-
-const PROVINCE_TAX_LABEL: Record<string, string> = {
-  AB: 'GST (5%)', BC: 'GST + PST (12%)', MB: 'GST + PST (12%)',
-  NB: 'HST (15%)', NL: 'HST (15%)', NS: 'HST (15%)',
-  NT: 'GST (5%)', NU: 'GST (5%)', ON: 'HST (13%)',
-  PE: 'HST (15%)', QC: 'GST + QST (14.975%)', SK: 'GST + PST (11%)',
-  YT: 'GST (5%)',
-};
-
-const PROVINCE_NAMES: Record<string, string> = {
-  AB: 'Alberta', BC: 'British Columbia', MB: 'Manitoba', NB: 'New Brunswick',
-  NL: 'Newfoundland and Labrador', NS: 'Nova Scotia', NT: 'Northwest Territories',
-  NU: 'Nunavut', ON: 'Ontario', PE: 'Prince Edward Island', QC: 'Quebec',
-  SK: 'Saskatchewan', YT: 'Yukon',
-};
 
 const NIGERIAN_STATES = [
   'Abia', 'Adamawa', 'Akwa Ibom', 'Anambra', 'Bauchi', 'Bayelsa', 'Benue', 'Borno',
@@ -78,7 +62,6 @@ interface Props {
 }
 
 export function PurchasePanel({ bundle }: Props) {
-  const { user } = useAuthStore();
   const { currency, convert, ready } = useUserCurrency();
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [checkoutStep, setCheckoutStep] = useState<'recipient' | 'payment'>('recipient');
@@ -115,20 +98,6 @@ export function PurchasePanel({ bundle }: Props) {
       // errors handled in hooks
     }
   };
-
-  const buyerCountry = user?.buyerCountry;
-  const buyerProvince = user?.buyerProvince;
-  const taxNote = (() => {
-    if (!buyerCountry) return null;
-    if (buyerCountry === 'CA') {
-      const provinceName = buyerProvince ? PROVINCE_NAMES[buyerProvince] ?? buyerProvince : null;
-      const taxLabel = buyerProvince ? PROVINCE_TAX_LABEL[buyerProvince] ?? 'GST (5%)' : 'GST (5%)';
-      return provinceName
-        ? `Tax (${taxLabel}) will be applied, based on your ${provinceName} billing address`
-        : 'Canadian tax will be applied based on your billing address';
-    }
-    return null;
-  })();
 
   const displayPrice = ready ? formatCurrency(convert(bundle.price), currency as any) : null;
 
@@ -239,13 +208,6 @@ export function PurchasePanel({ bundle }: Props) {
                   {errors.state && <p className="text-destructive text-xs">{errors.state.message}</p>}
                 </div>
               </div>
-
-              {taxNote && (
-                <div className="flex items-start gap-2 rounded-md bg-muted/50 px-3 py-2.5 text-sm text-muted-foreground">
-                  <Info className="h-4 w-4 shrink-0 mt-0.5" />
-                  <span>{taxNote}</span>
-                </div>
-              )}
 
               <div className="space-y-1.5">
                 <Label htmlFor="personalMessage">

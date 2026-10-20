@@ -86,9 +86,9 @@ export default function TermsPage() {
           service fees.
         </li>
         <li>
-          If your billing address is in Canada, we add the GST, HST or PST that applies to your
-          province. We show it before you pay. We do not currently charge sales tax to buyers
-          outside Canada.
+          We do not add sales tax. What you buy is delivered to your recipient in Nigeria, so
+          Canadian GST, HST and provincial sales tax, UK VAT and US sales tax are not charged on
+          it. If that ever changes, we will tell you before it affects anything you pay.
         </li>
         <li>
           You see the full amount, including any tax, before you pay. That is the amount we charge.

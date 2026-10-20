@@ -752,22 +752,56 @@ export const useRecordSubstitutions = () => {
 
 // ─── Subscription plans ───────────────────────────────────────────────────────
 
-export interface PlanPriceInput {
-  interval: 'MONTHLY' | 'BIWEEKLY';
-  currency: 'CAD' | 'USD' | 'GBP';
-  amount: number;
+export type PlanInterval = 'MONTHLY' | 'BIWEEKLY';
+export type PricedCurrency = 'USD' | 'CAD' | 'GBP';
+
+/** How a plan is priced. Prices are derived from these, never entered. */
+export interface PlanPricingInput {
+  /** Sourcing amount per delivery, in kobo. */
+  boxAllowanceNgn: number;
+  /** e.g. 62.5 = 62.5%. */
+  markupPercent: number;
+  intervals: PlanInterval[];
 }
 
-export interface PlanInput {
+export interface PlanDetailsInput {
   name: string;
   description: string;
   slotCount: number;
-  /** Naira box allowance per delivery, in kobo. */
-  boxAllowanceNgn: number;
   image?: string;
   sortOrder?: number;
   isActive?: boolean;
-  prices: PlanPriceInput[];
+}
+
+export type PlanInput = PlanDetailsInput & PlanPricingInput;
+
+export interface PlanPrice {
+  id: string;
+  interval: PlanInterval;
+  currency: PricedCurrency;
+  amount: number;
+  usdRate: number | null;
+  /** Markup this price earns at today's rates; null when no rate is available. */
+  liveMarkupBps: number | null;
+}
+
+/** Mirrors PricingPreview in the API's plan-pricing.service. */
+export interface PricingPreview {
+  rates: { NGN: number; CAD: number; GBP: number; USD: 1 };
+  costUsdCents: number;
+  usdCents: number;
+  markupBps: number;
+  breakEvenMarkupBps: number;
+  problems: string[];
+  lines: {
+    interval: PlanInterval;
+    currency: PricedCurrency;
+    amount: number;
+    current: number | null;
+    change: 'NEW' | 'INCREASE' | 'DECREASE' | 'SAME';
+    split: { fees: number; vendor: number; luvngift: number };
+    vendorMargin: number;
+  }[];
 }
 
 export const useAdminPlans = (page = 1, limit = 50) =>
@@ -794,10 +828,47 @@ export const useCreatePlan = () => {
   });
 };
 
+/**
+ * Works out the prices a sourcing amount and markup would publish, without
+ * publishing. A mutation rather than a query: it runs on demand as admin edits.
+ */
+export const usePlanPricingPreview = () =>
+  useMutation({
+    mutationFn: ({ planId, ...input }: PlanPricingInput & { planId?: string }) =>
+      api
+        .post(
+          planId
+            ? `/api/v1/admin/subscription-plans/${planId}/pricing-preview`
+            : '/api/v1/admin/subscription-plans/pricing-preview',
+          input,
+        )
+        .then((r) => r.data.data as PricingPreview),
+  });
+
+export const usePublishPlanPricing = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ planId, ...input }: PlanPricingInput & { planId: string }) =>
+      api
+        .post(`/api/v1/admin/subscription-plans/${planId}/pricing`, input)
+        .then((r) => r.data.data as { created: number; scheduled: number }),
+    onSuccess: ({ created, scheduled }) => {
+      qc.invalidateQueries({ queryKey: ['admin', 'subscription-plans'] });
+      qc.invalidateQueries({ queryKey: ['admin', 'price-changes'] });
+      qc.invalidateQueries({ queryKey: ['subscriptions', 'plans'] });
+      toast.success(
+        `Pricing published: ${created} new price${created === 1 ? '' : 's'}, ${scheduled} change${scheduled === 1 ? '' : 's'} scheduled.`,
+      );
+    },
+    onError: (err: any) =>
+      toast.error(err?.response?.data?.error?.message ?? 'Could not publish pricing'),
+  });
+};
+
 export const useUpdatePlan = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, ...data }: Omit<PlanInput, 'prices'> & { id: string }) =>
+    mutationFn: ({ id, ...data }: Partial<PlanDetailsInput> & { id: string }) =>
       api.patch(`/api/v1/admin/subscription-plans/${id}`, data).then((r) => r.data.data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'subscription-plans'] });
@@ -843,24 +914,6 @@ export const usePlanPriceChanges = (planId: string) =>
     queryFn: () =>
       api.get(`/api/v1/admin/subscription-plans/${planId}/price-changes`).then((r) => r.data.data),
   });
-
-/** Terms § 9: an increase needs 30 days' notice; the API enforces it. */
-export const useSchedulePriceChange = () => {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({ priceId, newAmount, effectiveAt }: { priceId: string; newAmount: number; effectiveAt: string }) =>
-      api
-        .post(`/api/v1/admin/subscription-prices/${priceId}/price-changes`, { newAmount, effectiveAt })
-        .then((r) => r.data.data as { notified: number }),
-    onSuccess: ({ notified }) => {
-      qc.invalidateQueries({ queryKey: ['admin', 'price-changes'] });
-      qc.invalidateQueries({ queryKey: ['admin', 'subscription-plans'] });
-      qc.invalidateQueries({ queryKey: ['subscriptions', 'plans'] });
-      toast.success(`Price change scheduled. ${notified} subscriber${notified === 1 ? '' : 's'} will be emailed.`);
-    },
-    onError: (err: any) => toast.error(err?.response?.data?.error?.message ?? 'Could not schedule the change'),
-  });
-};
 
 export const useCancelPriceChange = () => {
   const qc = useQueryClient();
@@ -1069,7 +1122,9 @@ export const useUpdateApplicationStatus = () => {
 export interface ExchangeRateSettings {
   GBP: number;
   CAD: number;
-  sources: { GBP: 'admin' | 'live'; CAD: 'admin' | 'live' };
+  /** ₦ per US$. Null when neither an admin rate nor the live feed has one. */
+  NGN: number | null;
+  sources: { GBP: 'admin' | 'live'; CAD: 'admin' | 'live'; NGN: 'admin' | 'live' };
 }
 
 export const useAdminExchangeRates = () =>
@@ -1104,38 +1159,40 @@ export const useUpdateDeliveryWindow = () => {
   });
 };
 
-/** The two numbers that size every subscription box (see box-rules.service). */
-export interface BoxRules {
-  maxGoodsSharePercent: number;
+/** The numbers subscription pricing and box sizing run on (subscription-rules.service). */
+export interface SubscriptionRules {
   minFillPercent: number;
+  vendorSharePercent: number;
+  marginTolerancePoints: number;
+  cardFeePercent: Record<PricedCurrency, number>;
 }
 
-export const useBoxRules = () =>
-  useQuery<BoxRules & { defaults: BoxRules }>({
-    queryKey: ['admin', 'settings', 'box-rules'],
-    queryFn: () => api.get('/api/v1/admin/settings/box-rules').then((r) => r.data.data),
+export const useSubscriptionRules = () =>
+  useQuery<SubscriptionRules & { defaults: SubscriptionRules }>({
+    queryKey: ['admin', 'settings', 'subscription-rules'],
+    queryFn: () => api.get('/api/v1/admin/settings/subscription-rules').then((r) => r.data.data),
   });
 
-export const useUpdateBoxRules = () => {
+export const useUpdateSubscriptionRules = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: BoxRules) =>
-      api.put('/api/v1/admin/settings/box-rules', data).then((r) => r.data.data),
+    mutationFn: (data: SubscriptionRules) =>
+      api.put('/api/v1/admin/settings/subscription-rules', data).then((r) => r.data.data),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['admin', 'settings', 'box-rules'] });
-      // The plans list shows each price's goods share against the cap.
+      qc.invalidateQueries({ queryKey: ['admin', 'settings', 'subscription-rules'] });
+      // The plans list compares live markups against the tolerance.
       qc.invalidateQueries({ queryKey: ['admin', 'subscription-plans'] });
-      toast.success('Box rules updated');
+      toast.success('Subscription rules updated');
     },
     onError: (err: any) =>
-      toast.error(err?.response?.data?.error?.message ?? 'Failed to update box rules'),
+      toast.error(err?.response?.data?.error?.message ?? 'Failed to update subscription rules'),
   });
 };
 
 export const useUpdateExchangeRates = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (rates: { GBP?: number | null; CAD?: number | null }) =>
+    mutationFn: (rates: { GBP?: number | null; CAD?: number | null; NGN?: number | null }) =>
       api.put('/api/v1/admin/settings/exchange-rates', rates).then((r) => r.data.data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'settings', 'exchange-rates'] });
@@ -1148,7 +1205,11 @@ export const useUpdateExchangeRates = () => {
 
 // ─── Maintenance (daily automated tasks) ──────────────────────────────────────
 
-export type MaintenanceTask = 'retention:sweep' | 'subscriptions:apply-price-changes' | 'refunds:timeliness';
+export type MaintenanceTask =
+  | 'retention:sweep'
+  | 'subscriptions:apply-price-changes'
+  | 'refunds:timeliness'
+  | 'subscriptions:margin-check';
 
 export interface MaintenanceTaskStatus {
   task: MaintenanceTask;

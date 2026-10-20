@@ -6,8 +6,8 @@ import {
   useUpdateExchangeRates,
   useDeliveryWindow,
   useUpdateDeliveryWindow,
-  useBoxRules,
-  useUpdateBoxRules,
+  useSubscriptionRules,
+  useUpdateSubscriptionRules,
 } from '@/hooks/use-admin';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -22,29 +22,27 @@ export default function AdminSettingsPage() {
 
   const [gbp, setGbp] = useState('');
   const [cad, setCad] = useState('');
+  const [ngn, setNgn] = useState('');
 
   // Pre-fill inputs with current admin-set values when data loads
   useEffect(() => {
     if (!data) return;
     if (data.sources.GBP === 'admin') setGbp(String(data.GBP));
     if (data.sources.CAD === 'admin') setCad(String(data.CAD));
+    if (data.sources.NGN === 'admin' && data.NGN) setNgn(String(data.NGN));
   }, [data]);
 
   const handleSave = () => {
     update.mutate({
       GBP: gbp ? parseFloat(gbp) : null,
       CAD: cad ? parseFloat(cad) : null,
+      NGN: ngn ? parseFloat(ngn) : null,
     });
   };
 
-  const handleClear = (currency: 'GBP' | 'CAD') => {
-    if (currency === 'GBP') {
-      setGbp('');
-      update.mutate({ GBP: null });
-    } else {
-      setCad('');
-      update.mutate({ CAD: null });
-    }
+  const handleClear = (currency: 'GBP' | 'CAD' | 'NGN') => {
+    ({ GBP: setGbp, CAD: setCad, NGN: setNgn })[currency]('');
+    update.mutate({ [currency]: null });
   };
 
   return (
@@ -59,7 +57,8 @@ export default function AdminSettingsPage() {
           <CardTitle className="text-base">Exchange Rates</CardTitle>
           <p className="text-sm text-muted-foreground">
             Override live rates with fixed values. Leave blank to use live rates from open.er-api.com.
-            These rates control what buyers in Canada and the UK see as prices.
+            CAD and GBP set what buyers in Canada and the UK see. The naira rate converts sourcing
+            costs to US$ when you publish subscription prices.
           </p>
         </CardHeader>
         <CardContent className="space-y-5">
@@ -82,7 +81,18 @@ export default function AdminSettingsPage() {
                       {data?.sources.CAD === 'admin' ? 'admin-set' : 'live'}
                     </Badge>
                   </span>
+                  <span>
+                    {data?.NGN ? `₦${data.NGN.toLocaleString('en-NG')} NGN` : 'NGN unavailable'}
+                    <Badge variant={data?.sources.NGN === 'admin' ? 'default' : 'secondary'} className="ml-2 text-xs">
+                      {data?.sources.NGN === 'admin' ? 'admin-set' : 'live'}
+                    </Badge>
+                  </span>
                 </div>
+                {!data?.NGN && (
+                  <p className="text-xs text-red-700">
+                    No naira rate: subscription prices cannot be published until you set one.
+                  </p>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -125,8 +135,31 @@ export default function AdminSettingsPage() {
                 </div>
               </div>
 
+              <div className="space-y-2">
+                <Label>NGN rate (1 USD = ? NGN)</Label>
+                <div className="flex gap-2">
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="100"
+                    placeholder={data?.NGN ? `Live: ${data.NGN}` : 'e.g. 1500'}
+                    value={ngn}
+                    onChange={(e) => setNgn(e.target.value)}
+                  />
+                  {data?.sources.NGN === 'admin' && (
+                    <Button variant="outline" size="sm" onClick={() => handleClear('NGN')}>
+                      Clear
+                    </Button>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Set this to the rate vendors actually buy at if it differs from the official one.
+                  It only affects prices you publish from now on.
+                </p>
+              </div>
+
               <p className="text-xs text-muted-foreground">
-                Tip: add 2–3% above the live rate to cover Stripe's currency conversion spread.
+                Tip: add 2–3% above the live CAD/GBP rate to cover Stripe&apos;s currency conversion spread.
               </p>
 
               <Button onClick={handleSave} disabled={update.isPending}>
@@ -138,41 +171,57 @@ export default function AdminSettingsPage() {
       </Card>
 
       <DeliveryWindowCard />
-      <BoxRulesCard />
+      <SubscriptionRulesCard />
     </div>
   );
 }
 
 /**
- * Sizes every subscription box. Bounds mirror `boxRulesSchema` in the API's
- * admin routes: above 70% the vendor's revenue share could not cover the goods.
+ * The numbers subscription pricing runs on. Bounds mirror
+ * `subscriptionRulesSchema` in the API's admin routes.
  */
-function BoxRulesCard() {
-  const { data, isLoading } = useBoxRules();
-  const update = useUpdateBoxRules();
-
-  const [maxShare, setMaxShare] = useState('');
-  const [minFill, setMinFill] = useState('');
+function SubscriptionRulesCard() {
+  const { data, isLoading } = useSubscriptionRules();
+  const update = useUpdateSubscriptionRules();
+  const [form, setForm] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!data) return;
-    setMaxShare(String(data.maxGoodsSharePercent));
-    setMinFill(String(data.minFillPercent));
+    setForm({
+      vendorSharePercent: String(data.vendorSharePercent),
+      marginTolerancePoints: String(data.marginTolerancePoints),
+      minFillPercent: String(data.minFillPercent),
+      USD: String(data.cardFeePercent.USD),
+      CAD: String(data.cardFeePercent.CAD),
+      GBP: String(data.cardFeePercent.GBP),
+    });
   }, [data]);
 
-  const share = Number(maxShare);
-  const fill = Number(minFill);
+  const n = (k: string) => Number(form[k]);
+  const within = (k: string, min: number, max: number) =>
+    form[k] !== '' && Number.isFinite(n(k)) && n(k) >= min && n(k) <= max;
   const valid =
-    Number.isInteger(share) && share >= 10 && share <= 70 &&
-    Number.isInteger(fill) && fill >= 50 && fill <= 100;
+    within('vendorSharePercent', 50, 90) &&
+    within('marginTolerancePoints', 1, 50) &&
+    within('minFillPercent', 50, 100) &&
+    Number.isInteger(n('minFillPercent')) &&
+    ['USD', 'CAD', 'GBP'].every((c) => within(c, 0, 20));
+
+  const field = (key: string, label: string, hint: string) => (
+    <div className="space-y-2">
+      <Label htmlFor={key}>{label}</Label>
+      <Input id={key} inputMode="decimal" value={form[key] ?? ''} onChange={(e) => setForm({ ...form, [key]: e.target.value })} />
+      <p className="text-xs text-muted-foreground">{hint}</p>
+    </div>
+  );
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Subscription boxes</CardTitle>
+        <CardTitle className="text-base">Subscription pricing</CardTitle>
         <p className="text-sm text-muted-foreground">
-          Each plan has a naira box allowance: what one delivery&apos;s items may cost to source.
-          These two numbers keep it in line with what subscribers pay.
+          Each plan&apos;s price is its naira sourcing amount, converted to US$ and marked up. These
+          settings decide whether a markup pays the vendor, and when a price has drifted.
         </p>
       </CardHeader>
       <CardContent className="space-y-5">
@@ -180,49 +229,40 @@ function BoxRulesCard() {
           <div className="flex justify-center py-4"><Spinner /></div>
         ) : (
           <>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Max goods share (%)</Label>
-                <Input type="number" min="10" max="70" value={maxShare} onChange={(e) => setMaxShare(e.target.value)} />
-                <p className="text-xs text-muted-foreground">
-                  A plan&apos;s allowance can be at most this share of each of its prices, at
-                  today&apos;s rate. The rest covers the vendor&apos;s delivery and margin (vendors
-                  keep up to 70% of net revenue, goods included), our share and card fees.
-                  10–70.
-                </p>
-              </div>
-              <div className="space-y-2">
-                <Label>Minimum box fill (%)</Label>
-                <Input type="number" min="50" max="100" value={minFill} onChange={(e) => setMinFill(e.target.value)} />
-                <p className="text-xs text-muted-foreground">
-                  How full a subscriber&apos;s box must be, so they get what they pay for and
-                  the vendor gets a real list. 50–100.
-                </p>
-              </div>
+            <div className="grid sm:grid-cols-3 gap-4">
+              {field('vendorSharePercent', 'Vendor share (%)', 'Of the price paid. The vendor buys the goods from it; card fees come from our share. 50–90.')}
+              {field('marginTolerancePoints', 'Margin tolerance (points)', 'Flag a price whose live markup falls this far below its plan’s. 1–50.')}
+              {field('minFillPercent', 'Minimum box fill (%)', 'How full a subscriber’s box must be. 50–100.')}
             </div>
-
-            {valid && (
-              <div className="rounded-md border p-3 bg-muted/40 text-sm">
-                <p className="text-muted-foreground">
-                  On a plan priced at the equivalent of ₦200,000, the allowance can be up to{' '}
-                  <strong>₦{(2000 * share).toLocaleString('en-NG')}</strong>, and a subscriber must
-                  fill at least <strong>{fill}%</strong> of it.
-                </p>
+            <div>
+              <p className="text-sm font-medium mb-2">Estimated card fees (%)</p>
+              <div className="grid grid-cols-3 gap-4">
+                {field('CAD', 'CAD charges', 'Canadian cards.')}
+                {field('USD', 'USD charges', 'Includes conversion to CAD.')}
+                {field('GBP', 'GBP charges', 'Includes conversion to CAD.')}
               </div>
-            )}
-
+              <p className="text-xs text-muted-foreground mt-2">
+                Luvngift pays these from its share. They are estimates used to show what Luvngift
+                keeps; check them against your Stripe fees. They never change what anyone is charged.
+              </p>
+            </div>
             <p className="text-xs text-muted-foreground">
-              Defaults are {data?.defaults.maxGoodsSharePercent}% and{' '}
-              {data?.defaults.minFillPercent}%. Lowering the goods share does not change existing
-              allowances: plans now above it are flagged on the plans page. Boxes already saved
-              are re-checked at each delivery, and any that no longer fit are held for review.
+              Defaults: vendor {data?.defaults.vendorSharePercent}%, tolerance{' '}
+              {data?.defaults.marginTolerancePoints} points, minimum fill {data?.defaults.minFillPercent}%.
+              Changing these does not reprice anything: republish a plan to apply them.
             </p>
-
             <Button
-              onClick={() => update.mutate({ maxGoodsSharePercent: share, minFillPercent: fill })}
               disabled={update.isPending || !valid}
+              onClick={() =>
+                update.mutate({
+                  vendorSharePercent: n('vendorSharePercent'),
+                  marginTolerancePoints: n('marginTolerancePoints'),
+                  minFillPercent: n('minFillPercent'),
+                  cardFeePercent: { USD: n('USD'), CAD: n('CAD'), GBP: n('GBP') },
+                })
+              }
             >
-              {update.isPending ? 'Saving...' : 'Save box rules'}
+              {update.isPending ? 'Saving...' : 'Save pricing settings'}
             </Button>
           </>
         )}

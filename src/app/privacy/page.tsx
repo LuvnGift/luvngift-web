@@ -50,8 +50,8 @@ export default function PrivacyPage() {
       <h3>When you buy a gift or subscribe</h3>
       <ul>
         <li>
-          Your billing address and country. We use them to work out the sales tax that applies to
-          you.
+          Your billing address and country. We use them to set the currency you pay in and to keep
+          the records our accounting and tax obligations require.
         </li>
         <li>
           Payment details. Card payments are handled by Stripe. We never see or store your full card

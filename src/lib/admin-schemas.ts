@@ -72,12 +72,7 @@ export type CatalogueItemFormValues = z.infer<typeof catalogueItemFormSchema>;
 
 // ─── Subscription plans ───────────────────────────────────────────────────────
 
-export const planPriceRowSchema = z.object({
-  interval: z.enum(['MONTHLY', 'BIWEEKLY']),
-  currency: z.enum(['CAD', 'USD', 'GBP']),
-  amountMajor: majorAmount('Amount'),
-});
-
+/** A plan's details. Pricing is separate: it is derived, previewed and published. */
 export const planFormSchema = z.object({
   name: z.string().trim().min(2, 'Name must be at least 2 characters').max(100),
   description: z
@@ -86,35 +81,39 @@ export const planFormSchema = z.object({
     .min(10, 'Description must be at least 10 characters')
     .max(1000, 'Description must be at most 1000 characters'),
   slotCount: optionalCount('Item slots', 100).refine((v) => v >= 1, 'A plan needs at least 1 slot'),
-  /** What one delivery may cost to source, in naira. The API caps it against every price. */
-  boxAllowanceMajor: nairaAmount('Box allowance'),
   sortOrder: optionalCount('Sort order', 10_000),
   isActive: z.boolean(),
 });
 
-/**
- * Prices are validated separately from the plan body: they only exist when
- * creating (Stripe Prices are immutable, so editing omits them).
- */
-export const planPricesSchema = z
-  .array(planPriceRowSchema)
-  .min(1, 'A plan needs at least one price')
-  .superRefine((rows, ctx) => {
-    const seen = new Set<string>();
-    rows.forEach((row, i) => {
-      const key = `${row.interval}-${row.currency}`;
-      if (seen.has(key)) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: [i, 'currency'],
-          message: 'This interval and currency is already priced',
-        });
-      }
-      seen.add(key);
-    });
-  });
-
 export type PlanFormValues = z.infer<typeof planFormSchema>;
+
+/**
+ * Mirrors `planPricingSchema` in the API's subscriptions.validation.ts. Prices
+ * are never entered: the API derives them from these at today's rate.
+ */
+export const planPricingFormSchema = z.object({
+  /** Sourcing amount per delivery, in naira. */
+  sourcingMajor: nairaAmount('Sourcing amount'),
+  markupPercent: z
+    .string()
+    .trim()
+    .min(1, 'Markup is required')
+    .refine((v) => Number.isFinite(Number(v)), 'Markup must be a number')
+    .refine((v) => Number(v) >= 0 && Number(v) <= 1000, 'Markup must be between 0% and 1000%')
+    .refine((v) => /^\d+(\.\d{1,2})?$/.test(v), 'At most two decimal places'),
+  intervals: z
+    .array(z.enum(['MONTHLY', 'BIWEEKLY']))
+    .min(1, 'Sell the plan at least monthly or every two weeks'),
+});
+
+export type PlanPricingFormValues = z.infer<typeof planPricingFormSchema>;
+
+/** Form values → the API's pricing input. */
+export const toPricingInput = (v: PlanPricingFormValues) => ({
+  boxAllowanceNgn: Math.round(Number(v.sourcingMajor) * 100),
+  markupPercent: Number(v.markupPercent),
+  intervals: v.intervals,
+});
 
 /**
  * Mirrors `sendQuoteSchema` in

@@ -169,7 +169,7 @@ export default function SetupLocationPage() {
               )}
               {country === 'CA' && (
                 <p className="text-xs text-muted-foreground">
-                  Canadian orders are subject to GST/HST/PST based on your province.
+                  Your gift is delivered in Nigeria, so no Canadian sales tax is added.
                 </p>
               )}
             </div>
