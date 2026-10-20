@@ -1,4 +1,5 @@
 import type { MetadataRoute } from 'next';
+import { fetchList } from '@/lib/api-fetch';
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.luvngift.com';
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? '';
@@ -13,30 +14,18 @@ interface BundleRef {
   updatedAt?: string;
 }
 
-async function fetchOccasionSlugs(): Promise<OccasionSlug[]> {
-  try {
-    const res = await fetch(`${API_URL}/api/v1/occasions?limit=100`, {
-      next: { revalidate: 3600 },
-    });
-    if (!res.ok) return [];
-    const json = await res.json();
-    return json.data?.occasions ?? json.data ?? [];
-  } catch {
-    return [];
-  }
+/** Throws on an outage instead of returning [] — see fetchList. */
+function fetchOccasionSlugs(): Promise<OccasionSlug[]> {
+  return fetchList<OccasionSlug>(`${API_URL}/api/v1/occasions?limit=100`, {
+    next: { revalidate: 3600 },
+  });
 }
 
-async function fetchBundleRefs(): Promise<BundleRef[]> {
-  try {
-    const res = await fetch(`${API_URL}/api/v1/bundles?limit=200&isActive=true`, {
-      next: { revalidate: 3600 },
-    });
-    if (!res.ok) return [];
-    const json = await res.json();
-    return json.data?.bundles ?? json.data ?? [];
-  } catch {
-    return [];
-  }
+/** Throws on an outage instead of returning [] — see fetchList. */
+function fetchBundleRefs(): Promise<BundleRef[]> {
+  return fetchList<BundleRef>(`${API_URL}/api/v1/bundles?limit=200&isActive=true`, {
+    next: { revalidate: 3600 },
+  });
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {

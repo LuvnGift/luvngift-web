@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Briefcase, MapPin, ArrowRight } from 'lucide-react';
 import { EMPLOYMENT_LABELS } from './constants';
 import { CACHE_TAGS, CACHE_FALLBACK_SECONDS } from '@/lib/cache-tags';
+import { fetchList } from '@/lib/api-fetch';
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.luvngift.com';
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? '';
@@ -32,17 +33,11 @@ interface Job {
   employmentType: string;
 }
 
-async function fetchJobs(): Promise<Job[]> {
-  try {
-    const res = await fetch(`${API_URL}/api/v1/jobs`, {
-      next: { revalidate: CACHE_FALLBACK_SECONDS, tags: [CACHE_TAGS.jobs] },
-    });
-    if (!res.ok) return [];
-    const json = await res.json();
-    return json.data ?? [];
-  } catch {
-    return [];
-  }
+/** Throws on an outage instead of returning [] — see fetchList. */
+function fetchJobs(): Promise<Job[]> {
+  return fetchList<Job>(`${API_URL}/api/v1/jobs`, {
+    next: { revalidate: CACHE_FALLBACK_SECONDS, tags: [CACHE_TAGS.jobs] },
+  });
 }
 
 export default async function CareersPage() {

@@ -122,3 +122,29 @@ export async function fetchResourceOrNull<T>(
 
   throw new ApiUnavailableError(url, lastCause);
 }
+
+/**
+ * For a page that LISTS things. Returns the array, and throws whenever the API
+ * did not answer with one: a timeout, a 5xx, and also a 404, which for a list
+ * endpoint means a wrong URL, never "there is nothing here". A genuinely empty
+ * list ([]) is returned as-is, so a real empty state still renders.
+ *
+ * Why not `catch { return [] }`: an empty render is a perfectly valid page to
+ * Next's cache. On 2026-10-20 a failed API deploy took the API down for a few
+ * minutes; /occasions and the home page re-rendered during it and served
+ * "No occasions available yet" with no pictures for up to an hour afterwards,
+ * while the data was intact. A thrown error is not cached: Next keeps serving
+ * the last good render, and at build time the deploy fails loudly (after the
+ * retries above) instead of shipping empty pages. An empty sitemap is worse
+ * still: it tells search engines every page is gone.
+ */
+export async function fetchList<T>(
+  url: string,
+  init?: RequestInit & { next?: { revalidate?: number; tags?: string[] } },
+): Promise<T[]> {
+  const data = await fetchResourceOrNull<unknown>(url, init);
+  if (!Array.isArray(data)) {
+    throw new ApiUnavailableError(url, data === null ? 'HTTP 404 for a list' : 'response was not a list');
+  }
+  return data as T[];
+}

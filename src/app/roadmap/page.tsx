@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Rocket, Hammer, CircleDashed, CheckCircle2 } from 'lucide-react';
 import { NotifyForm } from './notify-form';
 import { CACHE_TAGS, CACHE_FALLBACK_SECONDS } from '@/lib/cache-tags';
+import { fetchList } from '@/lib/api-fetch';
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.luvngift.com';
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? '';
@@ -34,17 +35,11 @@ interface RoadmapItem {
   targetLabel: string | null;
 }
 
-async function fetchRoadmap(): Promise<RoadmapItem[]> {
-  try {
-    const res = await fetch(`${API_URL}/api/v1/roadmap`, {
-      next: { revalidate: CACHE_FALLBACK_SECONDS, tags: [CACHE_TAGS.roadmap] },
-    });
-    if (!res.ok) return [];
-    const json = await res.json();
-    return json.data ?? [];
-  } catch {
-    return [];
-  }
+/** Throws on an outage instead of returning [] — see fetchList. */
+function fetchRoadmap(): Promise<RoadmapItem[]> {
+  return fetchList<RoadmapItem>(`${API_URL}/api/v1/roadmap`, {
+    next: { revalidate: CACHE_FALLBACK_SECONDS, tags: [CACHE_TAGS.roadmap] },
+  });
 }
 
 // Display order + presentation per status group.
