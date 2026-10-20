@@ -21,6 +21,7 @@ import {
   Repeat,
   ShoppingBasket,
   ShieldCheck,
+  Wrench,
 } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -42,6 +43,7 @@ const NAV_ITEMS = [
   { href: '/admin/careers', label: 'Careers', icon: Briefcase },
   { href: '/admin/roadmap', label: 'Roadmap', icon: Map },
   { href: '/admin/admin-access', label: 'Admin Access', icon: ShieldCheck },
+  { href: '/admin/maintenance', label: 'Maintenance', icon: Wrench },
   { href: '/admin/settings', label: 'Settings', icon: Settings },
 ];
 

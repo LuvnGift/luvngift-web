@@ -1115,3 +1115,33 @@ export const useUpdateExchangeRates = () => {
     onError: () => toast.error('Failed to update exchange rates'),
   });
 };
+
+// ─── Maintenance (daily automated tasks) ──────────────────────────────────────
+
+export type MaintenanceTask = 'retention:sweep' | 'subscriptions:apply-price-changes' | 'refunds:timeliness';
+
+export interface MaintenanceTaskStatus {
+  task: MaintenanceTask;
+  schedule: string;
+  nextRunAt: string | null;
+  lastRun: { finishedAt: string; ok: boolean; result: unknown; error: string | null } | null;
+}
+
+export const useMaintenanceStatus = () =>
+  useQuery<{ redisAvailable: boolean; tasks: MaintenanceTaskStatus[] }>({
+    queryKey: ['admin', 'maintenance'],
+    queryFn: () => api.get('/api/v1/admin/maintenance').then((r) => r.data.data),
+  });
+
+/** Runs a task now. `dryRun` (retention only) counts without deleting. */
+export const useRunMaintenance = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ task, dryRun }: { task: MaintenanceTask; dryRun?: boolean }) =>
+      api
+        .post(`/api/v1/admin/maintenance/${encodeURIComponent(task)}/run`, null, { params: dryRun ? { dryRun: 'true' } : {} })
+        .then((r) => r.data.data as { task: MaintenanceTask; dryRun: boolean; ranAt: string; result: unknown }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'maintenance'] }),
+    onError: (err: any) => toast.error(err?.response?.data?.error?.message ?? 'The task failed'),
+  });
+};
