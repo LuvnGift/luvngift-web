@@ -18,7 +18,6 @@ const validItem = {
   name: 'Bag of rice (5kg)',
   description: 'Long grain',
   priceMajor: '8500',
-  currency: 'NGN' as const,
   category: 'Staples',
   stock: 12,
   isActive: true,
@@ -68,6 +67,7 @@ const validPlan = {
   name: 'Standard Grocery Box',
   description: 'A month of staples for one or two people.',
   slotCount: 5,
+  boxAllowanceMajor: '85000',
   sortOrder: 0,
   isActive: true,
 };
@@ -88,6 +88,17 @@ describe('planFormSchema', () => {
 
   it('rejects zero slots', () => {
     expect(planFormSchema.safeParse({ ...validPlan, slotCount: 0 }).success).toBe(false);
+  });
+
+  it('requires a box allowance: without one the plan cannot size a box', () => {
+    expect(planFormSchema.safeParse({ ...validPlan, boxAllowanceMajor: '' }).success).toBe(false);
+  });
+
+  it('accepts an allowance above the item-cost cap, up to the API limit', () => {
+    expect(planFormSchema.safeParse({ ...validPlan, boxAllowanceMajor: '2500000' }).success).toBe(true);
+    expect(
+      planFormSchema.safeParse({ ...validPlan, boxAllowanceMajor: '100000000.01' }).success,
+    ).toBe(false);
   });
 
   it('rejects more slots than the API allows', () => {

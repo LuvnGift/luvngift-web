@@ -762,6 +762,8 @@ export interface PlanInput {
   name: string;
   description: string;
   slotCount: number;
+  /** Naira box allowance per delivery, in kobo. */
+  boxAllowanceNgn: number;
   image?: string;
   sortOrder?: number;
   isActive?: boolean;
@@ -1099,6 +1101,34 @@ export const useUpdateDeliveryWindow = () => {
     },
     onError: (err: any) =>
       toast.error(err?.response?.data?.error?.message ?? 'Failed to update delivery window'),
+  });
+};
+
+/** The two numbers that size every subscription box (see box-rules.service). */
+export interface BoxRules {
+  maxGoodsSharePercent: number;
+  minFillPercent: number;
+}
+
+export const useBoxRules = () =>
+  useQuery<BoxRules & { defaults: BoxRules }>({
+    queryKey: ['admin', 'settings', 'box-rules'],
+    queryFn: () => api.get('/api/v1/admin/settings/box-rules').then((r) => r.data.data),
+  });
+
+export const useUpdateBoxRules = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: BoxRules) =>
+      api.put('/api/v1/admin/settings/box-rules', data).then((r) => r.data.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'settings', 'box-rules'] });
+      // The plans list shows each price's goods share against the cap.
+      qc.invalidateQueries({ queryKey: ['admin', 'subscription-plans'] });
+      toast.success('Box rules updated');
+    },
+    onError: (err: any) =>
+      toast.error(err?.response?.data?.error?.message ?? 'Failed to update box rules'),
   });
 };
 

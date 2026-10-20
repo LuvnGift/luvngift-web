@@ -146,6 +146,11 @@ function OrderDetailModal({ orderId, onClose }: { orderId: string; onClose: () =
                   {order.bundle.name}
                 </span>
               )}
+              {order.subscription && (
+                <span className="inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium bg-teal-100 text-teal-800">
+                  Subscription: {order.subscription.plan?.name}
+                </span>
+              )}
               <Button
                 variant="outline"
                 size="sm"
@@ -155,6 +160,20 @@ function OrderDetailModal({ orderId, onClose }: { orderId: string; onClose: () =
                 Change status
               </Button>
             </div>
+
+            {/* A subscription cycle whose box needs a human is held back from
+                its standing vendor; the reason is the last line of the notes. */}
+            {order.isFlagged && (
+              <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-900">
+                <p className="font-semibold">Flagged for review</p>
+                {order.subscription && order.adminNotes && (
+                  <p className="mt-0.5 whitespace-pre-wrap">
+                    {order.adminNotes.split(/\r?\n/).slice(1).join('\n') ||
+                      'Check the box before assigning a vendor.'}
+                  </p>
+                )}
+              </div>
+            )}
 
             <Separator />
 
@@ -229,16 +248,16 @@ function OrderDetailModal({ orderId, onClose }: { orderId: string; onClose: () =
                         <span className="text-muted-foreground">
                           {item.quantity > 1 ? `${item.quantity}× ` : ''}{item.name}
                         </span>
-                        {/* Bundle items carry no individual price — a bundle is
-                            priced as a whole, and OrderItem.price is 0 only
-                            because the column is non-nullable. Rendering that
-                            as CA$0.00 reads like a pricing bug. Subscription
-                            cycle items DO have real per-item prices, so show
-                            the amount whenever there is one. */}
+                        {/* Bundle and subscription-box items carry no individual
+                            price: both are priced as a whole, and OrderItem.price
+                            is 0 only because the column is non-nullable.
+                            Rendering that as CA$0.00 reads like a pricing bug. */}
                         {item.price > 0 ? (
                           <span className="font-medium">{fmt(item.price, order.currency)}</span>
                         ) : (
-                          <span className="text-muted-foreground text-xs">Included in bundle</span>
+                          <span className="text-muted-foreground text-xs">
+                            {order.subscriptionId ? 'Included in box' : 'Included in bundle'}
+                          </span>
                         )}
                       </div>
                     ))}

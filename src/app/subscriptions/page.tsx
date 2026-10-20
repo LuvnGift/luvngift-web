@@ -62,7 +62,7 @@ const HOW_IT_WORKS = [
   {
     icon: Check,
     title: 'Pick a plan and build the box',
-    body: 'Each plan lets you choose a set number of items from our catalogue — or take our pre-picked box if you’d rather not decide.',
+    body: 'Each plan is a box of a set size. You fill it from our catalogue with what your family actually uses, and change it whenever you like.',
   },
   {
     icon: Repeat,
@@ -145,7 +145,7 @@ export default async function SubscriptionsPage() {
                     <p className="mt-4 text-sm flex items-start gap-2">
                       <Check className="h-4 w-4 text-green-600 mt-0.5 shrink-0" />
                       <span>
-                        Choose any <strong>{plan.slotCount}</strong> item
+                        Fill it with up to <strong>{plan.slotCount}</strong> different item
                         {plan.slotCount === 1 ? '' : 's'} from our catalogue
                       </span>
                     </p>

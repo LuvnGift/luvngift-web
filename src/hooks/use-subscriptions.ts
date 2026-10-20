@@ -59,11 +59,30 @@ export const usePlans = () =>
     queryFn: () => api.get('/api/v1/subscriptions/plans').then((r) => r.data.data),
   });
 
+/**
+ * A box-picker item. `share` is the percentage of the plan's box one unit uses;
+ * the naira cost behind it is never sent. Declared here rather than in
+ * `@luvngift/shared` until the next package publish.
+ */
+export interface BoxCatalogueItem {
+  id: string;
+  name: string;
+  description?: string | null;
+  category: string;
+  share: number | null;
+}
+
+/** Public plans embed the minimum box fill so the picker needs no extra request. */
+export type BoxPlan = SubscriptionPlan & { boxMinFillPercent?: number };
+
 /** Catalogue is scoped to the recipient's state — availability varies by region. */
-export const useCatalogue = (addressId?: string) =>
-  useQuery<CatalogueItem[]>({
-    queryKey: ['subscriptions', 'items', addressId],
-    queryFn: () => api.get(`/api/v1/subscriptions/items/${addressId}`).then((r) => r.data.data),
+export const useCatalogue = (addressId?: string, planId?: string) =>
+  useQuery<BoxCatalogueItem[]>({
+    queryKey: ['subscriptions', 'items', addressId, planId],
+    queryFn: () =>
+      api
+        .get(`/api/v1/subscriptions/items/${addressId}`, { params: { planId } })
+        .then((r) => r.data.data),
     enabled: Boolean(addressId),
   });
 

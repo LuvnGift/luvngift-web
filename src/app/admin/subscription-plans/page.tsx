@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Plus, Pencil, Ban, Users, AlertTriangle } from 'lucide-react';
+import { Plus, Pencil, Ban, Users, AlertTriangle, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -14,12 +14,14 @@ import {
   useUpdatePlan,
   useDeletePlan,
   type PlanPriceInput,
+  type BoxRules,
 } from '@/hooks/use-admin';
 import { FieldError } from '@/components/ui/field-error';
 import { planFormSchema, planPricesSchema, fieldErrors } from '@/lib/admin-schemas';
 import { PriceChangesSection } from './price-changes-section';
 
 const SYMBOLS: Record<string, string> = { CAD: 'CA$', USD: '$', GBP: '£' };
+const naira = (kobo: number) => `₦${Math.round(kobo / 100).toLocaleString('en-NG')}`;
 const CURRENCIES = ['CAD', 'USD', 'GBP'] as const;
 const INTERVALS = [
   { value: 'MONTHLY', label: 'Monthly' },
@@ -32,9 +34,12 @@ interface Plan {
   slug: string;
   description: string;
   slotCount: number;
+  /** Kobo. Null = not configured, so the plan is hidden from subscribers. */
+  boxAllowanceNgn: number | null;
   sortOrder: number;
   isActive: boolean;
-  prices: (PlanPriceInput & { id: string })[];
+  /** `goodsSharePercent`: the allowance as a share of this price at today's rate. */
+  prices: (PlanPriceInput & { id: string; goodsSharePercent?: number | null })[];
   _count?: { subscriptions: number };
 }
 
@@ -42,6 +47,7 @@ interface PlanFormState {
   name: string;
   description: string;
   slotCount: string | number;
+  boxAllowanceMajor: string;
   sortOrder: string | number;
   isActive: boolean;
 }
@@ -51,6 +57,26 @@ interface PriceRow {
   interval: 'MONTHLY' | 'BIWEEKLY';
   currency: 'CAD' | 'USD' | 'GBP';
   amountMajor: string;
+}
+
+/**
+ * The allowance as a share of one price at today's rate. It moves with the
+ * naira, so a plan that was inside the cap when saved can drift over it.
+ */
+function GoodsShare({ value, max }: { value?: number | null; max?: number }) {
+  if (value === undefined) return null;
+  if (value === null) {
+    return <span className="ml-1.5 text-muted-foreground font-normal">· goods share unknown</span>;
+  }
+  const over = max !== undefined && value > max;
+  return (
+    <span
+      className={`ml-1.5 font-normal ${over ? 'text-red-600 font-semibold' : 'text-muted-foreground'}`}
+      title={over ? `Above the ${max}% cap at today's rate: raise the price or lower the allowance` : undefined}
+    >
+      · goods {value}%{over ? ` (over ${max}%)` : ''}
+    </span>
+  );
 }
 
 export default function AdminSubscriptionPlansPage() {
@@ -68,6 +94,7 @@ export default function AdminSubscriptionPlansPage() {
     name: '',
     description: '',
     slotCount: 5,
+    boxAllowanceMajor: '',
     sortOrder: 0,
     isActive: true,
   });
@@ -77,10 +104,18 @@ export default function AdminSubscriptionPlansPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const plans: Plan[] = data?.data ?? [];
+  const boxRules: BoxRules | undefined = data?.boxRules;
 
   const openNew = () => {
     setEditing(null);
-    setForm({ name: '', description: '', slotCount: 5, sortOrder: 0, isActive: true });
+    setForm({
+      name: '',
+      description: '',
+      slotCount: 5,
+      boxAllowanceMajor: '',
+      sortOrder: 0,
+      isActive: true,
+    });
     setPrices([{ interval: 'MONTHLY', currency: 'CAD', amountMajor: '' }]);
     setErrors({});
     setOpen(true);
@@ -92,6 +127,7 @@ export default function AdminSubscriptionPlansPage() {
       name: plan.name,
       description: plan.description,
       slotCount: plan.slotCount,
+      boxAllowanceMajor: plan.boxAllowanceNgn ? String(plan.boxAllowanceNgn / 100) : '',
       sortOrder: plan.sortOrder,
       isActive: plan.isActive,
     });
@@ -114,12 +150,14 @@ export default function AdminSubscriptionPlansPage() {
     }
     setErrors({});
 
+    const { boxAllowanceMajor, ...planBody } = body.data;
+    const plan = { ...planBody, boxAllowanceNgn: Math.round(Number(boxAllowanceMajor) * 100) };
     try {
       if (editing) {
-        await updatePlan.mutateAsync({ id: editing.id, ...body.data });
+        await updatePlan.mutateAsync({ id: editing.id, ...plan });
       } else {
         await createPlan.mutateAsync({
-          ...body.data,
+          ...plan,
           prices: priceResult!.data.map((p) => ({
             interval: p.interval,
             currency: p.currency,
@@ -154,7 +192,8 @@ export default function AdminSubscriptionPlansPage() {
         <div>
           <h1 className="text-2xl font-bold">Subscription plans</h1>
           <p className="text-muted-foreground text-sm">
-            Tiers subscribers choose from. Each plan sets how many catalogue items they can pick.
+            Tiers subscribers choose from. Each plan&apos;s box allowance sets what its box may
+            cost to source; subscribers fill it from the catalogue.
           </p>
         </div>
         <Button onClick={openNew}>
@@ -193,6 +232,15 @@ export default function AdminSubscriptionPlansPage() {
                     <span className="rounded-full bg-blue-100 text-blue-800 px-2 py-0.5 text-xs font-semibold">
                       {plan.slotCount} slot{plan.slotCount === 1 ? '' : 's'}
                     </span>
+                    {plan.boxAllowanceNgn ? (
+                      <span className="rounded-full bg-emerald-100 text-emerald-800 px-2 py-0.5 text-xs font-semibold inline-flex items-center gap-1">
+                        <Package className="h-3 w-3" /> Box {naira(plan.boxAllowanceNgn)}
+                      </span>
+                    ) : (
+                      <span className="rounded-full bg-red-100 text-red-800 px-2 py-0.5 text-xs font-semibold">
+                        No box allowance: hidden from subscribers
+                      </span>
+                    )}
                   </p>
                   <p className="text-sm text-muted-foreground mt-1">{plan.description}</p>
                   <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
@@ -231,6 +279,7 @@ export default function AdminSubscriptionPlansPage() {
                     <span className="text-muted-foreground font-normal">
                       {price.interval === 'MONTHLY' ? '/ month' : '/ 2 weeks'}
                     </span>
+                    <GoodsShare value={price.goodsSharePercent} max={boxRules?.maxGoodsSharePercent} />
                   </span>
                 ))}
               </div>
@@ -287,8 +336,7 @@ export default function AdminSubscriptionPlansPage() {
                 />
                 <FieldError message={errors.slotCount} />
                 <p className="text-xs text-muted-foreground">
-                  How many catalogue items the subscriber may pick. Quantity doesn&apos;t consume
-                  extra slots.
+                  The most different items a box may hold. How much fits is set by the allowance.
                 </p>
               </div>
               <div className="space-y-1.5">
@@ -303,6 +351,28 @@ export default function AdminSubscriptionPlansPage() {
                 />
                 <FieldError message={errors.sortOrder} />
               </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="boxAllowance">Box allowance (₦ per delivery)</Label>
+              <Input
+                id="boxAllowance"
+                type="number"
+                min={0}
+                step="1"
+                placeholder="85000"
+                aria-invalid={!!errors.boxAllowanceMajor}
+                value={form.boxAllowanceMajor}
+                onChange={(e) => setForm({ ...form, boxAllowanceMajor: e.target.value })}
+              />
+              <FieldError message={errors.boxAllowanceMajor} />
+              <p className="text-xs text-muted-foreground">
+                What one delivery&apos;s items may cost to source. Subscribers fill{' '}
+                {boxRules?.minFillPercent ?? 80}–100% of it and only ever see percentages. It
+                can&apos;t exceed {boxRules?.maxGoodsSharePercent ?? 50}% of any price on the plan
+                at today&apos;s rate, which leaves the vendor&apos;s delivery and margin and our
+                share. Set in Settings → Subscription boxes.
+              </p>
             </div>
 
             {editing ? (
