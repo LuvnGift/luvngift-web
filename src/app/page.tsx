@@ -157,13 +157,13 @@ export default async function HomePage() {
 									icon: Package,
 									step: "02",
 									title: "We curate & confirm",
-									desc: "Our Nigeria-based team sources, quality-checks, and packs your order — with your personal message presented alongside the gift.",
+									desc: "Our trusted partners in Nigeria source, quality-check, and pack your order — with your personal message presented alongside the gift.",
 								},
 								{
 									icon: Truck,
 									step: "03",
 									title: "Delivered with love",
-									desc: "Your gift is hand-delivered to the recipient anywhere in Nigeria. Track it in real time.",
+									desc: "Your gift is hand-delivered to the recipient anywhere in Nigeria. Follow every step from your account.",
 								},
 							].map((item) => (
 								<div key={item.step} className="text-center group">
@@ -249,8 +249,8 @@ export default async function HomePage() {
 						<div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-4xl mx-auto">
 							{[
 								{ title: "Pay in CAD, USD or GBP", desc: "Pay in your local currency — CAD, USD, or GBP — with no conversion surprises at checkout." },
-								{ title: "Real-time delivery tracking", desc: "Know exactly when your gift arrives. Live updates sent to you the moment status changes." },
-								{ title: "Curated by locals", desc: "Every bundle is handpicked by our Nigeria-based team — people who know what recipients love because it&apos;s home." },
+								{ title: "Live delivery updates", desc: "Email and SMS updates the moment your order's status changes, and a photo when it's delivered." },
+								{ title: "Curated for home", desc: "Every bundle is chosen for what recipients in Nigeria actually love, and prepared by trusted partners on the ground." },
 								{ title: "Custom gifts, done right", desc: "Describe what you want. We source it, pack it, and deliver it — no compromise." },
 								{ title: "Secure payments via Stripe", desc: "Your payment data never touches our servers. Powered by Stripe's bank-grade security." },
 								{ title: "Delivering across Nigeria", desc: "Lagos, Abuja, Port Harcourt, and beyond. If your recipient has an address in Nigeria, we can reach them." },

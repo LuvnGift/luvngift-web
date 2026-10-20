@@ -215,7 +215,7 @@ export function ChatWidget() {
       {!isOpen && (
         <button
           onClick={() => void openChat()}
-          className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-colors hover:bg-primary/90"
+          className="fixed bottom-6 right-6 z-50 print:hidden flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-colors hover:bg-primary/90"
           aria-label="Chat with us"
         >
           <MessageCircle className="h-6 w-6" />
@@ -223,7 +223,7 @@ export function ChatWidget() {
       )}
 
       {isOpen && (
-        <div className="fixed bottom-6 right-6 left-6 z-50 flex flex-col rounded-xl border bg-background shadow-2xl sm:left-auto sm:w-96">
+        <div className="fixed bottom-6 right-6 left-6 z-50 print:hidden flex flex-col rounded-xl border bg-background shadow-2xl sm:left-auto sm:w-96">
           <div className="flex items-center justify-between rounded-t-xl bg-primary px-4 py-3">
             <div className="flex items-center gap-2 text-primary-foreground">
               <Bot className="h-5 w-5" />

@@ -1,131 +1,144 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { LegalPage } from '@/components/legal/legal-page';
+import { BUSINESS } from '@/lib/business';
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.luvngift.com';
 
 export const metadata: Metadata = {
   title: 'Cookie Policy',
   description:
-    'How Luvngift (DOCH FX INC) uses cookies and similar technologies, the types of cookies we use, and how you can control them.',
+    'Every cookie and browser storage item Luvngift (DOCH FX INC) uses, what it is for, how long it lasts, and how to change your choice.',
   alternates: { canonical: `${BASE_URL}/cookie-policy` },
   robots: { index: true, follow: true },
 };
 
+/**
+ * An inventory, not a template: each row is something the code actually sets.
+ * Adding a cookie, storage key or third-party script means adding a row here —
+ * and, if it is not strictly necessary, gating it behind `hasAnalyticsConsent()`.
+ */
+const ESSENTIAL: [string, string, string][] = [
+  ['accessToken', 'Keeps you signed in. Only our servers can read it.', '15 minutes'],
+  ['refreshToken', 'Renews your sign-in without asking for your password again. Only our servers can read it.', '7 days'],
+  ['session', 'Tells the site you are signed in, so it shows the right pages', '7 days'],
+  ['cookie_consent', 'Remembers your cookie choice', '1 year'],
+  ['Stripe cookies (__stripe_mid, __stripe_sid)', 'Set by Stripe on checkout pages to prevent card fraud', 'Up to 1 year'],
+];
+
+const STORAGE: [string, string, string][] = [
+  ['auth-user (local storage)', 'Remembers whether you are signed in. It holds no personal details.', 'Until you sign out'],
+  ['luvngift.guestChat (local storage)', 'Lets you continue a support chat without an account', 'Until you clear it'],
+  ['customGiftDraft (session storage)', 'Keeps a custom gift request you are writing if you sign in part-way through', 'Until you close the tab'],
+];
+
+function CookieTable({ rows }: { rows: [string, string, string][] }) {
+  return (
+    <div className="mb-6 overflow-x-auto">
+      <table className="w-full border-collapse text-sm">
+        <thead>
+          <tr className="border-b text-left text-foreground">
+            <th className="py-2 pr-4 font-semibold">Name</th>
+            <th className="py-2 pr-4 font-semibold">Purpose</th>
+            <th className="py-2 font-semibold">Lasts</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(([name, purpose, duration]) => (
+            <tr key={name} className="border-b align-top">
+              <td className="py-2 pr-4 font-mono text-xs">{name}</td>
+              <td className="py-2 pr-4">{purpose}</td>
+              <td className="py-2 whitespace-nowrap">{duration}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export default function CookiePolicyPage() {
   return (
-    <LegalPage title="Cookie Policy" updated="June 15, 2026">
+    <LegalPage title="Cookie Policy" updated="October 19, 2026">
       <p>
-        This Cookie Policy explains how DOCH FX INC (&quot;Company&quot;, &quot;we&quot;, &quot;us&quot;, and
-        &quot;our&quot;) uses cookies and similar technologies to recognize you when you visit our website at{' '}
-        <a href="https://www.luvngift.com">www.luvngift.com</a> (&quot;Website&quot;). It explains what these
-        technologies are and why we use them, as well as your rights to control our use of them. In some
-        cases we may use cookies to collect personal information, or information that becomes personal
-        information if we combine it with other data.
+        This policy explains the cookies and similar technologies {BUSINESS.legalName} (trading as{' '}
+        {BUSINESS.tradingName}) uses on www.luvngift.com, and how you can control them.
       </p>
 
-      <h2>What are cookies?</h2>
+      <h2>What cookies are</h2>
       <p>
-        Cookies are small data files placed on your computer or mobile device when you visit a website. They
-        are widely used to make websites work more efficiently and to provide reporting information.
-      </p>
-      <p>
-        <strong>First-party cookies</strong> are set by the website owner (DOCH FX INC).{' '}
-        <strong>Third-party cookies</strong> are set by external services and can be used to recognize your
-        device across different websites.
+        Cookies are small files a website stores in your browser. Similar technologies, such as your
+        browser&apos;s local storage, work in much the same way. We describe all of them here.
       </p>
 
-      <h2>Why do we use cookies?</h2>
-      <p>We use cookies for the following reasons:</p>
-      <ul>
-        <li>Essential functionality of the Website (such as keeping you signed in)</li>
-        <li>Security and fraud prevention</li>
-        <li>Remembering your preferences</li>
-        <li>Understanding usage and performance so we can improve the Services (analytics, where enabled)</li>
-      </ul>
+      <h2>Essential cookies</h2>
       <p>
-        Some cookies are strictly necessary for the Website to function; others are optional and used for
-        analytics. We do <strong>not</strong> currently use advertising or targeting cookies, and we do not
-        use cookies to sell or share your personal information.
+        These are needed for the site to work: to sign you in, keep your account secure and take
+        payments. They do not need your consent and cannot be switched off without breaking those
+        features.
       </p>
+      <CookieTable rows={ESSENTIAL} />
 
-      <h2>Types of cookies we use</h2>
-      <h3>Essential cookies</h3>
-      <p>Required for core functionality and cannot be disabled without affecting the site:</p>
-      <ul>
-        <li>Login sessions and authentication</li>
-        <li>Security and fraud prevention</li>
-        <li>Cart and checkout functionality</li>
-      </ul>
+      <h3>Browser storage</h3>
+      <CookieTable rows={STORAGE} />
 
-      <h3>Functional cookies</h3>
-      <p>Used to remember your preferences and improve your experience (for example, saved settings).</p>
-
-      <h3>Analytics cookies</h3>
+      <h2>Analytics (only with your consent)</h2>
       <p>
-        Where enabled, and with your consent where required by law, analytics cookies help us understand
-        visitor behavior, popular pages, and site performance so we can improve the Services. We will update
-        this policy if we introduce a specific analytics provider.
-      </p>
-
-      <h3>Advertising / targeting cookies</h3>
-      <p>
-        We do not currently use advertising or targeting cookies. If we introduce them in the future, we
-        will update this policy and request your consent before placing them where required by law.
-      </p>
-
-      <h2>Third-party cookies</h2>
-      <p>Third parties may set cookies when you interact with:</p>
-      <ul>
-        <li>Stripe (payment processing)</li>
-        <li>Google (sign-in / authentication)</li>
-        <li>Other social login providers</li>
-        <li>Embedded content</li>
-      </ul>
-      <p>Their use of cookies is governed by their own privacy and cookie policies.</p>
-
-      <h2>Other tracking technologies</h2>
-      <p>
-        We may also use web beacons (also called tracking pixels or clear gifs) — for example, in emails — to
-        understand whether messages were opened and to measure the effectiveness of our communications and
-        Services.
-      </p>
-
-      <h2>How can you control cookies?</h2>
-      <p>
-        When you first visit the Website, you can accept or reject non-essential cookies using our cookie
-        banner. You can also control cookies through your browser settings — most browsers let you delete or
-        block cookies:
+        If you choose <strong>Accept all</strong>, we load two tools from our host, Vercel:
       </p>
       <ul>
-        <li><a href="https://support.google.com/chrome/answer/95647" target="_blank" rel="noopener noreferrer">Google Chrome</a></li>
-        <li><a href="https://support.mozilla.org/en-US/kb/cookies-information-websites-store-on-your-computer" target="_blank" rel="noopener noreferrer">Mozilla Firefox</a></li>
-        <li><a href="https://support.apple.com/guide/safari/manage-cookies-sfri11471/mac" target="_blank" rel="noopener noreferrer">Apple Safari</a></li>
-        <li><a href="https://support.microsoft.com/en-us/microsoft-edge/delete-cookies-in-microsoft-edge-63947406-40ac-c3b8-57b9-2a946a29ae09" target="_blank" rel="noopener noreferrer">Microsoft Edge</a></li>
-        <li><a href="https://help.opera.com/en/latest/web-preferences/" target="_blank" rel="noopener noreferrer">Opera</a></li>
+        <li>
+          <strong>Vercel Web Analytics</strong> counts page visits and shows which pages are
+          popular.
+        </li>
+        <li>
+          <strong>Vercel Speed Insights</strong> measures how quickly pages load on real devices.
+        </li>
       </ul>
       <p>
-        If you reject or remove cookies, some parts of the Website may not function properly. Should we
-        introduce advertising cookies in the future, you will also be able to opt out of interest-based
-        advertising through tools such as the{' '}
-        <a href="https://optout.aboutads.info/" target="_blank" rel="noopener noreferrer">Digital Advertising Alliance</a>,{' '}
-        <a href="https://youradchoices.ca/" target="_blank" rel="noopener noreferrer">Digital Advertising Alliance of Canada</a>, and{' '}
-        <a href="https://www.youronlinechoices.eu/" target="_blank" rel="noopener noreferrer">European Interactive Digital Advertising Alliance</a>.
+        Neither tool sets cookies, and neither identifies you or follows you across other websites.
+        We still ask first, and neither loads until you accept. If you reject them, or later change
+        your mind, they do not run.
       </p>
 
-      <h2>Changes to this Cookie Policy</h2>
+      <h2>Error reports</h2>
       <p>
-        We may update this Cookie Policy from time to time. Updates will be posted on this page with a revised
-        &quot;Last updated&quot; date.
+        If a page breaks in your browser, we receive a technical error report through Sentry so we
+        can fix it. It sets no cookies, and the report excludes your cookies and anything you typed
+        into forms. We treat this as necessary to keep the site working.
       </p>
 
-      <h2>Contact us</h2>
-      <p>If you have questions about this Cookie Policy, you may contact us at:</p>
+      <h2>Signing in with Google</h2>
       <p>
-        DOCH FX INC<br />
-        3354 Woodroffe Avenue<br />
-        Nepean, Ontario K2J 0A8<br />
-        Canada<br />
-        Email: <a href="mailto:info@luvngift.com">info@luvngift.com</a>
+        If you choose to sign in with Google, you are taken to Google&apos;s site, where Google&apos;s
+        own cookies apply. See Google&apos;s privacy policy for details.
+      </p>
+
+      <h2>What we do not use</h2>
+      <p>
+        We do not use advertising or tracking cookies, we do not sell information collected through
+        cookies, and our emails contain no tracking pixels. If that ever changes, we will update this
+        policy and ask for your consent first.
+      </p>
+
+      <h2>Changing your choice</h2>
+      <p>
+        Choose <strong>Cookie settings</strong> at the bottom of any page to change your choice at
+        any time. You can also delete cookies in your browser settings. If you delete essential
+        cookies, you will be signed out.
+      </p>
+
+      <h2>Mobile app</h2>
+      <p>
+        The {BUSINESS.tradingName} app does not use cookies or analytics. It stores your sign-in
+        securely on your device so you stay signed in.
+      </p>
+
+      <h2>Changes and contact</h2>
+      <p>
+        If we change this policy, we will update the date at the top. Questions:{' '}
+        <a href={`mailto:${BUSINESS.email}`}>{BUSINESS.email}</a>. See also our{' '}
+        <Link href="/privacy">Privacy Policy</Link>.
       </p>
     </LegalPage>
   );

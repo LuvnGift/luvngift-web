@@ -4,8 +4,8 @@ import './globals.css';
 import { Providers } from './providers';
 import { Toaster } from 'sonner';
 import { CookieConsentBanner } from '@/components/layout/cookie-consent-banner';
-import { Analytics } from '@vercel/analytics/next';
-import { SpeedInsights } from '@vercel/speed-insights/next';
+import { AccountDeletedNotice } from '@/components/layout/account-deleted-notice';
+import { ConsentedAnalytics } from '@/components/layout/consented-analytics';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -76,8 +76,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Providers>{children}</Providers>
         <Toaster richColors position="top-right" />
         <CookieConsentBanner />
-        <Analytics />
-        <SpeedInsights />
+        <AccountDeletedNotice />
+        <ConsentedAnalytics />
       </body>
     </html>
   );

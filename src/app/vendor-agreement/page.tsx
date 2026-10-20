@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 
 export default function VendorAgreementPage() {
   return (
-    <LegalPage title="Vendor Agreement" updated="June 15, 2026">
+    <LegalPage title="Vendor Agreement" updated="October 19, 2026">
       <h2>1. Parties</h2>
       <p>
         This Vendor Agreement is between DOCH FX INC (operating as Luvngift) and the approved vendor
@@ -63,26 +63,47 @@ export default function VendorAgreementPage() {
         in suspension or removal from the platform.
       </p>
 
-      <h2>9. Prohibited conduct</h2>
+      <h2>9. Recipient information and delivery photos</h2>
+      <p>
+        For each order, Luvngift shares the recipient&apos;s name, phone number, delivery address,
+        any personal message and any dietary or religious requirements. The Vendor must:
+      </p>
+      <ul>
+        <li>use this information only to prepare and deliver that order, and never to contact the
+          recipient for any other purpose or share it with anyone else</li>
+        <li>keep it secure, and delete or destroy any copies once the order is delivered</li>
+        <li>tell Luvngift immediately if it is lost, stolen or seen by someone who should not have it</li>
+        <li>respect every dietary and religious requirement on the order</li>
+      </ul>
+      <p>
+        Proof-of-delivery photos must show the gift at the delivery address. Do not photograph the
+        recipient or other people, especially children, unless the recipient clearly agrees. Do not
+        keep the photo or use it for anything else once it has been uploaded.
+      </p>
+      <p>
+        The order link sent to the Vendor is personal to that order. Do not forward or share it.
+      </p>
+
+      <h2>10. Prohibited conduct</h2>
       <p>
         Vendors may not engage in fraud, misrepresentation, or failure to fulfill accepted orders.
       </p>
 
-      <h2>10. Intellectual property</h2>
+      <h2>11. Intellectual property</h2>
       <p>
         Vendors grant Luvngift the right to display product images, descriptions, and related content for
         marketing and operational purposes.
       </p>
 
-      <h2>11. Termination</h2>
+      <h2>12. Termination</h2>
       <p>
         Luvngift may terminate vendor access at any time for breach of these terms or operational reasons.
       </p>
 
-      <h2>12. Liability</h2>
+      <h2>13. Liability</h2>
       <p>Vendors are solely responsible for the fulfillment and legality of their offerings.</p>
 
-      <h2>13. Contact</h2>
+      <h2>14. Contact</h2>
       <p>
         Email: <a href="mailto:info@luvngift.com">info@luvngift.com</a>
       </p>

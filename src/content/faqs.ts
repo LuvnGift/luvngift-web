@@ -12,7 +12,7 @@ export const GENERAL_FAQS: FAQ[] = [
   {
     question: 'How do I send a gift to Nigeria from abroad?',
     answer:
-      'Choose a curated bundle for your occasion or build a custom gift, enter the recipient’s delivery address in Nigeria, add a personal message, and pay securely with your card. Our Nigeria-based team sources, packs, and hand-delivers the gift — no contacts on the ground required.',
+      'Choose a curated bundle for your occasion or build a custom gift, enter the recipient’s delivery address in Nigeria, add a personal message, and pay securely with your card. Our trusted partners in Nigeria source, pack, and hand-deliver the gift — no contacts on the ground required.',
   },
   {
     question: 'How long does delivery to Nigeria take?',
@@ -57,7 +57,7 @@ export const GENERAL_FAQS: FAQ[] = [
   {
     question: 'Can I track my order?',
     answer:
-      'Yes. Every order is tracked in real time. You’ll see live status changes — from processing to out for delivery to delivered — in your account, with notifications sent by email and SMS.',
+      'Yes. You’ll see each status change — from processing to on its way to delivered — in your account as it happens, with notifications by email and SMS and a photo when it’s delivered.',
   },
   {
     question: 'What if I can’t find the right bundle?',
@@ -67,6 +67,6 @@ export const GENERAL_FAQS: FAQ[] = [
   {
     question: 'Do I need to create an account to order?',
     answer:
-      'Yes — a free account lets you save your billing address, track deliveries in real time, view invoices, and reorder favourites quickly.',
+      'Yes — a free account lets you save your billing address, follow your deliveries, and view your invoices.',
   },
 ];

@@ -3,6 +3,8 @@ import Image from 'next/image';
 import { Separator } from '@/components/ui/separator';
 import { FooterAccountLinks } from './footer-account-links';
 import { FooterChatButton } from './footer-chat-button';
+import { CookieSettingsButton } from './cookie-settings-button';
+import { BUSINESS, businessAddressLine, businessPhoneHref } from '@/lib/business';
 
 export function Footer() {
   return (
@@ -123,6 +125,14 @@ export function Footer() {
 									Vendor Agreement
 								</Link>
 							</li>
+							<li>
+								<Link href="/account-deletion" className="hover:text-foreground transition-colors">
+									Delete your account
+								</Link>
+							</li>
+							<li>
+								<CookieSettingsButton />
+							</li>
 						</ul>
 					</div>
 				</div>
@@ -130,9 +140,25 @@ export function Footer() {
 				<Separator className="my-8" />
 
 				<div className="flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
-					<p>&copy; {new Date().getFullYear()} Luvngift. All rights reserved.</p>
+					<p>&copy; {new Date().getFullYear()} {BUSINESS.legalName}. All rights reserved.</p>
 					<p className="text-xs">Accepting CAD · USD · GBP. Delivering across Nigeria.</p>
 				</div>
+
+				{/* Seller identity — see lib/business.ts for why this must be visible. */}
+				<address className="mt-4 not-italic text-center md:text-left text-xs text-muted-foreground leading-relaxed">
+					{BUSINESS.tradingName} is a trading name of {BUSINESS.legalName} · {businessAddressLine()} ·{' '}
+					<a href={`mailto:${BUSINESS.email}`} className="hover:text-foreground hover:underline underline-offset-2">
+						{BUSINESS.email}
+					</a>
+					{BUSINESS.phone && (
+						<>
+							{' · '}
+							<a href={businessPhoneHref()} className="hover:text-foreground hover:underline underline-offset-2">
+								{BUSINESS.phone}
+							</a>
+						</>
+					)}
+				</address>
 			</div>
 		</footer>
 	);

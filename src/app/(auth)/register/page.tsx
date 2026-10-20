@@ -13,11 +13,20 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import Link from 'next/link';
+import { isAdultDateOfBirth, latestAdultDateOfBirth } from '@/lib/age';
 
 // Extend the shared schema with a client-only confirmPassword field. It is
 // validated here but stripped before the request — the API never needs it.
+// Date of birth is optional in the shared schema but required here: it is how
+// we confirm the account holder is 18+ (the API enforces the same rule).
 const registerFormSchema = registerSchema
-  .extend({ confirmPassword: z.string().min(1, 'Please confirm your password') })
+  .extend({
+    confirmPassword: z.string().min(1, 'Please confirm your password'),
+    dateOfBirth: z
+      .string({ required_error: 'Date of birth is required' })
+      .min(1, 'Date of birth is required')
+      .refine((v) => isAdultDateOfBirth(v), 'You must be 18 or older to use Luvngift'),
+  })
   .refine((data) => data.password === data.confirmPassword, {
     message: 'Passwords do not match',
     path: ['confirmPassword'],
@@ -133,8 +142,10 @@ export default function RegisterPage() {
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="dateOfBirth">Date of Birth <span className="text-muted-foreground font-normal">(optional)</span></Label>
-            <Input id="dateOfBirth" {...field('dateOfBirth', { setValueAs: (v) => v === '' ? undefined : v })} type="date" />
+            <Label htmlFor="dateOfBirth">Date of birth</Label>
+            <Input id="dateOfBirth" {...field('dateOfBirth')} type="date" max={latestAdultDateOfBirth()} autoComplete="bday" />
+            <p className="text-xs text-muted-foreground">You must be 18 or older. We use this only to confirm your age.</p>
+            {errors.dateOfBirth && <p className="text-destructive text-xs">{errors.dateOfBirth.message}</p>}
           </div>
 
           {error && (
@@ -148,7 +159,7 @@ export default function RegisterPage() {
           </Button>
 
           <p className="text-center text-xs text-muted-foreground">
-            By creating an account, you agree to our{' '}
+            By creating an account, you confirm you are 18 or older and agree to our{' '}
             <Link href="/terms" className="underline underline-offset-2 hover:text-foreground">Terms of Service</Link>
             {' '}and{' '}
             <Link href="/privacy" className="underline underline-offset-2 hover:text-foreground">Privacy Policy</Link>.

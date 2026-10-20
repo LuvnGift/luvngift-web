@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { safeNextPath, sessionRefreshUrl } from './auth-redirect';
+import { isInSection, safeNextPath, sessionRefreshUrl } from './auth-redirect';
 
 /**
  * `next` / `redirect` arrive in query strings, so these guard against open
@@ -35,5 +35,18 @@ describe('sessionRefreshUrl', () => {
 
   it('falls back to the home page for an unsafe destination', () => {
     expect(sessionRefreshUrl('//evil.example')).toBe('/api/auth/session?next=%2F');
+  });
+});
+
+describe('isInSection', () => {
+  it('matches the section and pages beneath it', () => {
+    expect(isInSection('/account', '/account')).toBe(true);
+    expect(isInSection('/account/settings', '/account')).toBe(true);
+    expect(isInSection('/admin/orders', '/admin')).toBe(true);
+  });
+
+  it('does not match a sibling route that merely shares a prefix', () => {
+    expect(isInSection('/account-deletion', '/account')).toBe(false);
+    expect(isInSection('/administrator', '/admin')).toBe(false);
   });
 });

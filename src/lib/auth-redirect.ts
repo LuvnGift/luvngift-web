@@ -20,3 +20,13 @@ export function safeNextPath(raw: string | null | undefined, fallback = '/'): st
 export function sessionRefreshUrl(next: string): string {
   return `${SESSION_REFRESH_PATH}?next=${encodeURIComponent(safeNextPath(next))}`;
 }
+
+/**
+ * True when `pathname` is `section` itself or a page beneath it. A bare
+ * `startsWith` treated the public `/account-deletion` page as part of the
+ * signed-in `/account` section and bounced signed-out visitors to /login —
+ * the one audience that page exists for (Google Play requires it be public).
+ */
+export function isInSection(pathname: string, section: string): boolean {
+  return pathname === section || pathname.startsWith(`${section}/`);
+}

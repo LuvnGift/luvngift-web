@@ -15,11 +15,17 @@ interface LegalPageProps {
 export function LegalPage({ title, updated, children }: LegalPageProps) {
   return (
     <div className="flex min-h-screen flex-col">
-      <Navbar />
+      {/* Site chrome is left off printed copies (and the PDFs made for legal review). */}
+      <div className="print:hidden">
+        <Navbar />
+      </div>
       <main className="flex-1">
         <div className="container mx-auto max-w-3xl px-4 py-12">
           <h1 className="mb-2 text-3xl font-bold tracking-tight md:text-4xl">{title}</h1>
-          <p className="mb-10 text-sm text-muted-foreground">Last updated: {updated}</p>
+          <p className="mb-10 text-sm text-muted-foreground">
+            Last updated: {updated}
+            <span className="hidden print:inline"> · Luvngift (DOCH FX INC) · www.luvngift.com</span>
+          </p>
           <div
             className="
               text-[15px] leading-7 text-muted-foreground
@@ -35,7 +41,9 @@ export function LegalPage({ title, updated, children }: LegalPageProps) {
           </div>
         </div>
       </main>
-      <Footer />
+      <div className="print:hidden">
+        <Footer />
+      </div>
     </div>
   );
 }

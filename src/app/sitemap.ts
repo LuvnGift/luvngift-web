@@ -131,6 +131,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.3,
     },
     {
+      url: `${BASE_URL}/account-deletion`,
+      lastModified: new Date(),
+      changeFrequency: 'yearly',
+      priority: 0.3,
+    },
+    {
       url: `${BASE_URL}/vendor-agreement`,
       lastModified: new Date(),
       changeFrequency: 'yearly',

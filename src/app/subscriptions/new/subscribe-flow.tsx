@@ -598,6 +598,18 @@ function BoxStep({
             placeholder="e.g. severe reaction to shellfish — please avoid entirely"
           />
         </div>
+
+        {/* This can reveal health or religious information — special-category
+            data in the UK/EU — so the consent is stated where it is given. */}
+        <p className="text-xs text-muted-foreground">
+          Optional. By adding these, you agree that we can use them, and share them with the
+          delivery partner who prepares the box, only to keep deliveries safe and suitable. You can
+          change or remove them later in the Luvngift app, or by contacting us. See our{' '}
+          <Link href="/privacy" target="_blank" className="underline underline-offset-2">
+            Privacy Policy
+          </Link>
+          .
+        </p>
       </div>
 
       {/* Substitution preference */}

@@ -38,12 +38,12 @@ const values = [
   {
     icon: ShieldCheck,
     title: 'Trust & transparency',
-    body: 'Every order is tracked in real time. You always know where your gift is, and your payment is secured by Stripe. No surprises, no hidden fees.',
+    body: 'You get an update at every step, from confirmed to on its way to delivered, plus a photo when it arrives. Your payment is secured by Stripe. No surprises, no hidden fees.',
   },
   {
     icon: Gift,
     title: 'Curated with care',
-    body: 'Our Nigeria-based team handpicks every item in every bundle. We know what recipients love because we are part of the same community.',
+    body: 'Every bundle is chosen for what recipients in Nigeria actually love, and prepared by trusted partners on the ground. We know what matters because we are part of the same community.',
   },
 ];
 

@@ -19,6 +19,8 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { SavedCardsCard } from './saved-cards-card';
 import { MySubscriptionsCard } from './my-subscriptions-card';
+import { DeleteAccountCard } from './delete-account-card';
+import { latestAdultDateOfBirth } from '@/lib/age';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Spinner } from '@/components/ui/spinner';
 import { MapPin } from 'lucide-react';
@@ -119,11 +121,6 @@ export default function AccountPage() {
                 <CardTitle>{fullName}</CardTitle>
                 <CardDescription>
                   @{user?.username} · {user?.email}
-                  {user?.dateOfBirth && (
-                    <span className="block text-xs mt-0.5">
-                      Born {new Date(user.dateOfBirth).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-                    </span>
-                  )}
                 </CardDescription>
               </div>
             </div>
@@ -165,8 +162,9 @@ export default function AccountPage() {
                 <Input id="phone" {...profileForm.register('phone')} type="tel" placeholder="+1 (555) 000-0000" />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="dateOfBirth">Date of Birth <span className="text-muted-foreground">(optional)</span></Label>
-                <Input id="dateOfBirth" {...profileForm.register('dateOfBirth')} type="date" />
+                <Label htmlFor="dateOfBirth">Date of birth</Label>
+                <Input id="dateOfBirth" {...profileForm.register('dateOfBirth')} type="date" max={latestAdultDateOfBirth()} />
+                <p className="text-xs text-muted-foreground">Used only to confirm you are 18 or older.</p>
               </div>
               <Button type="submit" disabled={profileForm.formState.isSubmitting}>
                 {profileForm.formState.isSubmitting ? 'Saving...' : 'Save changes'}
@@ -380,6 +378,11 @@ export default function AccountPage() {
             )}
           </CardContent>
         </Card>
+
+        <DeleteAccountCard
+          hasPassword={(user as { hasPassword?: boolean } | undefined)?.hasPassword !== false}
+          twoFactorEnabled={Boolean(user?.twoFactorEnabled)}
+        />
 
         {/* 2FA Setup Dialog */}
         <Dialog open={twoFADialog === 'setup'} onOpenChange={() => setTwoFADialog(null)}>
