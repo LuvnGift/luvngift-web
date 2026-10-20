@@ -32,6 +32,12 @@ const TASKS: Record<MaintenanceTask, { title: string; when: string; what: string
     what: "Re-prices every live subscription price at today's exchange rate and emails you about any whose markup has fallen more than the tolerance below its plan's. Republish the plan's pricing to fix it.",
     promise: 'Pricing',
   },
+  'vendors:weekly-digest': {
+    title: 'Weekly vendor email',
+    when: 'Mondays at 06:00 UTC (07:00 Lagos)',
+    what: 'Emails each active vendor their open orders, the subscription deliveries coming to them in the next 7 days, and one combined shopping list. Vendors with nothing that week get no email.',
+    promise: 'Fulfilment',
+  },
   'refunds:timeliness': {
     title: 'Refund deadline check',
     when: 'Weekdays at 13:00 UTC',
@@ -52,6 +58,8 @@ const RESULT_LABELS: Record<string, string> = {
   stuckRefunds: 'Unsettled refunds',
   checked: 'Plans checked',
   belowMargin: 'Prices below target margin',
+  digestsSent: 'Vendor emails sent',
+  nothingDue: 'Vendors with nothing this week',
 };
 
 function ResultSummary({ result }: { result: unknown }) {

@@ -893,6 +893,52 @@ export const useDeletePlan = () => {
   });
 };
 
+// ─── A subscriber's box (admin edit) ─────────────────────────────────────────
+
+export interface AdminSubscriptionBox {
+  subscription: {
+    id: string;
+    status: string;
+    planName: string;
+    slotCount: number;
+    recipientState: string;
+    dietaryFlags: string[];
+    dietaryNotes: string | null;
+  };
+  items: { customItemId: string; name: string; quantity: number }[];
+  catalogue: { id: string; name: string; description: string | null; category: string; share: number | null }[];
+  minFillPercent: number;
+}
+
+export const useAdminSubscriptionBox = (subscriptionId?: string) =>
+  useQuery<AdminSubscriptionBox>({
+    queryKey: ['admin', 'subscription-box', subscriptionId],
+    queryFn: () => api.get(`/api/v1/admin/subscriptions/${subscriptionId}/box`).then((r) => r.data.data),
+    enabled: Boolean(subscriptionId),
+  });
+
+/** Reason required; audited; the subscriber is emailed the new box and the reason. */
+export const useUpdateAdminSubscriptionBox = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      subscriptionId,
+      ...body
+    }: {
+      subscriptionId: string;
+      items: { customItemId: string; quantity: number }[];
+      reason: string;
+      applyToOrderId?: string;
+    }) => api.put(`/api/v1/admin/subscriptions/${subscriptionId}/items`, body).then((r) => r.data.data),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ['admin', 'subscription-box', vars.subscriptionId] });
+      if (vars.applyToOrderId) qc.invalidateQueries({ queryKey: ['admin', 'orders'] });
+      toast.success('Box updated. The subscriber has been emailed.');
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.error?.message ?? 'Could not update the box'),
+  });
+};
+
 // ─── Scheduled subscription price changes ────────────────────────────────────
 
 export interface PriceChange {
@@ -1209,7 +1255,8 @@ export type MaintenanceTask =
   | 'retention:sweep'
   | 'subscriptions:apply-price-changes'
   | 'refunds:timeliness'
-  | 'subscriptions:margin-check';
+  | 'subscriptions:margin-check'
+  | 'vendors:weekly-digest';
 
 export interface MaintenanceTaskStatus {
   task: MaintenanceTask;
