@@ -32,6 +32,8 @@ import {
   type SubstitutionPreference,
 } from '@/hooks/use-subscriptions';
 import { boxFill, type BoxFill } from '@/lib/box-fill';
+import { useUserCurrency } from '@/hooks/use-exchange-rates';
+import { pickPrice } from '@/components/subscriptions/plan-price';
 
 /** Fallback if a cached plans payload predates box sizing. Matches the API default. */
 const DEFAULT_MIN_FILL = 80;
@@ -112,6 +114,7 @@ export function SubscribeFlow() {
   const fill = boxFill(picked, catalogue ?? [], minFill);
 
   const { mutateAsync: createSubscription, isPending: subscribing } = useCreateSubscription();
+  const { currency: buyerCurrency } = useUserCurrency();
 
   if (!isAuthenticated) {
     return (
@@ -141,7 +144,8 @@ export function SubscribeFlow() {
     );
   }
 
-  const price = plan.prices.find((p) => p.interval === interval);
+  // The row the API will charge: same currency rule on both sides.
+  const price = pickPrice(plan.prices, interval, buyerCurrency);
 
   const handleSubscribe = async () => {
     if (!addressId) return;

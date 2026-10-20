@@ -5,6 +5,7 @@ import { Footer } from '@/components/layout/footer';
 import { Check, Repeat, Camera, PauseCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { CACHE_TAGS, CACHE_FALLBACK_SECONDS } from '@/lib/cache-tags';
+import { PlanPrice } from '@/components/subscriptions/plan-price';
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.luvngift.com';
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? '';
@@ -52,11 +53,6 @@ async function fetchPlans(): Promise<Plan[]> {
   }
 }
 
-const SYMBOLS: Record<string, string> = { CAD: 'CA$', USD: '$', GBP: '£', NGN: '₦' };
-
-function formatPrice(price: Price) {
-  return `${SYMBOLS[price.currency] ?? price.currency}${(price.amount / 100).toFixed(2)}`;
-}
 
 const HOW_IT_WORKS = [
   {
@@ -118,8 +114,6 @@ export default async function SubscriptionsPage() {
           ) : (
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {plans.map((plan) => {
-                const monthly = plan.prices.find((p) => p.interval === 'MONTHLY');
-                const biweekly = plan.prices.find((p) => p.interval === 'BIWEEKLY');
                 return (
                   <div
                     key={plan.id}
@@ -130,17 +124,10 @@ export default async function SubscriptionsPage() {
                       {plan.description}
                     </p>
 
-                    <p className="mt-4 text-2xl font-bold">
-                      {monthly ? formatPrice(monthly) : biweekly ? formatPrice(biweekly) : '—'}
-                      <span className="text-sm font-normal text-muted-foreground">
-                        {monthly ? ' / month' : biweekly ? ' / 2 weeks' : ''}
-                      </span>
-                    </p>
-                    {monthly && biweekly && (
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        or {formatPrice(biweekly)} every two weeks
-                      </p>
-                    )}
+                    {/* Client-side: the buyer's currency is unknown at prerender. */}
+                    <div className="mt-4">
+                      <PlanPrice prices={plan.prices} />
+                    </div>
 
                     <p className="mt-4 text-sm flex items-start gap-2">
                       <Check className="h-4 w-4 text-green-600 mt-0.5 shrink-0" />

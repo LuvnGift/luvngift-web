@@ -45,10 +45,12 @@ export default function VendorAgreementPage() {
 
       <h2>6. Revenue share and payouts</h2>
       <p>
-        Luvngift retains a platform commission on each completed sale. The applicable revenue share, payout
-        method, and payout schedule are provided to you during onboarding and may be updated from time to
-        time with reasonable notice. Payouts are calculated on net revenue (after applicable taxes and
-        payment processing fees) and issued on a schedule determined by Luvngift.
+        For each order you fulfil, you receive 70% of the price the customer paid, excluding any taxes.
+        Luvngift keeps the remaining 30%, out of which it pays payment-processing fees, so those fees
+        never reduce your share. The goods for the order are bought out of your share. The payout
+        method and schedule are provided to you during onboarding. The share, method and schedule may
+        be updated from time to time with reasonable notice, and a change never applies to an order
+        already assigned to you.
       </p>
 
       <h2>7. Cancellations and refunds</h2>

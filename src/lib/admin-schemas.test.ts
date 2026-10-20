@@ -2,7 +2,8 @@ import { describe, it, expect } from 'vitest';
 import {
   catalogueItemFormSchema,
   planFormSchema,
-  planPricesSchema,
+  planPricingFormSchema,
+  toPricingInput,
   fieldErrors,
   quoteFormSchema,
   toMinorUnits,
@@ -67,7 +68,6 @@ const validPlan = {
   name: 'Standard Grocery Box',
   description: 'A month of staples for one or two people.',
   slotCount: 5,
-  boxAllowanceMajor: '85000',
   sortOrder: 0,
   isActive: true,
 };
@@ -90,17 +90,6 @@ describe('planFormSchema', () => {
     expect(planFormSchema.safeParse({ ...validPlan, slotCount: 0 }).success).toBe(false);
   });
 
-  it('requires a box allowance: without one the plan cannot size a box', () => {
-    expect(planFormSchema.safeParse({ ...validPlan, boxAllowanceMajor: '' }).success).toBe(false);
-  });
-
-  it('accepts an allowance above the item-cost cap, up to the API limit', () => {
-    expect(planFormSchema.safeParse({ ...validPlan, boxAllowanceMajor: '2500000' }).success).toBe(true);
-    expect(
-      planFormSchema.safeParse({ ...validPlan, boxAllowanceMajor: '100000000.01' }).success,
-    ).toBe(false);
-  });
-
   it('rejects more slots than the API allows', () => {
     expect(planFormSchema.safeParse({ ...validPlan, slotCount: 101 }).success).toBe(false);
   });
@@ -115,33 +104,33 @@ describe('planFormSchema', () => {
   });
 });
 
-describe('planPricesSchema', () => {
-  const row = { interval: 'MONTHLY' as const, currency: 'CAD' as const, amountMajor: '49.99' };
+describe('planPricingFormSchema', () => {
+  const valid = { sourcingMajor: '150000', markupPercent: '62.5', intervals: ['MONTHLY' as const] };
 
-  it('accepts one valid row', () => {
-    expect(planPricesSchema.safeParse([row]).success).toBe(true);
-  });
-
-  it('requires at least one price', () => {
-    expect(planPricesSchema.safeParse([]).success).toBe(false);
-  });
-
-  it('rejects a duplicate interval + currency pair, flagged on the second row', () => {
-    const result = planPricesSchema.safeParse([row, { ...row }]);
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      // Path drives which row shows the message in the UI.
-      expect(fieldErrors(result.error)['1.currency']).toBeDefined();
+  it('accepts a well-formed pricing input and converts it for the API', () => {
+    const result = planPricingFormSchema.safeParse(valid);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(toPricingInput(result.data)).toEqual({
+        boxAllowanceNgn: 150_000_00,
+        markupPercent: 62.5,
+        intervals: ['MONTHLY'],
+      });
     }
   });
 
-  it('allows the same currency at a different interval', () => {
-    const result = planPricesSchema.safeParse([row, { ...row, interval: 'BIWEEKLY' as const }]);
-    expect(result.success).toBe(true);
+  it('requires a sourcing amount, up to the API limit', () => {
+    expect(planPricingFormSchema.safeParse({ ...valid, sourcingMajor: '' }).success).toBe(false);
+    expect(planPricingFormSchema.safeParse({ ...valid, sourcingMajor: '2500000' }).success).toBe(true);
+    expect(planPricingFormSchema.safeParse({ ...valid, sourcingMajor: '100000000.01' }).success).toBe(false);
   });
 
-  it('rejects a row with a blank amount', () => {
-    expect(planPricesSchema.safeParse([{ ...row, amountMajor: '' }]).success).toBe(false);
+  it.each([[''], ['-1'], ['abc'], ['62.555'], ['1001']])('rejects markup %s', (markupPercent) => {
+    expect(planPricingFormSchema.safeParse({ ...valid, markupPercent }).success).toBe(false);
+  });
+
+  it('requires at least one cadence', () => {
+    expect(planPricingFormSchema.safeParse({ ...valid, intervals: [] }).success).toBe(false);
   });
 });
 

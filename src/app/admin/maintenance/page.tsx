@@ -23,8 +23,14 @@ const TASKS: Record<MaintenanceTask, { title: string; when: string; what: string
   'subscriptions:apply-price-changes': {
     title: 'Apply scheduled price changes',
     when: 'Every day at 01:00 UTC',
-    what: 'Moves existing subscribers to a new price once its effective date arrives. Schedule changes from Plans.',
+    what: 'Moves existing subscribers to a new price once its effective date arrives. Changes are scheduled by publishing a plan’s pricing.',
     promise: 'Terms § 9',
+  },
+  'subscriptions:margin-check': {
+    title: 'Subscription margin check',
+    when: 'Every day at 12:00 UTC',
+    what: "Re-prices every live subscription price at today's exchange rate and emails you about any whose markup has fallen more than the tolerance below its plan's. Republish the plan's pricing to fix it.",
+    promise: 'Pricing',
   },
   'refunds:timeliness': {
     title: 'Refund deadline check',
@@ -44,6 +50,8 @@ const RESULT_LABELS: Record<string, string> = {
   failed: 'Subscribers that failed (retried tomorrow)',
   overdueRequests: 'Overdue refund requests',
   stuckRefunds: 'Unsettled refunds',
+  checked: 'Plans checked',
+  belowMargin: 'Prices below target margin',
 };
 
 function ResultSummary({ result }: { result: unknown }) {

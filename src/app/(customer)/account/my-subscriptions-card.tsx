@@ -54,7 +54,12 @@ function SubscriptionRow({ sub }: { sub: Subscription }) {
 
   const busy =
     skip.isPending || unskip.isPending || pause.isPending || resume.isPending || cancel.isPending;
-  const price = sub.plan.prices?.find((p) => p.interval === sub.interval);
+  // What THIS subscriber is charged. The plan's price row can already hold a
+  // newer price that only reaches existing subscribers after the notice period.
+  const amount =
+    (sub as { amount?: number | null }).amount ??
+    sub.plan.prices?.find((p) => p.interval === sub.interval && p.currency === sub.currency)?.amount;
+  const price = amount !== undefined ? { amount, currency: sub.currency } : undefined;
   const cadence = sub.interval === 'MONTHLY' ? 'every month' : 'every 2 weeks';
   const ended = sub.status === 'CANCELLED';
 
