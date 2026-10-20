@@ -275,7 +275,7 @@ export default function CustomGiftPage() {
                     value={watched.occasionType}
                     onValueChange={(v) => setValue('occasionType', v, { shouldValidate: true })}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger aria-label="Occasion type">
                       <SelectValue placeholder="Select an occasion" />
                     </SelectTrigger>
                     <SelectContent>
@@ -384,7 +384,7 @@ export default function CustomGiftPage() {
                       value={watched.state}
                       onValueChange={(v) => setValue('state', v, { shouldValidate: true })}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger aria-label="Delivery state">
                         <SelectValue placeholder="Select state" />
                       </SelectTrigger>
                       <SelectContent className="max-h-60">

@@ -357,7 +357,7 @@ export function VendorOrderClient({ token }: { token: string }) {
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <main className="mx-auto min-h-screen w-full max-w-lg px-4 py-8">
+    <main id="main-content" className="mx-auto min-h-screen w-full max-w-lg px-4 py-8">
       {children}
       <p className="mt-10 text-center text-xs text-muted-foreground">
         Luvngift · this page is private to you and to this order

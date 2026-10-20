@@ -165,7 +165,7 @@ export default function VendorFormModal({ open, onClose, vendor }: Props) {
                   name="state"
                   render={({ field }) => (
                     <Select value={field.value} onValueChange={field.onChange}>
-                      <SelectTrigger>
+                      <SelectTrigger aria-label="State">
                         <SelectValue placeholder="Select state" />
                       </SelectTrigger>
                       <SelectContent className="max-h-60">
@@ -186,7 +186,7 @@ export default function VendorFormModal({ open, onClose, vendor }: Props) {
                   name="businessType"
                   render={({ field }) => (
                     <Select value={field.value} onValueChange={field.onChange}>
-                      <SelectTrigger>
+                      <SelectTrigger aria-label="Business type">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>

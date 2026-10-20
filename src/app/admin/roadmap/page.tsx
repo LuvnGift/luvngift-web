@@ -282,7 +282,7 @@ function RoadmapFields({ form }: { form: ReturnType<typeof useForm<FormValues>> 
         <div className="space-y-2">
           <Label>Status</Label>
           <Select value={status} onValueChange={(v) => setValue('status', v as RoadmapStatus)}>
-            <SelectTrigger>
+            <SelectTrigger aria-label="Roadmap status">
               <SelectValue placeholder="Select status" />
             </SelectTrigger>
             <SelectContent>

@@ -73,16 +73,45 @@ export const useUpdateOrderStatus = () => {
   });
 };
 
+export interface RefundOrderInput {
+  id: string;
+  /** Smallest currency unit. Omit to refund everything still refundable. */
+  amount?: number;
+  reason?: string;
+}
+
 export const useRefundOrder = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) =>
-      api.post(`/api/v1/admin/orders/${id}/refund`).then((r) => r.data.data),
-    onSuccess: () => {
+    mutationFn: ({ id, ...body }: RefundOrderInput) =>
+      api.post(`/api/v1/admin/orders/${id}/refund`, body).then((r) => r.data.data),
+    onSuccess: (result: { isFull?: boolean; status?: string }) => {
       qc.invalidateQueries({ queryKey: ['admin', 'orders'] });
       qc.invalidateQueries({ queryKey: ['admin', 'metrics'] });
-      toast.success('Refund processed');
+      const what = result?.isFull === false ? 'Partial refund' : 'Refund';
+      toast.success(result?.status === 'pending' ? `${what} sent — Stripe is processing it` : `${what} processed`);
     },
+    onError: (err: any) => toast.error(err?.response?.data?.error?.message ?? 'Refund failed'),
+  });
+};
+
+/**
+ * Logs a customer's refund request (from email or chat) against the order. That
+ * starts the Refund Policy's 5-business-day clock; the daily check alerts if it
+ * runs out. Closing the request stops the clock when no refund is due.
+ */
+export const useRefundRequest = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, note, close }: { id: string; note?: string; close?: boolean }) =>
+      api
+        .post(`/api/v1/admin/orders/${id}/refund-request${close ? '/close' : ''}`, { note })
+        .then((r) => r.data.data),
+    onSuccess: (_data, { close }) => {
+      qc.invalidateQueries({ queryKey: ['admin', 'orders'] });
+      toast.success(close ? 'Refund request closed' : 'Refund request logged');
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.error?.message ?? 'Could not update the request'),
   });
 };
 
@@ -788,6 +817,61 @@ export const useDeletePlan = () => {
       qc.invalidateQueries({ queryKey: ['subscriptions', 'plans'] });
       toast.success('Plan deactivated');
     },
+  });
+};
+
+// ─── Scheduled subscription price changes ────────────────────────────────────
+
+export interface PriceChange {
+  id: string;
+  priceId: string;
+  oldAmount: number;
+  newAmount: number;
+  effectiveAt: string;
+  appliedAt: string | null;
+  cancelledAt: string | null;
+  createdByEmail: string | null;
+  createdAt: string;
+  price: { interval: 'MONTHLY' | 'BIWEEKLY'; currency: string };
+}
+
+export const usePlanPriceChanges = (planId: string) =>
+  useQuery<PriceChange[]>({
+    queryKey: ['admin', 'price-changes', planId],
+    queryFn: () =>
+      api.get(`/api/v1/admin/subscription-plans/${planId}/price-changes`).then((r) => r.data.data),
+  });
+
+/** Terms § 9: an increase needs 30 days' notice; the API enforces it. */
+export const useSchedulePriceChange = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ priceId, newAmount, effectiveAt }: { priceId: string; newAmount: number; effectiveAt: string }) =>
+      api
+        .post(`/api/v1/admin/subscription-prices/${priceId}/price-changes`, { newAmount, effectiveAt })
+        .then((r) => r.data.data as { notified: number }),
+    onSuccess: ({ notified }) => {
+      qc.invalidateQueries({ queryKey: ['admin', 'price-changes'] });
+      qc.invalidateQueries({ queryKey: ['admin', 'subscription-plans'] });
+      qc.invalidateQueries({ queryKey: ['subscriptions', 'plans'] });
+      toast.success(`Price change scheduled. ${notified} subscriber${notified === 1 ? '' : 's'} will be emailed.`);
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.error?.message ?? 'Could not schedule the change'),
+  });
+};
+
+export const useCancelPriceChange = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (changeId: string) =>
+      api.post(`/api/v1/admin/subscription-price-changes/${changeId}/cancel`).then((r) => r.data.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'price-changes'] });
+      qc.invalidateQueries({ queryKey: ['admin', 'subscription-plans'] });
+      qc.invalidateQueries({ queryKey: ['subscriptions', 'plans'] });
+      toast.success('Price change cancelled. Notified subscribers will be told.');
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.error?.message ?? 'Could not cancel the change'),
   });
 };
 

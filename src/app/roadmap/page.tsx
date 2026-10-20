@@ -61,7 +61,7 @@ export default async function RoadmapPage() {
     <div className="flex min-h-screen flex-col">
       <Navbar />
 
-      <main className="flex-1">
+      <main id="main-content" className="flex-1">
         {/* Hero */}
         <section className="bg-gradient-to-br from-primary/10 via-background to-secondary/30 py-16 md:py-20">
           <div className="container mx-auto max-w-3xl px-4 text-center">

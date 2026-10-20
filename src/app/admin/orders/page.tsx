@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   useAdminOrders, useAdminOrder, useUpdateOrderStatus,
-  useRefundOrder, useDeleteOrder, useAssignVendor, useVendors,
+  useDeleteOrder, useAssignVendor, useVendors,
   useReconcilePayments, useCancelTestModeOrders, type ReconcileResult,
 } from '@/hooks/use-admin';
 import { Card, CardContent } from '@/components/ui/card';
@@ -28,6 +28,7 @@ import {
   type OrderListParams,
 } from '@/lib/admin-order-tabs';
 import { VendorLinkSection } from './vendor-link-section';
+import { RefundSection } from './refund-section';
 import { CustomOrderSection, customOrderStatusBlock, customOrderVendorBlock } from './custom-order-section';
 import { ADMIN_STAGE, type QuoteStatus } from '@/lib/custom-orders';
 
@@ -97,7 +98,6 @@ const refundStatusColors: Record<string, string> = {
 
 function OrderDetailModal({ orderId, onClose }: { orderId: string; onClose: () => void }) {
   const { data: order, isLoading } = useAdminOrder(orderId);
-  const refund = useRefundOrder();
   const deleteOrder = useDeleteOrder();
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [showAssign, setShowAssign] = useState(false);
@@ -105,12 +105,6 @@ function OrderDetailModal({ orderId, onClose }: { orderId: string; onClose: () =
   // row — off-screen on a phone, and absent from this panel, which is where a
   // custom order is worked on (and where alert emails land).
   const [statusTarget, setStatusTarget] = useState<string | null>(null);
-
-  const handleRefund = () => {
-    if (!order) return;
-    if (!confirm('Issue a full refund for this order? This cannot be undone.')) return;
-    refund.mutate(order.id);
-  };
 
   const handleDelete = () => {
     if (!order) return;
@@ -170,7 +164,7 @@ function OrderDetailModal({ orderId, onClose }: { orderId: string; onClose: () =
                 <p className="text-xs text-muted-foreground mb-1 uppercase tracking-wide font-medium">Order ID</p>
                 <div className="flex items-center gap-2">
                   <code className="flex-1 text-xs bg-muted px-2 py-1.5 rounded break-all">{order.id}</code>
-                  <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={() => copyText(order.id)}>
+                  <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={() => copyText(order.id)} aria-label="Copy order ID">
                     <Copy className="h-3.5 w-3.5" />
                   </Button>
                 </div>
@@ -180,7 +174,7 @@ function OrderDetailModal({ orderId, onClose }: { orderId: string; onClose: () =
                   <p className="text-xs text-muted-foreground mb-1 uppercase tracking-wide font-medium">Stripe Payment Intent</p>
                   <div className="flex items-center gap-2">
                     <code className="flex-1 text-xs bg-muted px-2 py-1.5 rounded break-all">{order.payment.stripePaymentIntentId}</code>
-                    <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={() => copyText(order.payment!.stripePaymentIntentId)}>
+                    <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={() => copyText(order.payment!.stripePaymentIntentId)} aria-label="Copy payment intent ID">
                       <Copy className="h-3.5 w-3.5" />
                     </Button>
                   </div>
@@ -283,11 +277,14 @@ function OrderDetailModal({ orderId, onClose }: { orderId: string; onClose: () =
 
             <Separator />
 
-            {/* Refund + FX differential */}
+            {/* Refunds: request clock, history, full or partial refund */}
+            <RefundSection order={order} />
+
+            {/* Latest refund as Stripe reports it, with the FX differential */}
             {order.payment?.refundId && (
               <>
                 <div>
-                  <p className="text-xs text-muted-foreground uppercase tracking-wide font-medium mb-2">Refund</p>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide font-medium mb-2">Latest refund (Stripe)</p>
                   <div className="space-y-1">
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Stripe status</span>
@@ -337,7 +334,7 @@ function OrderDetailModal({ orderId, onClose }: { orderId: string; onClose: () =
 
                   <div className="mt-2 flex items-center gap-2">
                     <code className="flex-1 text-xs bg-muted px-2 py-1.5 rounded break-all">{order.payment.refundId}</code>
-                    <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={() => copyText(order.payment!.refundId!)}>
+                    <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={() => copyText(order.payment!.refundId!)} aria-label="Copy refund ID">
                       <Copy className="h-3.5 w-3.5" />
                     </Button>
                   </div>
@@ -463,18 +460,6 @@ function OrderDetailModal({ orderId, onClose }: { orderId: string; onClose: () =
 
           {/* Right actions */}
           <div className="flex gap-2">
-            {order && order.status !== 'REFUNDED' && order.status !== 'CANCELLED' && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-1.5 text-destructive hover:text-destructive"
-                onClick={handleRefund}
-                disabled={refund.isPending}
-              >
-                <RefreshCw className="h-3.5 w-3.5" />
-                Refund
-              </Button>
-            )}
             <Button variant="outline" size="sm" onClick={onClose}>Close</Button>
           </div>
         </DialogFooter>
@@ -516,7 +501,7 @@ function UpdateStatusDialog({
           <div className="space-y-1.5">
             <Label>Status</Label>
             <Select value={newStatus} onValueChange={setNewStatus}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger aria-label="Order status"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {ORDER_STATUSES.map((s) => {
                   const blocked = customOrderStatusBlock(order, s);
@@ -606,7 +591,7 @@ function AssignVendorDialog({ order, onClose }: { order: any; onClose: () => voi
               </p>
             ) : (
               <Select value={vendorId} onValueChange={setVendorId}>
-                <SelectTrigger>
+                <SelectTrigger aria-label="Vendor">
                   <SelectValue placeholder="Choose a vendor..." />
                 </SelectTrigger>
                 <SelectContent>

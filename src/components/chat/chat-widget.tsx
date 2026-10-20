@@ -236,7 +236,7 @@ export function ChatWidget() {
             </div>
             <button
               onClick={handleClose}
-              className="text-primary-foreground/80 transition-colors hover:text-primary-foreground"
+              className="text-primary-foreground transition-opacity hover:opacity-80"
               aria-label="Close chat"
             >
               <X className="h-5 w-5" />

@@ -199,7 +199,7 @@ export default function AdminCataloguePage() {
                       {SYMBOLS[item.currency ?? 'NGN']}
                       {(item.price / 100).toFixed(2)}
                     </span>
-                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => openEdit(item)}>
+                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => openEdit(item)} aria-label={`Edit ${item.name}`}>
                       <Pencil className="h-3.5 w-3.5" />
                     </Button>
                     {item.isActive && (
@@ -208,6 +208,7 @@ export default function AdminCataloguePage() {
                         variant="ghost"
                         className="h-8 w-8 text-muted-foreground hover:text-red-600"
                         onClick={() => handleDeactivate(item)}
+                        aria-label={`Deactivate ${item.name}`}
                       >
                         <Ban className="h-3.5 w-3.5" />
                       </Button>

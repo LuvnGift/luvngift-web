@@ -225,7 +225,7 @@ export function PurchasePanel({ bundle }: Props) {
                     name="state"
                     render={({ field }) => (
                       <Select value={field.value} onValueChange={field.onChange}>
-                        <SelectTrigger>
+                        <SelectTrigger aria-label="Delivery state">
                           <SelectValue placeholder="Select state" />
                         </SelectTrigger>
                         <SelectContent>

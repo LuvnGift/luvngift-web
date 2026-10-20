@@ -604,7 +604,7 @@ function BoxStep({
         <p className="text-xs text-muted-foreground">
           Optional. By adding these, you agree that we can use them, and share them with the
           delivery partner who prepares the box, only to keep deliveries safe and suitable. You can
-          change or remove them later in the Luvngift app, or by contacting us. See our{' '}
+          change or remove them at any time from your account. See our{' '}
           <Link href="/privacy" target="_blank" className="underline underline-offset-2">
             Privacy Policy
           </Link>

@@ -17,6 +17,7 @@ import {
 } from '@/hooks/use-admin';
 import { FieldError } from '@/components/ui/field-error';
 import { planFormSchema, planPricesSchema, fieldErrors } from '@/lib/admin-schemas';
+import { PriceChangesSection } from './price-changes-section';
 
 const SYMBOLS: Record<string, string> = { CAD: 'CA$', USD: '$', GBP: '£' };
 const CURRENCIES = ['CAD', 'USD', 'GBP'] as const;
@@ -202,7 +203,7 @@ export default function AdminSubscriptionPlansPage() {
                 </div>
 
                 <div className="flex items-center gap-1 shrink-0">
-                  <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => openEdit(plan)}>
+                  <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => openEdit(plan)} aria-label={`Edit ${plan.name}`}>
                     <Pencil className="h-3.5 w-3.5" />
                   </Button>
                   {plan.isActive && (
@@ -211,6 +212,7 @@ export default function AdminSubscriptionPlansPage() {
                       variant="ghost"
                       className="h-8 w-8 text-muted-foreground hover:text-red-600"
                       onClick={() => handleDeactivate(plan)}
+                      aria-label={`Deactivate ${plan.name}`}
                     >
                       <Ban className="h-3.5 w-3.5" />
                     </Button>
@@ -232,6 +234,7 @@ export default function AdminSubscriptionPlansPage() {
                   </span>
                 ))}
               </div>
+              <PriceChangesSection planId={plan.id} prices={plan.prices} />
             </li>
           ))}
         </ul>
@@ -380,6 +383,7 @@ export default function AdminSubscriptionPlansPage() {
                             variant="ghost"
                             className="h-9 w-9 shrink-0"
                             onClick={() => setPrices(prices.filter((_, idx) => idx !== i))}
+                            aria-label="Remove this price"
                           >
                             ×
                           </Button>

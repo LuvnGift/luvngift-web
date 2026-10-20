@@ -126,11 +126,6 @@ export function Footer() {
 								</Link>
 							</li>
 							<li>
-								<Link href="/account-deletion" className="hover:text-foreground transition-colors">
-									Delete your account
-								</Link>
-							</li>
-							<li>
 								<CookieSettingsButton />
 							</li>
 						</ul>

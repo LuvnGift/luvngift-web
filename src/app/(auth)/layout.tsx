@@ -14,7 +14,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           <Image src="/images/luvngift.png" alt="Luvngift" width={56} height={56} className="object-contain" />
         </Link>
       </header>
-      <main className="flex-1 flex items-center justify-center px-4 py-12">
+      <main id="main-content" className="flex-1 flex items-center justify-center px-4 py-12">
         {children}
       </main>
     </div>

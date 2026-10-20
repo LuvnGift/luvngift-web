@@ -87,7 +87,7 @@ export default async function SubscriptionsPage() {
   return (
     <>
       <Navbar />
-      <main className="mx-auto max-w-6xl px-4 py-12 sm:py-16">
+      <main id="main-content" className="mx-auto max-w-6xl px-4 py-12 sm:py-16">
         <header className="max-w-3xl">
           <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">
             Groceries for the people you love — every month, handled

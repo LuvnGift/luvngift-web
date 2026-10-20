@@ -125,7 +125,7 @@ function BundleForm({
           value={form.watch('occasionId')}
           onValueChange={(v) => form.setValue('occasionId', v, { shouldValidate: true })}
         >
-          <SelectTrigger>
+          <SelectTrigger aria-label="Occasion">
             <SelectValue placeholder="Select occasion..." />
           </SelectTrigger>
           <SelectContent>

@@ -19,7 +19,7 @@ export default function NotFound() {
   return (
     <>
       <Navbar />
-      <main className="mx-auto flex max-w-2xl flex-col items-center px-4 py-20 text-center sm:py-28">
+      <main id="main-content" className="mx-auto flex max-w-2xl flex-col items-center px-4 py-20 text-center sm:py-28">
         <div className="mb-6 rounded-2xl bg-muted p-5">
           <Gift className="h-10 w-10 text-muted-foreground" aria-hidden />
         </div>

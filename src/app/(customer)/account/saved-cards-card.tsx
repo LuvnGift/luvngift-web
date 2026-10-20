@@ -101,6 +101,7 @@ export function SavedCardsCard() {
                       onClick={() => handleDelete(card)}
                       disabled={deleteCard.isPending}
                       title="Remove card"
+                      aria-label={`Remove ${brandLabel(card.brand)} ending in ${card.last4}`}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>

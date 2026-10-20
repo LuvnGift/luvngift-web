@@ -19,7 +19,7 @@ export function LegalPage({ title, updated, children }: LegalPageProps) {
       <div className="print:hidden">
         <Navbar />
       </div>
-      <main className="flex-1">
+      <main id="main-content" className="flex-1">
         <div className="container mx-auto max-w-3xl px-4 py-12">
           <h1 className="mb-2 text-3xl font-bold tracking-tight md:text-4xl">{title}</h1>
           <p className="mb-10 text-sm text-muted-foreground">

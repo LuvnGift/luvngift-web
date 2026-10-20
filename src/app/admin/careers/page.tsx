@@ -310,7 +310,7 @@ function JobFields({ form }: { form: ReturnType<typeof useForm<FormValues>> }) {
         <div className="space-y-2">
           <Label>Employment type</Label>
           <Select value={employmentType} onValueChange={(v) => setValue('employmentType', v as JobEmploymentType)}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectTrigger aria-label="Employment type"><SelectValue /></SelectTrigger>
             <SelectContent>
               {EMPLOYMENT.map((e) => <SelectItem key={e.value} value={e.value}>{e.label}</SelectItem>)}
             </SelectContent>
@@ -319,7 +319,7 @@ function JobFields({ form }: { form: ReturnType<typeof useForm<FormValues>> }) {
         <div className="space-y-2">
           <Label>Status</Label>
           <Select value={status} onValueChange={(v) => setValue('status', v as JobStatus)}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectTrigger aria-label="Job status"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="OPEN">Open</SelectItem>
               <SelectItem value="CLOSED">Closed</SelectItem>
@@ -391,7 +391,7 @@ function ApplicationsTab() {
                         value={app.status}
                         onValueChange={(v) => updateStatus.mutate({ id: app.id, status: v as ApplicationStatus })}
                       >
-                        <SelectTrigger className="h-8 w-36"><SelectValue /></SelectTrigger>
+                        <SelectTrigger aria-label="Application status" className="h-8 w-36"><SelectValue /></SelectTrigger>
                         <SelectContent>
                           {APP_STATUSES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                         </SelectContent>

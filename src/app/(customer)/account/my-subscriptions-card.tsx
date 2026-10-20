@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Repeat, SkipForward, PauseCircle, PlayCircle, XCircle, ShieldAlert } from 'lucide-react';
+import { Repeat, SkipForward, PauseCircle, PlayCircle, XCircle } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -17,6 +17,7 @@ import {
   type SubscriptionStatus,
   type SubstitutionPreference,
 } from '@/hooks/use-subscriptions';
+import { DietaryEditor } from './dietary-editor';
 
 const SYMBOLS: Record<string, string> = { CAD: 'CA$', USD: '$', GBP: '£', NGN: '₦' };
 
@@ -122,18 +123,7 @@ function SubscriptionRow({ sub }: { sub: Subscription }) {
         </p>
       )}
 
-      {(sub.address.dietaryFlags?.length ?? 0) > 0 && (
-        <p className="text-xs mt-2 flex items-start gap-1.5">
-          <ShieldAlert className="h-3.5 w-3.5 mt-0.5 shrink-0 text-amber-600" />
-          <span>
-            <span className="font-medium">Dietary:</span>{' '}
-            <span className="text-muted-foreground">
-              {sub.address.dietaryFlags!.join(', ')}
-              {sub.address.dietaryNotes ? ` — ${sub.address.dietaryNotes}` : ''}
-            </span>
-          </span>
-        </p>
-      )}
+      <DietaryEditor sub={sub} readOnly={ended} />
 
       {!ended && (
         <div className="mt-3">

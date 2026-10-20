@@ -141,7 +141,7 @@ export function VendorApplicationForm() {
                   name="state"
                   render={({ field }) => (
                     <Select value={field.value} onValueChange={field.onChange}>
-                      <SelectTrigger onBlur={field.onBlur}>
+                      <SelectTrigger aria-label="State" onBlur={field.onBlur}>
                         <SelectValue placeholder="Select state" />
                       </SelectTrigger>
                       <SelectContent className="max-h-60">
@@ -161,7 +161,7 @@ export function VendorApplicationForm() {
                   name="businessType"
                   render={({ field }) => (
                     <Select value={field.value} onValueChange={field.onChange}>
-                      <SelectTrigger onBlur={field.onBlur}>
+                      <SelectTrigger aria-label="Business type" onBlur={field.onBlur}>
                         <SelectValue placeholder="Select type" />
                       </SelectTrigger>
                       <SelectContent>
