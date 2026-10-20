@@ -9,7 +9,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { CheckCircle, Mail, MessageSquare } from 'lucide-react';
+import { Building2, CheckCircle, Mail, MessageSquare, Phone } from 'lucide-react';
+import { BUSINESS, businessPhoneHref } from '@/lib/business';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
 
@@ -60,8 +61,39 @@ export function ContactClient() {
             </div>
             <div>
               <p className="font-semibold text-sm">Email us</p>
-              <p className="text-sm text-muted-foreground">info@luvngift.com</p>
+              <a href={`mailto:${BUSINESS.email}`} className="text-sm text-muted-foreground hover:text-foreground">
+                {BUSINESS.email}
+              </a>
               <p className="text-xs text-muted-foreground mt-1">We reply within 24–48 hours</p>
+            </div>
+          </div>
+
+          {BUSINESS.phone && (
+            <div className="flex items-start gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                <Phone className="h-4 w-4 text-primary" aria-hidden="true" />
+              </div>
+              <div>
+                <p className="font-semibold text-sm">Call us</p>
+                <a href={businessPhoneHref()} className="text-sm text-muted-foreground hover:text-foreground">
+                  {BUSINESS.phone}
+                </a>
+              </div>
+            </div>
+          )}
+
+          <div className="flex items-start gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+              <Building2 className="h-4 w-4 text-primary" aria-hidden="true" />
+            </div>
+            <div>
+              <p className="font-semibold text-sm">Company</p>
+              <address className="not-italic text-sm text-muted-foreground leading-relaxed">
+                {BUSINESS.legalName} (trading as {BUSINESS.tradingName})<br />
+                {BUSINESS.address.street}<br />
+                {BUSINESS.address.city}, {BUSINESS.address.region} {BUSINESS.address.postalCode}<br />
+                {BUSINESS.address.country}
+              </address>
             </div>
           </div>
 

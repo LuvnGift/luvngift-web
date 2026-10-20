@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { safeNextPath, sessionRefreshUrl } from '@/lib/auth-redirect';
+import { isInSection, safeNextPath, sessionRefreshUrl } from '@/lib/auth-redirect';
 
 // Routes that require the user to be logged in.
 // Note: /custom is intentionally public — guests can build a custom gift; auth is
@@ -54,18 +54,18 @@ function authRedirect(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
   const { isAuth, role } = parseSessionCookie(request);
 
-  if (isAuth && GUEST_ONLY.some((p) => pathname.startsWith(p))) {
+  if (isAuth && GUEST_ONLY.some((p) => isInSection(pathname, p))) {
     // Honour ?redirect= so a re-login lands on the page an alert email linked to.
     const fallback = role === 'ADMIN' ? '/admin' : '/';
     const dest = safeNextPath(request.nextUrl.searchParams.get('redirect'), fallback);
     return NextResponse.redirect(new URL(dest, request.url));
   }
 
-  if (!isAuth && AUTH_REQUIRED.some((p) => pathname.startsWith(p))) {
+  if (!isAuth && AUTH_REQUIRED.some((p) => isInSection(pathname, p))) {
     return loginRedirect(request, pathname);
   }
 
-  if (ADMIN_ONLY.some((p) => pathname.startsWith(p))) {
+  if (ADMIN_ONLY.some((p) => isInSection(pathname, p))) {
     if (!isAuth) return loginRedirect(request, pathname + search);
     if (role !== 'ADMIN') return NextResponse.redirect(new URL('/', request.url));
     if (!request.cookies.get('accessToken')?.value) {

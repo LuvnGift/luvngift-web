@@ -57,6 +57,15 @@ function LoginInner() {
           </svg>
           Continue with Google
         </a>
+        {/* Google sign-in creates an account on first use, so it needs the same
+            acceptance text as the register form. */}
+        <p className="text-center text-xs text-muted-foreground">
+          New to Luvngift? Continuing with Google creates an account. You confirm you are 18 or
+          older and agree to our{' '}
+          <Link href="/terms" className="underline underline-offset-2 hover:text-foreground">Terms of Service</Link>
+          {' '}and{' '}
+          <Link href="/privacy" className="underline underline-offset-2 hover:text-foreground">Privacy Policy</Link>.
+        </p>
 
         <div className="relative">
           <Separator />

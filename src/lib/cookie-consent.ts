@@ -6,6 +6,8 @@ export type ConsentValue = 'all' | 'essential';
 const COOKIE_NAME = 'cookie_consent';
 const MAX_AGE = 60 * 60 * 24 * 365; // 1 year
 export const CONSENT_EVENT = 'cookie-consent-change';
+/** Fired by the footer's "Cookie settings" link to reopen the banner. */
+export const OPEN_CONSENT_EVENT = 'cookie-consent-open';
 
 export function getConsent(): ConsentValue | null {
   if (typeof document === 'undefined') return null;
@@ -24,4 +26,10 @@ export function setConsent(value: ConsentValue): void {
 /** Has the user consented to non-essential (analytics/marketing) cookies? */
 export function hasAnalyticsConsent(): boolean {
   return getConsent() === 'all';
+}
+
+/** Reopens the consent banner so a visitor can change their earlier choice. */
+export function openConsentSettings(): void {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new Event(OPEN_CONSENT_EVENT));
 }

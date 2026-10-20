@@ -282,6 +282,12 @@ export function VendorOrderClient({ token }: { token: string }) {
             The buyer is abroad and never sees the delivery. This photo is what they get instead,
             so it is the most important part of the job.
           </p>
+          {/* Vendor Agreement § 9: the photo goes to the buyer and is stored by
+              us, so it must not capture people who have not agreed to it. */}
+          <p className="mb-4 text-sm text-muted-foreground">
+            Photograph the gift at the delivery address. Do not include the recipient or other
+            people, especially children, unless the recipient clearly agrees.
+          </p>
 
           {preview && (
             <div className="relative mb-4 h-56 w-full overflow-hidden rounded-lg bg-muted">

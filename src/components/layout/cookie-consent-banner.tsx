@@ -3,12 +3,15 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { getConsent, setConsent, type ConsentValue } from '@/lib/cookie-consent';
+import {
+  getConsent, setConsent, OPEN_CONSENT_EVENT, type ConsentValue,
+} from '@/lib/cookie-consent';
 
 /**
- * Lightweight cookie consent banner. Shows once until the visitor makes a choice.
- * Choice is stored in the `cookie_consent` cookie; analytics/marketing scripts
- * should be gated behind `hasAnalyticsConsent()` from '@/lib/cookie-consent'.
+ * Lightweight cookie consent banner. Shows once until the visitor makes a choice,
+ * and again whenever the footer's "Cookie settings" link asks for it, so a
+ * choice can be changed as easily as it was made. The choice is stored in the
+ * `cookie_consent` cookie and honoured by `ConsentedAnalytics`.
  */
 export function CookieConsentBanner() {
   const [visible, setVisible] = useState(false);
@@ -16,6 +19,9 @@ export function CookieConsentBanner() {
   useEffect(() => {
     // Only show if no decision has been recorded yet.
     if (!getConsent()) setVisible(true);
+    const reopen = () => setVisible(true);
+    window.addEventListener(OPEN_CONSENT_EVENT, reopen);
+    return () => window.removeEventListener(OPEN_CONSENT_EVENT, reopen);
   }, []);
 
   if (!visible) return null;
@@ -26,10 +32,15 @@ export function CookieConsentBanner() {
   };
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-50 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+    <div
+      role="region"
+      aria-label="Cookie consent"
+      className="fixed inset-x-0 bottom-0 z-50 print:hidden border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80"
+    >
       <div className="container mx-auto flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-muted-foreground">
-          We use essential cookies to run Luvngift and, with your consent, analytics cookies to improve it.
+          We use essential cookies to run Luvngift. With your consent, we also measure page visits
+          and loading speed to improve the site.
           See our{' '}
           <Link href="/cookie-policy" className="font-medium text-foreground underline underline-offset-2">
             Cookie Policy
