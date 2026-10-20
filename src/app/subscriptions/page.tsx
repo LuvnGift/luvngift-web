@@ -6,6 +6,7 @@ import { Check, Repeat, Camera, PauseCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { CACHE_TAGS, CACHE_FALLBACK_SECONDS } from '@/lib/cache-tags';
 import { PlanPrice } from '@/components/subscriptions/plan-price';
+import { fetchList } from '@/lib/api-fetch';
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.luvngift.com';
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? '';
@@ -40,17 +41,11 @@ interface Plan {
   prices: Price[];
 }
 
-async function fetchPlans(): Promise<Plan[]> {
-  try {
-    const res = await fetch(`${API_URL}/api/v1/subscriptions/plans`, {
-      next: { revalidate: CACHE_FALLBACK_SECONDS, tags: [CACHE_TAGS.subscriptionPlans] },
-    });
-    if (!res.ok) return [];
-    const json = await res.json();
-    return json.data ?? [];
-  } catch {
-    return [];
-  }
+/** Throws on an outage instead of returning [] — see fetchList. */
+function fetchPlans(): Promise<Plan[]> {
+  return fetchList<Plan>(`${API_URL}/api/v1/subscriptions/plans`, {
+    next: { revalidate: CACHE_FALLBACK_SECONDS, tags: [CACHE_TAGS.subscriptionPlans] },
+  });
 }
 
 

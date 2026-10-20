@@ -4,6 +4,7 @@ import { Wand2 } from 'lucide-react';
 import { OccasionCard } from '@/components/occasions/occasion-card';
 import type { Occasion } from '@luvngift/shared';
 import { CACHE_TAGS, CACHE_FALLBACK_SECONDS } from '@/lib/cache-tags';
+import { fetchList } from '@/lib/api-fetch';
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.luvngift.com';
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? '';
@@ -27,17 +28,11 @@ export const metadata: Metadata = {
   },
 };
 
-async function fetchOccasions(): Promise<Occasion[]> {
-  try {
-    const res = await fetch(`${API_URL}/api/v1/occasions`, {
-      next: { revalidate: CACHE_FALLBACK_SECONDS, tags: [CACHE_TAGS.occasions] },
-    });
-    if (!res.ok) return [];
-    const json = await res.json();
-    return json.data ?? [];
-  } catch {
-    return [];
-  }
+/** Throws on an outage instead of returning [] — see fetchList. */
+function fetchOccasions(): Promise<Occasion[]> {
+  return fetchList<Occasion>(`${API_URL}/api/v1/occasions`, {
+    next: { revalidate: CACHE_FALLBACK_SECONDS, tags: [CACHE_TAGS.occasions] },
+  });
 }
 
 const itemListJsonLd = (occasions: Occasion[]) => ({
