@@ -30,7 +30,17 @@ interface Order {
   deliveryProofAt?: string | null;
   deliveryProofNote?: string | null;
   address?: { dietaryFlags?: string[]; dietaryNotes?: string | null } | null;
+  subscription?: { substitutionPreference?: SubstitutionPreference | null } | null;
 }
+
+type SubstitutionPreference = 'SMART' | 'ASK_FIRST' | 'NONE';
+
+/** The subscriber's choice, as SUBSTITUTION-POLICY.md § 8 defines it. */
+const PREFERENCE_LABEL: Record<SubstitutionPreference, string> = {
+  SMART: 'Smart Substitute: replace like-for-like, no delay',
+  ASK_FIRST: 'Ask Me First: contact the subscriber and wait up to 24h, then Smart Substitute',
+  NONE: 'No Substitutions: omit unavailable items and make good next delivery',
+};
 
 /**
  * Vendors have no portal yet (MVP 2), so admin records substitutions and uploads
@@ -47,6 +57,8 @@ export function DeliveryProofSection({ order }: { order: Order }) {
 
   const items = order.items ?? [];
   const dietary = order.address?.dietaryFlags ?? [];
+  const dietaryNotes = order.address?.dietaryNotes;
+  const preference = order.subscription?.substitutionPreference;
 
   const setEdit = (id: string, patch: Partial<SubstitutionRecord>) =>
     setEdits((prev) => ({
@@ -81,17 +93,22 @@ export function DeliveryProofSection({ order }: { order: Order }) {
   return (
     <div className="space-y-5">
       {/* Dietary constraints — must be visible before anyone substitutes anything */}
-      {dietary.length > 0 && (
+      {(dietary.length > 0 || dietaryNotes) && (
         <div className="rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-900 flex gap-2">
           <ShieldAlert className="h-4 w-4 shrink-0 mt-0.5" />
           <div>
             <p className="font-semibold">Dietary constraints — do not substitute across these</p>
-            <p className="mt-0.5">{dietary.join(', ')}</p>
-            {order.address?.dietaryNotes && (
-              <p className="mt-0.5 italic">{order.address.dietaryNotes}</p>
-            )}
+            {dietary.length > 0 && <p className="mt-0.5">{dietary.join(', ')}</p>}
+            {dietaryNotes && <p className="mt-0.5 italic">{dietaryNotes}</p>}
           </div>
         </div>
+      )}
+
+      {preference && (
+        <p className="text-xs text-muted-foreground">
+          <span className="font-medium text-foreground">Substitution preference: </span>
+          {PREFERENCE_LABEL[preference]}
+        </p>
       )}
 
       {/* Substitutions */}

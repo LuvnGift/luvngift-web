@@ -11,6 +11,7 @@ import {
   Phone,
   Truck,
   AlertCircle,
+  ShieldAlert,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
@@ -44,11 +45,33 @@ interface VendorOrder {
   specialInstructions: string | null;
   /** For a custom gift: what the customer agreed to. This is the brief. */
   agreedBrief?: string | null;
+  /** Allergies and religious requirements. A safety constraint, not a preference. */
+  dietaryFlags: string[];
+  dietaryNotes: string | null;
+  /** Subscription cycles only; null for one-off orders. */
+  substitutionPreference: SubstitutionPreference | null;
   preferredDeliveryDate: string | null;
   hasProof: boolean;
   canMarkShipped: boolean;
   canUploadProof: boolean;
 }
+
+type SubstitutionPreference = 'SMART' | 'ASK_FIRST' | 'NONE';
+
+/**
+ * The subscriber's preference (SUBSTITUTION-POLICY.md § 8), worded for the
+ * vendor. Vendors never contact the customer, so "Ask me first" means: tell us,
+ * and we ask.
+ */
+const SUBSTITUTION_GUIDANCE: Record<SubstitutionPreference, string> = {
+  SMART:
+    'If an item is unavailable, replace it with a similar item of the same or better quality, ' +
+    'and tell Luvngift what you changed.',
+  ASK_FIRST:
+    'If an item is unavailable, do not replace it yet. Tell Luvngift straight away — we check ' +
+    'with the customer first.',
+  NONE: 'If an item is unavailable, do not replace it. Leave it out and tell Luvngift.',
+};
 
 const MAX_DIMENSION = 1600;
 const JPEG_QUALITY = 0.8;
@@ -220,6 +243,8 @@ export function VendorOrderClient({ token }: { token: string }) {
         </a>
       </Section>
 
+      <RecipientNeeds order={order} />
+
       <Section icon={<Package className="h-4 w-4" />} title={order.bundleName}>
         {order.items.length === 0 ? (
           <p className="text-muted-foreground">No itemised contents recorded.</p>
@@ -352,6 +377,41 @@ export function VendorOrderClient({ token }: { token: string }) {
         </Section>
       )}
     </Shell>
+  );
+}
+
+/**
+ * Shown above the contents, because it governs what may go in the box. Dietary
+ * flags override the substitution preference: no replacement may cross them.
+ */
+function RecipientNeeds({ order }: { order: VendorOrder }) {
+  const hasDietary = order.dietaryFlags.length > 0 || Boolean(order.dietaryNotes);
+  if (!hasDietary && !order.substitutionPreference) return null;
+
+  return (
+    <div className="mb-4 rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-950">
+      {hasDietary && (
+        <div className="flex gap-3">
+          <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0" />
+          <div>
+            <p className="font-semibold">Dietary needs: nothing in the box may contain these</p>
+            {order.dietaryFlags.length > 0 && (
+              <p className="mt-1 text-base font-medium">{order.dietaryFlags.join(', ')}</p>
+            )}
+            {order.dietaryNotes && (
+              <p className="mt-1 whitespace-pre-wrap text-sm">{order.dietaryNotes}</p>
+            )}
+            <p className="mt-2 text-sm">Check every replacement against this list too.</p>
+          </div>
+        </div>
+      )}
+      {order.substitutionPreference && (
+        <p className={hasDietary ? 'mt-3 border-t border-amber-200 pt-3 text-sm' : 'text-sm'}>
+          <span className="font-semibold">Missing items: </span>
+          {SUBSTITUTION_GUIDANCE[order.substitutionPreference]}
+        </p>
+      )}
+    </div>
   );
 }
 

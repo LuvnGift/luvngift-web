@@ -29,6 +29,19 @@ const majorAmount = (label: string) =>
     .refine((v) => Math.round(Number(v) * 100) <= 1_000_000_00, `${label} is implausibly large`);
 
 /**
+ * Naira entered in major units. A plan's box allowance has a higher ceiling
+ * than an item cost (the API caps it at 100_000_000_00 kobo).
+ */
+const nairaAmount = (label: string) =>
+  z
+    .string()
+    .trim()
+    .min(1, `${label} is required`)
+    .refine((v) => Number.isFinite(Number(v)), `${label} must be a number`)
+    .refine((v) => Number(v) > 0, `${label} must be greater than zero`)
+    .refine((v) => Math.round(Number(v) * 100) <= 100_000_000_00, `${label} is implausibly large`);
+
+/**
  * A cleared `<input type="number">` yields '' and `Number('')` is 0, while
  * `Number('abc')` is NaN — both slip past a plain `z.number()` on a value the
  * component already coerced. Parse from the raw string instead.
@@ -47,8 +60,8 @@ const optionalCount = (label: string, max: number) =>
 export const catalogueItemFormSchema = z.object({
   name: z.string().trim().min(2, 'Name must be at least 2 characters').max(120),
   description: z.string().trim().max(500, 'Description must be at most 500 characters').optional(),
-  priceMajor: majorAmount('Price'),
-  currency: z.enum(['CAD', 'USD', 'GBP', 'NGN']),
+  /** Sourcing cost in naira. Always NGN: boxes are measured against a naira allowance. */
+  priceMajor: majorAmount('Cost'),
   category: z.string().trim().min(2, 'Category must be at least 2 characters').max(60),
   stock: optionalCount('Stock', 1_000_000),
   isActive: z.boolean(),
@@ -73,6 +86,8 @@ export const planFormSchema = z.object({
     .min(10, 'Description must be at least 10 characters')
     .max(1000, 'Description must be at most 1000 characters'),
   slotCount: optionalCount('Item slots', 100).refine((v) => v >= 1, 'A plan needs at least 1 slot'),
+  /** What one delivery may cost to source, in naira. The API caps it against every price. */
+  boxAllowanceMajor: nairaAmount('Box allowance'),
   sortOrder: optionalCount('Sort order', 10_000),
   isActive: z.boolean(),
 });

@@ -6,6 +6,8 @@ import {
   useUpdateExchangeRates,
   useDeliveryWindow,
   useUpdateDeliveryWindow,
+  useBoxRules,
+  useUpdateBoxRules,
 } from '@/hooks/use-admin';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -136,7 +138,96 @@ export default function AdminSettingsPage() {
       </Card>
 
       <DeliveryWindowCard />
+      <BoxRulesCard />
     </div>
+  );
+}
+
+/**
+ * Sizes every subscription box. Bounds mirror `boxRulesSchema` in the API's
+ * admin routes: above 70% the vendor's revenue share could not cover the goods.
+ */
+function BoxRulesCard() {
+  const { data, isLoading } = useBoxRules();
+  const update = useUpdateBoxRules();
+
+  const [maxShare, setMaxShare] = useState('');
+  const [minFill, setMinFill] = useState('');
+
+  useEffect(() => {
+    if (!data) return;
+    setMaxShare(String(data.maxGoodsSharePercent));
+    setMinFill(String(data.minFillPercent));
+  }, [data]);
+
+  const share = Number(maxShare);
+  const fill = Number(minFill);
+  const valid =
+    Number.isInteger(share) && share >= 10 && share <= 70 &&
+    Number.isInteger(fill) && fill >= 50 && fill <= 100;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Subscription boxes</CardTitle>
+        <p className="text-sm text-muted-foreground">
+          Each plan has a naira box allowance: what one delivery&apos;s items may cost to source.
+          These two numbers keep it in line with what subscribers pay.
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-5">
+        {isLoading ? (
+          <div className="flex justify-center py-4"><Spinner /></div>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Max goods share (%)</Label>
+                <Input type="number" min="10" max="70" value={maxShare} onChange={(e) => setMaxShare(e.target.value)} />
+                <p className="text-xs text-muted-foreground">
+                  A plan&apos;s allowance can be at most this share of each of its prices, at
+                  today&apos;s rate. The rest covers the vendor&apos;s delivery and margin (vendors
+                  keep up to 70% of net revenue, goods included), our share and card fees.
+                  10–70.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label>Minimum box fill (%)</Label>
+                <Input type="number" min="50" max="100" value={minFill} onChange={(e) => setMinFill(e.target.value)} />
+                <p className="text-xs text-muted-foreground">
+                  How full a subscriber&apos;s box must be, so they get what they pay for and
+                  the vendor gets a real list. 50–100.
+                </p>
+              </div>
+            </div>
+
+            {valid && (
+              <div className="rounded-md border p-3 bg-muted/40 text-sm">
+                <p className="text-muted-foreground">
+                  On a plan priced at the equivalent of ₦200,000, the allowance can be up to{' '}
+                  <strong>₦{(2000 * share).toLocaleString('en-NG')}</strong>, and a subscriber must
+                  fill at least <strong>{fill}%</strong> of it.
+                </p>
+              </div>
+            )}
+
+            <p className="text-xs text-muted-foreground">
+              Defaults are {data?.defaults.maxGoodsSharePercent}% and{' '}
+              {data?.defaults.minFillPercent}%. Lowering the goods share does not change existing
+              allowances: plans now above it are flagged on the plans page. Boxes already saved
+              are re-checked at each delivery, and any that no longer fit are held for review.
+            </p>
+
+            <Button
+              onClick={() => update.mutate({ maxGoodsSharePercent: share, minFillPercent: fill })}
+              disabled={update.isPending || !valid}
+            >
+              {update.isPending ? 'Saving...' : 'Save box rules'}
+            </Button>
+          </>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 

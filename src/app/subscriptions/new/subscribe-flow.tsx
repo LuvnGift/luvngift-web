@@ -27,10 +27,14 @@ import {
   useCreateSubscription,
   DIETARY_FLAGS,
   type SubscriptionInterval,
-  type SubscriptionPlan,
-  type CatalogueItem,
+  type BoxPlan,
+  type BoxCatalogueItem,
   type SubstitutionPreference,
 } from '@/hooks/use-subscriptions';
+import { boxFill, type BoxFill } from '@/lib/box-fill';
+
+/** Fallback if a cached plans payload predates box sizing. Matches the API default. */
+const DEFAULT_MIN_FILL = 80;
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 
@@ -97,10 +101,15 @@ export function SubscribeFlow() {
   const [clientSecret, setClientSecret] = useState<string | null>(null);
 
   const { data: plans, isLoading: plansLoading } = usePlans();
-  const plan = useMemo(
+  const plan: BoxPlan | undefined = useMemo(
     () => plans?.find((p) => p.slug === planSlug) ?? plans?.[0],
     [plans, planSlug],
   );
+  const minFill = plan?.boxMinFillPercent ?? DEFAULT_MIN_FILL;
+  // Same query the box step runs, so this is served from cache: the summary
+  // needs the fill too.
+  const { data: catalogue } = useCatalogue(addressId ?? undefined, plan?.id);
+  const fill = boxFill(picked, catalogue ?? [], minFill);
 
   const { mutateAsync: createSubscription, isPending: subscribing } = useCreateSubscription();
 
@@ -133,7 +142,6 @@ export function SubscribeFlow() {
   }
 
   const price = plan.prices.find((p) => p.interval === interval);
-  const pickedCount = Object.keys(picked).length;
 
   const handleSubscribe = async () => {
     if (!addressId) return;
@@ -189,6 +197,8 @@ export function SubscribeFlow() {
             setDietaryFlags={setDietaryFlags}
             dietaryNotes={dietaryNotes}
             setDietaryNotes={setDietaryNotes}
+            fill={fill}
+            minFill={minFill}
             onBack={() => setStep('recipient')}
             onNext={handleSubscribe}
             submitting={subscribing}
@@ -233,9 +243,9 @@ export function SubscribeFlow() {
 
         <Separator />
         <div className="flex justify-between">
-          <span className="text-muted-foreground">Items chosen</span>
-          <span className={pickedCount > plan.slotCount ? 'text-red-600 font-medium' : ''}>
-            {pickedCount} / {plan.slotCount}
+          <span className="text-muted-foreground">Box filled</span>
+          <span className={fill.status === 'OVER' ? 'text-red-600 font-medium' : ''}>
+            {fill.percent}%
           </span>
         </div>
         <div className="flex justify-between font-semibold text-base">
@@ -443,11 +453,13 @@ function BoxStep({
   setDietaryFlags,
   dietaryNotes,
   setDietaryNotes,
+  fill,
+  minFill,
   onBack,
   onNext,
   submitting,
 }: {
-  plan: SubscriptionPlan;
+  plan: BoxPlan;
   addressId: string;
   picked: Record<string, number>;
   setPicked: (v: Record<string, number>) => void;
@@ -457,19 +469,21 @@ function BoxStep({
   setDietaryFlags: (v: string[]) => void;
   dietaryNotes: string;
   setDietaryNotes: (v: string) => void;
+  fill: BoxFill;
+  minFill: number;
   onBack: () => void;
   onNext: () => void;
   submitting: boolean;
 }) {
-  const { data: items, isLoading } = useCatalogue(addressId);
+  const { data: items, isLoading } = useCatalogue(addressId, plan.id);
   const count = Object.keys(picked).length;
   const full = count >= plan.slotCount;
 
-  const toggle = (item: CatalogueItem) => {
+  const toggle = (item: BoxCatalogueItem) => {
     const next = { ...picked };
     if (next[item.id]) delete next[item.id];
     else if (!full) next[item.id] = 1;
-    else toast.error(`This plan allows ${plan.slotCount} items. Remove one first.`);
+    else toast.error(`This plan allows ${plan.slotCount} different items. Remove one first.`);
     setPicked(next);
   };
 
@@ -479,7 +493,7 @@ function BoxStep({
   };
 
   const grouped = useMemo(() => {
-    const map: Record<string, CatalogueItem[]> = {};
+    const map: Record<string, BoxCatalogueItem[]> = {};
     for (const item of items ?? []) (map[item.category] ??= []).push(item);
     return map;
   }, [items]);
@@ -493,15 +507,18 @@ function BoxStep({
           <PackageOpen className="h-4 w-4" /> Build the box
         </h2>
         <p className="text-sm text-muted-foreground mt-1">
-          Choose up to <strong>{plan.slotCount}</strong> items. Quantity doesn&apos;t use extra
-          slots — pick 5 bags of rice if you like. Leave it empty to get our pre-picked box.
+          Each item shows how much of the box it takes up. Fill the box to at least{' '}
+          <strong>{minFill}%</strong>, using up to <strong>{plan.slotCount}</strong> different
+          items in any quantity.
         </p>
       </div>
 
+      {(items?.length ?? 0) > 0 && <BoxMeter fill={fill} minFill={minFill} />}
+
       {(items?.length ?? 0) === 0 ? (
         <div className="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">
-          We don&apos;t have items listed for this area yet. You can still subscribe and
-          we&apos;ll send our standard box.
+          We don&apos;t have items listed for this area yet, so we can&apos;t deliver a box here
+          right now. Choose a recipient in another state, or check back soon.
         </div>
       ) : (
         Object.entries(grouped).map(([category, catItems]) => (
@@ -529,6 +546,11 @@ function BoxStep({
                         </p>
                         {item.description && (
                           <p className="text-xs text-muted-foreground mt-0.5">{item.description}</p>
+                        )}
+                        {item.share !== null && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Each one fills {item.share}% of your box
+                          </p>
                         )}
                       </button>
 
@@ -651,10 +673,49 @@ function BoxStep({
         <Button variant="outline" onClick={onBack} disabled={submitting}>
           <ArrowLeft className="h-4 w-4 mr-1" /> Back
         </Button>
-        <Button onClick={onNext} disabled={submitting} className="flex-1">
+        <Button onClick={onNext} disabled={submitting || fill.status !== 'OK'} className="flex-1">
           {submitting ? <><Spinner size="sm" className="mr-2" />Setting up…</> : 'Continue to payment'}
         </Button>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Box fill against the minimum and 100%. Says what to do next in words: colour
+ * alone does not tell someone whether to add or remove.
+ */
+function BoxMeter({ fill, minFill }: { fill: BoxFill; minFill: number }) {
+  const width = Math.min(fill.percent, 100);
+  const tone =
+    fill.status === 'OVER' ? 'bg-red-500' : fill.status === 'OK' ? 'bg-green-600' : 'bg-amber-500';
+  const message = {
+    EMPTY: `Your box is empty. Add items until it is at least ${minFill}% full.`,
+    UNDER: `Your box is ${fill.percent}% full. Add a little more to reach ${minFill}%.`,
+    OK: `Your box is ${fill.percent}% full. Ready to go.`,
+    OVER: `Your box is ${fill.percent}% full. Remove or reduce something to bring it to 100%.`,
+  }[fill.status];
+
+  return (
+    <div className="sticky top-16 z-10 rounded-lg border bg-background p-3 space-y-2">
+      <div
+        className="relative h-2.5 rounded-full bg-muted overflow-hidden"
+        role="meter"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={fill.percent}
+        aria-label="How full your box is"
+      >
+        <div className={`h-full ${tone} transition-all`} style={{ width: `${width}%` }} />
+        {/* The minimum: the bar must reach this line. */}
+        <div className="absolute inset-y-0 w-0.5 bg-foreground/50" style={{ left: `${minFill}%` }} />
+      </div>
+      <p
+        className={`text-sm ${fill.status === 'OVER' ? 'text-red-700 font-medium' : 'text-muted-foreground'}`}
+        aria-live="polite"
+      >
+        {message}
+      </p>
     </div>
   );
 }

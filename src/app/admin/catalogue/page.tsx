@@ -27,6 +27,12 @@ interface CatalogueItem extends CatalogueItemInput {
 
 const SYMBOLS: Record<string, string> = { CAD: 'CA$', USD: '$', GBP: '£', NGN: '₦' };
 
+/**
+ * Items costed before box sizing may be in another currency. They are hidden
+ * from the box picker until re-costed in naira.
+ */
+const isLegacy = (item: { currency?: string }) => (item.currency ?? 'NGN') !== 'NGN';
+
 const EMPTY: CatalogueItemInput = {
   name: '',
   description: '',
@@ -79,7 +85,9 @@ export default function AdminCataloguePage() {
       isActive: item.isActive,
       availableStates: item.availableStates ?? [],
     });
-    setPriceMajor((item.price / 100).toString());
+    // A legacy cost is in another currency. Pre-filling it would let one click
+    // save CA$12 as ₦12, so the field starts empty and must be entered in naira.
+    setPriceMajor(isLegacy(item) ? '' : (item.price / 100).toString());
     setErrors({});
     setOpen(true);
   };
@@ -138,8 +146,9 @@ export default function AdminCataloguePage() {
         <div>
           <h1 className="text-2xl font-bold">Subscription catalogue</h1>
           <p className="text-muted-foreground text-sm">
-            The items subscribers choose from when building their box. Leave states empty to offer
-            an item nationwide.
+            The items subscribers choose from when building their box, with what each costs to
+            source in naira. Subscribers never see the cost, only how much of their box an item
+            uses. Leave states empty to offer an item nationwide.
           </p>
         </div>
         <Button onClick={openNew}>
@@ -182,6 +191,11 @@ export default function AdminCataloguePage() {
                           Inactive
                         </span>
                       )}
+                      {isLegacy(item) && (
+                        <span className="rounded-full bg-red-100 text-red-800 px-2 py-0.5 text-xs font-semibold">
+                          Needs a naira cost: hidden from subscribers
+                        </span>
+                      )}
                     </p>
                     {item.description && (
                       <p className="text-xs text-muted-foreground mt-0.5">{item.description}</p>
@@ -197,7 +211,9 @@ export default function AdminCataloguePage() {
                   <div className="flex items-center gap-2 shrink-0">
                     <span className="text-sm font-medium">
                       {SYMBOLS[item.currency ?? 'NGN']}
-                      {(item.price / 100).toFixed(2)}
+                      {isLegacy(item)
+                        ? (item.price / 100).toFixed(2)
+                        : Math.round(item.price / 100).toLocaleString('en-NG')}
                     </span>
                     <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => openEdit(item)} aria-label={`Edit ${item.name}`}>
                       <Pencil className="h-3.5 w-3.5" />
@@ -265,33 +281,32 @@ export default function AdminCataloguePage() {
               <FieldError message={errors.description} />
             </div>
 
-            <div className="grid sm:grid-cols-3 gap-3">
+            <div className="grid sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label htmlFor="price">Price</Label>
+                <Label htmlFor="price">Sourcing cost (₦)</Label>
                 <Input
                   id="price"
                   type="number"
                   min={0}
-                  step="0.01"
+                  step="1"
                   aria-invalid={!!errors.priceMajor}
                   value={priceMajor}
                   onChange={(e) => setPriceMajor(e.target.value)}
-                  placeholder="8500.00"
+                  placeholder="8500"
                 />
                 <FieldError message={errors.priceMajor} />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="currency">Currency</Label>
-                <select
-                  id="currency"
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  value={form.currency}
-                  onChange={(e) => setForm({ ...form, currency: e.target.value as never })}
-                >
-                  {['NGN', 'CAD', 'USD', 'GBP'].map((c) => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
+                {editing && isLegacy(editing) ? (
+                  <p className="text-xs text-red-700">
+                    This was costed as {SYMBOLS[editing.currency!] ?? editing.currency}
+                    {(editing.price / 100).toFixed(2)}. Enter what it costs in naira to bring it back
+                    into the box picker.
+                  </p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    What one unit costs the vendor to buy. Keep it current: boxes are sized
+                    against it.
+                  </p>
+                )}
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="stock">Stock</Label>

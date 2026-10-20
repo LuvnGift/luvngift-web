@@ -119,7 +119,9 @@ function SubscriptionRow({ sub }: { sub: Subscription }) {
       )}
       {sub.items.length === 0 && (
         <p className="text-xs text-muted-foreground mt-3">
-          <span className="font-medium text-foreground">Box:</span> our pre-picked selection
+          {/* Possible only for subscriptions from before boxes had to be filled. */}
+          <span className="font-medium text-foreground">Box:</span> no items chosen yet. Contact
+          us and we&apos;ll help you fill it before your next delivery.
         </p>
       )}
 
