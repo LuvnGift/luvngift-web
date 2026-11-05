@@ -888,10 +888,199 @@ export const useDeletePlan = () => {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'subscription-plans'] });
       qc.invalidateQueries({ queryKey: ['subscriptions', 'plans'] });
-      toast.success('Plan deactivated');
+      toast.success('Plan deleted');
     },
+    onError: (err: any) =>
+      toast.error(err?.response?.data?.error?.message ?? 'Could not delete the plan'),
   });
 };
+
+export type SubscriptionStatus = 'ACTIVE' | 'PAUSED' | 'PAST_DUE' | 'CANCELLED';
+export type SubscriberCounts = Record<SubscriptionStatus, number>;
+
+// ─── Subscriptions (admin, on behalf of the subscriber) ──────────────────────
+
+export interface AdminSubscriptionRow {
+  id: string;
+  status: SubscriptionStatus;
+  interval: PlanInterval;
+  currency: string;
+  amount: number | null;
+  skipNextCycle: boolean;
+  cancelAtPeriodEnd: boolean;
+  currentPeriodEnd: string | null;
+  createdAt: string;
+  user: { id: string; email: string; firstName: string | null; lastName: string | null };
+  plan: { id: string; name: string; isActive: boolean };
+  vendor: { id: string; name: string; isActive: boolean; status: string } | null;
+  address: { recipientName: string; city: string; state: string };
+  _count: { items: number; orders: number };
+}
+
+export interface PaginationMeta {
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export interface AdminSubscriptionFilters {
+  page?: number;
+  limit?: number;
+  status?: SubscriptionStatus;
+  planId?: string;
+  /** A vendor id, or 'none'. */
+  vendorId?: string;
+  q?: string;
+}
+
+export interface AdminSubscriptionCycle {
+  id: string;
+  status: string;
+  total: number;
+  currency: string;
+  isFlagged: boolean;
+  createdAt: string;
+  preferredDeliveryDate: string | null;
+  deliveryProofAt: string | null;
+  vendor: { id: string; name: string } | null;
+  payment: { status: string; refundAmount: number | null } | null;
+}
+
+export interface AdminSubscriptionDetail extends Omit<AdminSubscriptionRow, 'user' | 'vendor' | 'address' | '_count'> {
+  stripeSubscriptionId: string | null;
+  pausedAt: string | null;
+  cancelledAt: string | null;
+  substitutionPreference: string;
+  plan: AdminSubscriptionRow['plan'] & { slotCount: number };
+  user: AdminSubscriptionRow['user'] & { phone: string | null };
+  vendor: (NonNullable<AdminSubscriptionRow['vendor']> & { phone: string }) | null;
+  address: {
+    recipientName: string;
+    recipientPhone: string;
+    street: string;
+    city: string;
+    state: string;
+    dietaryFlags: string[];
+    dietaryNotes: string | null;
+  };
+  items: { id: string; quantity: number; customItem: { id: string; name: string; category: string; isActive: boolean } }[];
+  orders: AdminSubscriptionCycle[];
+  _count: { orders: number };
+  nextCycle: {
+    billsAt: string | null;
+    deliveryFrom: string | null;
+    boxWarning: string | null;
+    standingVendorAssignable: boolean;
+  };
+}
+
+export type AdminSubscriptionAction = 'SKIP' | 'UNSKIP' | 'PAUSE' | 'RESUME' | 'CANCEL' | 'UNCANCEL';
+
+export const useAdminSubscriptions = (filters: AdminSubscriptionFilters) =>
+  useQuery<{ data: AdminSubscriptionRow[]; meta: PaginationMeta }>({
+    queryKey: ['admin', 'subscriptions', filters],
+    queryFn: () => api.get('/api/v1/admin/subscriptions', { params: filters }).then((r) => r.data.data),
+    placeholderData: (prev) => prev,
+  });
+
+export const useAdminSubscription = (id?: string) =>
+  useQuery<AdminSubscriptionDetail>({
+    queryKey: ['admin', 'subscription', id],
+    queryFn: () => api.get(`/api/v1/admin/subscriptions/${id}`).then((r) => r.data.data),
+    enabled: Boolean(id),
+  });
+
+const invalidateSubscription = (qc: ReturnType<typeof useQueryClient>, id: string) => {
+  qc.setQueryData(['admin', 'subscription', id], undefined);
+  qc.invalidateQueries({ queryKey: ['admin', 'subscription', id] });
+  qc.invalidateQueries({ queryKey: ['admin', 'subscriptions'] });
+  qc.invalidateQueries({ queryKey: ['admin', 'fulfilment'] });
+};
+
+/** Reason required; audited; the subscriber is emailed what changed and why. */
+export const useAdminSubscriptionAction = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...body }: { id: string; action: AdminSubscriptionAction; reason: string }) =>
+      api.post(`/api/v1/admin/subscriptions/${id}/actions`, body).then((r) => r.data.data),
+    onSuccess: (_d, vars) => {
+      invalidateSubscription(qc, vars.id);
+      toast.success('Done. The subscriber has been emailed.');
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.error?.message ?? 'Could not change the subscription'),
+  });
+};
+
+/** Who future cycles go to automatically. Null clears it. Audited; no email. */
+export const useSetStandingVendor = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...body }: { id: string; vendorId: string | null; reason: string }) =>
+      api.put(`/api/v1/admin/subscriptions/${id}/vendor`, body).then((r) => r.data.data),
+    onSuccess: (_d, vars) => {
+      invalidateSubscription(qc, vars.id);
+      toast.success('Standing vendor updated');
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.error?.message ?? 'Could not change the vendor'),
+  });
+};
+
+// ─── Fulfilment board ────────────────────────────────────────────────────────
+
+export type FulfilmentProblemKind =
+  | 'AWAITING_VENDOR'
+  | 'BOX_HELD'
+  | 'LINK_UNOPENED'
+  | 'PAST_DUE'
+  | 'BOX_WILL_HOLD'
+  | 'VENDOR_UNAVAILABLE'
+  | 'NO_STANDING_VENDOR';
+
+export interface ShoppingLine {
+  name: string;
+  quantity: number;
+}
+
+export interface FulfilmentBoard {
+  days: number;
+  generatedAt: string;
+  upcoming: {
+    subscriptionId: string;
+    subscriber: string;
+    planName: string;
+    recipientName: string;
+    destination: string;
+    billsAt: string;
+    deliveryFrom: string;
+    dietaryFlags: string[];
+    vendor: { id: string; name: string } | null;
+    vendorAssignable: boolean;
+    boxWarning: string | null;
+    items: ShoppingLine[];
+  }[];
+  vendors: {
+    vendor: { id: string; name: string } | null;
+    upcomingCycles: number;
+    openOrders: number;
+    shoppingList: ShoppingLine[];
+  }[];
+  problems: {
+    kind: FulfilmentProblemKind;
+    subscriptionId: string | null;
+    orderId: string | null;
+    reference: string | null;
+    detail: string;
+    since: string;
+  }[];
+}
+
+export const useFulfilmentBoard = (days: number) =>
+  useQuery<FulfilmentBoard>({
+    queryKey: ['admin', 'fulfilment', days],
+    queryFn: () => api.get('/api/v1/admin/fulfilment', { params: { days } }).then((r) => r.data.data),
+    placeholderData: (prev) => prev,
+  });
 
 // ─── A subscriber's box (admin edit) ─────────────────────────────────────────
 
@@ -932,6 +1121,8 @@ export const useUpdateAdminSubscriptionBox = () => {
     }) => api.put(`/api/v1/admin/subscriptions/${subscriptionId}/items`, body).then((r) => r.data.data),
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: ['admin', 'subscription-box', vars.subscriptionId] });
+      qc.invalidateQueries({ queryKey: ['admin', 'subscription', vars.subscriptionId] });
+      qc.invalidateQueries({ queryKey: ['admin', 'fulfilment'] });
       if (vars.applyToOrderId) qc.invalidateQueries({ queryKey: ['admin', 'orders'] });
       toast.success('Box updated. The subscriber has been emailed.');
     },

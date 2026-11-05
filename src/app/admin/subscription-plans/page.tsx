@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Plus, Pencil, Ban, Users, Calculator, AlertTriangle } from 'lucide-react';
+import Link from 'next/link';
+import { Plus, Pencil, Archive, RotateCcw, Trash2, Users, Calculator, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -17,6 +18,7 @@ import {
   usePublishPlanPricing,
   type PlanInterval,
   type PlanPrice,
+  type SubscriberCounts,
   type PricingPreview,
   type SubscriptionRules,
 } from '@/hooks/use-admin';
@@ -51,7 +53,7 @@ interface Plan {
   pricedNgnPerUsd: number | null;
   pricedAt: string | null;
   prices: PlanPrice[];
-  _count?: { subscriptions: number };
+  subscriberCounts: SubscriberCounts;
 }
 
 interface DetailsForm {
@@ -74,6 +76,7 @@ const pricingOf = (plan: Plan): PlanPricingFormValues => ({
 export default function AdminSubscriptionPlansPage() {
   const { data, isLoading } = useAdminPlans();
   const deletePlan = useDeletePlan();
+  const updatePlan = useUpdatePlan();
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<Plan | null>(null);
   const [pricing, setPricing] = useState<Plan | null>(null);
@@ -81,13 +84,22 @@ export default function AdminSubscriptionPlansPage() {
   const plans: Plan[] = data?.data ?? [];
   const rules: SubscriptionRules | undefined = data?.rules;
 
-  const handleDeactivate = (plan: Plan) => {
-    const active = plan._count?.subscriptions ?? 0;
-    const message =
-      active > 0
-        ? `${active} subscriber${active === 1 ? ' is' : 's are'} on "${plan.name}". Deactivating hides it from new signups; existing subscriptions keep billing. Continue?`
-        : `Deactivate "${plan.name}"?`;
-    if (confirm(message)) deletePlan.mutate(plan.id);
+  // Retiring closes a plan to new sign-ups; its subscribers keep billing and
+  // stay visible here. Delete exists only for a retired plan nobody is on.
+  const handleRetire = (plan: Plan) => {
+    const live = liveCount(plan.subscriberCounts);
+    const message = live
+      ? `Retire "${plan.name}"? It closes to new sign-ups. Its ${live} subscriber${live === 1 ? '' : 's'} keep their box, price and deliveries.`
+      : `Retire "${plan.name}"? It closes to new sign-ups.`;
+    if (confirm(message)) updatePlan.mutate({ id: plan.id, isActive: false });
+  };
+  const handleReinstate = (plan: Plan) => {
+    if (confirm(`Reopen "${plan.name}" to new sign-ups?`)) updatePlan.mutate({ id: plan.id, isActive: true });
+  };
+  const handleDelete = (plan: Plan) => {
+    if (confirm(`Delete "${plan.name}"? It disappears from this page. This cannot be undone here.`)) {
+      deletePlan.mutate(plan.id);
+    }
   };
 
   return (
@@ -124,7 +136,9 @@ export default function AdminSubscriptionPlansPage() {
               rules={rules}
               onEdit={() => setEditing(plan)}
               onPricing={() => setPricing(plan)}
-              onDeactivate={() => handleDeactivate(plan)}
+              onRetire={() => handleRetire(plan)}
+              onReinstate={() => handleReinstate(plan)}
+              onDelete={() => handleDelete(plan)}
             />
           ))}
         </ul>
@@ -144,22 +158,27 @@ function PlanCard({
   rules,
   onEdit,
   onPricing,
-  onDeactivate,
+  onRetire,
+  onReinstate,
+  onDelete,
 }: {
   plan: Plan;
   rules?: SubscriptionRules;
   onEdit: () => void;
   onPricing: () => void;
-  onDeactivate: () => void;
+  onRetire: () => void;
+  onReinstate: () => void;
+  onDelete: () => void;
 }) {
   const priced = plan.boxAllowanceNgn !== null && plan.markupBps !== null;
+  const live = liveCount(plan.subscriberCounts);
   return (
     <li className={`rounded-lg border p-4 ${plan.isActive ? '' : 'opacity-60'}`}>
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div className="min-w-0">
           <p className="font-medium flex items-center gap-2 flex-wrap">
             {plan.name}
-            {!plan.isActive && <Badge tone="gray">Inactive</Badge>}
+            {!plan.isActive && <Badge tone="gray">Retired: closed to new sign-ups</Badge>}
             <Badge tone="blue">{plan.slotCount} slot{plan.slotCount === 1 ? '' : 's'}</Badge>
             {!priced && <Badge tone="red">Not priced: hidden from subscribers</Badge>}
           </p>
@@ -174,10 +193,7 @@ function PlanCard({
               )}
             </p>
           )}
-          <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-            <Users className="h-3 w-3" />
-            {plan._count?.subscriptions ?? 0} subscriber{(plan._count?.subscriptions ?? 0) === 1 ? '' : 's'}
-          </p>
+          <SubscriberLine planId={plan.id} counts={plan.subscriberCounts} />
         </div>
         <div className="flex items-center gap-1 shrink-0">
           <Button size="sm" variant="outline" className="h-8" onClick={onPricing}>
@@ -186,10 +202,21 @@ function PlanCard({
           <Button size="icon" variant="ghost" className="h-8 w-8" onClick={onEdit} aria-label={`Edit ${plan.name}`}>
             <Pencil className="h-3.5 w-3.5" />
           </Button>
-          {plan.isActive && (
-            <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-red-600" onClick={onDeactivate} aria-label={`Deactivate ${plan.name}`}>
-              <Ban className="h-3.5 w-3.5" />
+          {plan.isActive ? (
+            <Button size="sm" variant="ghost" className="h-8 text-muted-foreground" onClick={onRetire} aria-label={`Retire ${plan.name}`}>
+              <Archive className="h-3.5 w-3.5 mr-1" /> Retire
             </Button>
+          ) : (
+            <>
+              <Button size="sm" variant="ghost" className="h-8" onClick={onReinstate} aria-label={`Reinstate ${plan.name}`}>
+                <RotateCcw className="h-3.5 w-3.5 mr-1" /> Reinstate
+              </Button>
+              {live === 0 && (
+                <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-red-600" onClick={onDelete} aria-label={`Delete ${plan.name}`}>
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -226,6 +253,29 @@ function PriceChip({ price, plan, rules }: { price: PlanPrice; plan: Plan; rules
         </span>
       )}
     </span>
+  );
+}
+
+const liveCount = (c: SubscriberCounts) => c.ACTIVE + c.PAUSED + c.PAST_DUE;
+
+/** Subscribers by status. Cancelled are shown apart: they are history, not customers. */
+function SubscriberLine({ planId, counts }: { planId: string; counts: SubscriberCounts }) {
+  const parts = [
+    `${counts.ACTIVE} active`,
+    counts.PAUSED ? `${counts.PAUSED} paused` : null,
+    counts.PAST_DUE ? `${counts.PAST_DUE} past due` : null,
+    counts.CANCELLED ? `${counts.CANCELLED} cancelled` : null,
+  ].filter(Boolean);
+  return (
+    <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1 flex-wrap">
+      <Users className="h-3 w-3" />
+      <span className={counts.PAST_DUE ? 'text-amber-700' : ''}>{parts.join(' · ')}</span>
+      {liveCount(counts) + counts.CANCELLED > 0 && (
+        <Link href={`/admin/subscriptions?planId=${planId}`} className="text-primary hover:underline ml-1">
+          View subscribers
+        </Link>
+      )}
+    </p>
   );
 }
 
