@@ -45,9 +45,10 @@ export default function VendorAgreementPage() {
 
       <h2>6. Revenue share and payouts</h2>
       <p>
-        For each order you fulfil, you receive 70% of the price the customer paid, excluding any taxes.
-        Luvngift keeps the remaining 30%, out of which it pays payment-processing fees, so those fees
-        never reduce your share. The goods for the order are bought out of your share. The payout
+        For each order you fulfil, you receive a fixed share of the price the customer paid, excluding
+        any taxes. Your share is set out in writing in your approval email, which forms part of this
+        agreement. Luvngift keeps the remainder, out of which it pays payment-processing fees, so those
+        fees never reduce your share. The goods for the order are bought out of your share. The payout
         method and schedule are provided to you during onboarding. The share, method and schedule may
         be updated from time to time with reasonable notice, and a change never applies to an order
         already assigned to you.

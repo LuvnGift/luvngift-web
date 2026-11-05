@@ -65,15 +65,16 @@ export function SubscriptionBoxSection({ order }: { order: CycleOrder }) {
   );
 }
 
-function EditBoxDialog({ box, order, onClose }: { box: AdminSubscriptionBox; order: CycleOrder; onClose: () => void }) {
+/** Without an order (the subscription page) the edit applies to future deliveries only. */
+export function EditBoxDialog({ box, order, onClose }: { box: AdminSubscriptionBox; order?: CycleOrder; onClose: () => void }) {
   const update = useUpdateAdminSubscriptionBox();
   const [picked, setPicked] = useState<Record<string, number>>(
     Object.fromEntries(box.items.map((i) => [i.customItemId, i.quantity])),
   );
   const [reason, setReason] = useState('');
   // Only a delivery no vendor has started on can be rewritten (the API enforces it).
-  const orderEditable = order.status === 'PENDING' && !order.vendorId;
-  const [applyToOrder, setApplyToOrder] = useState(orderEditable && !!order.isFlagged);
+  const orderEditable = !!order && order.status === 'PENDING' && !order.vendorId;
+  const [applyToOrder, setApplyToOrder] = useState(orderEditable && !!order?.isFlagged);
   const fill = boxFill(picked, box.catalogue, box.minFillPercent);
   const { subscription: sub } = box;
   const canSave = fill.status === 'OK' && reason.trim().length >= MIN_REASON && !update.isPending;
@@ -84,7 +85,7 @@ function EditBoxDialog({ box, order, onClose }: { box: AdminSubscriptionBox; ord
         subscriptionId: sub.id,
         items: Object.entries(picked).map(([customItemId, quantity]) => ({ customItemId, quantity })),
         reason: reason.trim(),
-        applyToOrderId: applyToOrder ? order.id : undefined,
+        applyToOrderId: applyToOrder && order ? order.id : undefined,
       });
       onClose();
     } catch {
@@ -120,6 +121,7 @@ function EditBoxDialog({ box, order, onClose }: { box: AdminSubscriptionBox; ord
             <p className="text-xs text-muted-foreground">A few more words, please.</p>
           )}
         </div>
+        {order && (
         <label className={`flex items-start gap-2 text-sm ${orderEditable ? 'cursor-pointer' : 'opacity-60'}`}>
           <input type="checkbox" className="h-4 w-4 mt-0.5" disabled={!orderEditable} checked={applyToOrder} onChange={(e) => setApplyToOrder(e.target.checked)} />
           <span>
@@ -131,6 +133,7 @@ function EditBoxDialog({ box, order, onClose }: { box: AdminSubscriptionBox; ord
             </span>
           </span>
         </label>
+        )}
         <div className="flex gap-2 pt-1">
           <Button onClick={save} disabled={!canSave}>
             {update.isPending ? <><Spinner size="sm" className="mr-2" />Saving…</> : 'Save and email subscriber'}
