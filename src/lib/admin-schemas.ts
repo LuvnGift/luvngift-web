@@ -116,6 +116,19 @@ export const toPricingInput = (v: PlanPricingFormValues) => ({
 });
 
 /**
+ * Mirrors `bundlePricingSchema` in the API's bundle-pricing.validation: the
+ * plan's sourcing + markup without cadences — a bundle is bought once.
+ */
+export const bundlePricingFormSchema = planPricingFormSchema.pick({ sourcingMajor: true, markupPercent: true });
+export type BundlePricingFormValues = z.infer<typeof bundlePricingFormSchema>;
+
+/** Form values → the API's bundle pricing input. */
+export const toBundlePricingInput = (v: BundlePricingFormValues) => ({
+  sourcingNgn: Math.round(Number(v.sourcingMajor) * 100),
+  markupPercent: Number(v.markupPercent),
+});
+
+/**
  * Mirrors `sendQuoteSchema` in
  * `luvngift-api/src/modules/custom-orders/custom-orders.validation.ts`.
  * The price is entered in major units of the ORDER's currency (the buyer's).

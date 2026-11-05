@@ -404,8 +404,9 @@ export const useCreateBundle = () => {
       occasionId: string;
       name: string;
       description: string;
-      price: number;
-      currency: 'CAD' | 'USD' | 'GBP';
+      /** Sourcing cost in kobo; the price is derived from it and the markup. */
+      sourcingNgn: number;
+      markupPercent: number;
       estimatedDeliveryDays: number;
       images: string[];
       items: { name: string; description?: string; quantity: number }[];
@@ -430,8 +431,6 @@ export const useUpdateBundle = () => {
       occasionId?: string;
       name?: string;
       description?: string;
-      price?: number;
-      currency?: 'CAD' | 'USD' | 'GBP';
       estimatedDeliveryDays?: number;
       images?: string[];
       items?: { name: string; description?: string; quantity: number }[];
@@ -446,6 +445,55 @@ export const useUpdateBundle = () => {
     onError: (err: any) => {
       toast.error(err?.response?.data?.error?.message ?? 'Failed to update bundle');
     },
+  });
+};
+
+/** Mirrors BundlePricingPreview in the API's bundle-pricing.service. */
+export interface BundlePricingPreview {
+  rates: { NGN: number; CAD: number; GBP: number; USD: 1 };
+  costUsdCents: number;
+  usdCents: number;
+  current: number | null;
+  change: 'NEW' | 'INCREASE' | 'DECREASE' | 'SAME';
+  markupBps: number;
+  breakEvenMarkupBps: number;
+  lines: {
+    currency: PricedCurrency;
+    amount: number;
+    split: { fees: number; vendor: number; luvngift: number };
+    vendorMargin: number;
+  }[];
+  problems: string[];
+}
+
+export interface BundlePricingInput {
+  /** Kobo. */
+  sourcingNgn: number;
+  markupPercent: number;
+}
+
+/** A mutation rather than a query: it runs on demand as admin edits. */
+export const useBundlePricingPreview = () =>
+  useMutation({
+    mutationFn: ({ bundleId, ...input }: BundlePricingInput & { bundleId?: string }) =>
+      api
+        .post(
+          bundleId ? `/api/v1/admin/bundles/${bundleId}/pricing-preview` : '/api/v1/admin/bundles/pricing-preview',
+          input,
+        )
+        .then((r) => r.data.data as BundlePricingPreview),
+  });
+
+export const usePublishBundlePricing = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ bundleId, ...input }: BundlePricingInput & { bundleId: string }) =>
+      api.post(`/api/v1/admin/bundles/${bundleId}/pricing`, input).then((r) => r.data.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'bundles'] });
+      toast.success('Price published. It applies from the next checkout.');
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.error?.message ?? 'Could not publish the price'),
   });
 };
 
@@ -1447,6 +1495,7 @@ export type MaintenanceTask =
   | 'subscriptions:apply-price-changes'
   | 'refunds:timeliness'
   | 'subscriptions:margin-check'
+  | 'bundles:margin-check'
   | 'vendors:weekly-digest';
 
 export interface MaintenanceTaskStatus {

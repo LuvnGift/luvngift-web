@@ -32,7 +32,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight, X, Calculator } from 'lucide-react';
+import { toast } from 'sonner';
+import { bundlePricingFormSchema, toBundlePricingInput, type BundlePricingFormValues } from '@/lib/admin-schemas';
+import { BundlePricingFields, BundlePricingDialog, EMPTY_BUNDLE_PRICING } from './bundle-pricing';
 import type { Bundle, Occasion } from '@luvngift/shared';
 
 // Local extension: the installed @luvngift/shared types may not yet include the
@@ -40,6 +43,13 @@ import type { Bundle, Occasion } from '@luvngift/shared';
 type AdminBundle = Bundle & {
   seoBody?: string | null;
   faqs?: { question: string; answer: string }[] | null;
+  /** Kobo. Null = a legacy bundle whose price was typed by hand. */
+  sourcingNgn?: number | null;
+  markupBps?: number | null;
+  pricedNgnPerUsd?: number | null;
+  pricedAt?: string | null;
+  /** What the US$ price earns at today's rate; null when legacy or no rate. */
+  liveMarkupBps?: number | null;
 };
 
 // Kept in sync with createBundleSchema in @luvngift/shared
@@ -53,7 +63,6 @@ const bundleFormSchema = z.object({
   occasionId: z.string().min(1, 'Occasion is required'),
   name: z.string().trim().min(3, 'Name must be at least 3 characters').max(100),
   description: z.string().trim().min(10, 'Description must be at least 10 characters').max(2000),
-  price: z.coerce.number().positive('Must be greater than 0'),
   estimatedDeliveryDays: z.coerce.number().int().min(1).max(30, 'Cannot exceed 30 days'),
   images: z.array(z.object({ url: z.string().url('Must be a valid URL') })).min(1, 'At least one image required'),
   items: z.array(bundleItemSchema).min(1, 'At least one item required'),
@@ -74,7 +83,6 @@ const defaultValues: BundleFormValues = {
   occasionId: '',
   name: '',
   description: '',
-  price: 0,
   estimatedDeliveryDays: 7,
   images: [{ url: '' }],
   items: [{ name: '', description: '', quantity: 1 }],
@@ -99,6 +107,7 @@ function BundleForm({
   isPending,
   submitLabel,
   onCancel,
+  pricing,
 }: {
   form: ReturnType<typeof useForm<BundleFormValues>>;
   occasions: Occasion[];
@@ -106,6 +115,8 @@ function BundleForm({
   isPending: boolean;
   submitLabel: string;
   onCancel: () => void;
+  /** Rendered where the price goes. Prices are derived, never typed. */
+  pricing?: React.ReactNode;
 }) {
   const { fields: imageFields, append: appendImage, remove: removeImage } =
     useFieldArray({ control: form.control, name: 'images' });
@@ -159,21 +170,7 @@ function BundleForm({
         )}
       </div>
 
-      {/* Price — always USD; frontend converts to buyer's local currency */}
-      <div className="space-y-2">
-        <Label>Price (USD)</Label>
-        <Input
-          type="number"
-          step="0.01"
-          min="0"
-          {...form.register('price')}
-          placeholder="e.g. 49.99"
-        />
-        <p className="text-xs text-muted-foreground">Enter price in US dollars. Buyers see it converted to their local currency.</p>
-        {form.formState.errors.price && (
-          <p className="text-xs text-destructive">{form.formState.errors.price.message}</p>
-        )}
-      </div>
+      {pricing}
 
       {/* Estimated delivery */}
       <div className="space-y-2">
@@ -371,6 +368,13 @@ export default function AdminBundlesPage() {
 
   const [createOpen, setCreateOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<AdminBundle | null>(null);
+  const [pricingTarget, setPricingTarget] = useState<AdminBundle | null>(null);
+  const [newPricing, setNewPricing] = useState<BundlePricingFormValues>(EMPTY_BUNDLE_PRICING);
+  const closeCreate = () => {
+    setCreateOpen(false);
+    createForm.reset(defaultValues);
+    setNewPricing(EMPTY_BUNDLE_PRICING);
+  };
 
   const createForm = useForm<BundleFormValues>({
     resolver: zodResolver(bundleFormSchema),
@@ -383,11 +387,15 @@ export default function AdminBundlesPage() {
   });
 
   const handleCreate = (values: BundleFormValues) => {
+    const pricing = bundlePricingFormSchema.safeParse(newPricing);
+    if (!pricing.success) {
+      toast.error('Set the sourcing cost and markup: the price is worked out from them.');
+      return;
+    }
     createBundle.mutate(
       {
         ...values,
-        currency: 'USD',
-        price: Math.round(values.price * 100),
+        ...toBundlePricingInput(pricing.data),
         images: values.images.map((i) => i.url),
         items: values.items.map((item) => ({
           name: item.name,
@@ -397,10 +405,7 @@ export default function AdminBundlesPage() {
         ...seoPayload(values),
       },
       {
-        onSuccess: () => {
-          setCreateOpen(false);
-          createForm.reset(defaultValues);
-        },
+        onSuccess: closeCreate,
       },
     );
   };
@@ -411,7 +416,6 @@ export default function AdminBundlesPage() {
       occasionId: bundle.occasionId,
       name: bundle.name,
       description: bundle.description,
-      price: bundle.price / 100,
       estimatedDeliveryDays: bundle.estimatedDeliveryDays,
       images: bundle.images.map((url) => ({ url })),
       items: bundle.items.map((item) => ({
@@ -430,8 +434,6 @@ export default function AdminBundlesPage() {
       {
         id: editTarget.id,
         ...values,
-        currency: 'USD',
-        price: Math.round(values.price * 100),
         images: values.images.map((i) => i.url),
         items: values.items.map((item) => ({
           name: item.name,
@@ -466,15 +468,15 @@ export default function AdminBundlesPage() {
 
   const occasionMap = new Map((occasions as Occasion[]).map((o) => [o.id, o.name]));
 
-  const currencySymbols: Record<string, string> = { CAD: 'CA$', USD: '$', GBP: '£' };
-
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold">Bundles</h1>
-          <p className="text-muted-foreground text-sm">
-            Manage gift bundles available for purchase.
+          <p className="text-muted-foreground text-sm max-w-2xl">
+            Set what a bundle costs to source in naira and your markup. The US$ price is worked out at
+            today&apos;s rate when you publish and stays fixed until you publish again; buyers see it
+            converted to their currency at checkout.
           </p>
         </div>
         <Button onClick={() => setCreateOpen(true)}>
@@ -514,14 +516,12 @@ export default function AdminBundlesPage() {
                       <td className="px-4 py-3 text-muted-foreground">
                         {occasionMap.get(bundle.occasionId) ?? '—'}
                       </td>
-                      {/* Always USD, matching the "Price (USD)" input above.
-                          This read `bundle.currency`, which defaults to CAD in
-                          the schema and plays no part in pricing — so the list
-                          showed "CA$30.00" for a figure the checkout converts
-                          FROM USD, i.e. a price that is not CA$30 to any buyer. */}
+                      {/* Always USD: `bundle.currency` defaulted to CAD and plays
+                          no part in pricing — checkout converts FROM this US$ figure. */}
                       <td className="px-4 py-3">
                         ${(bundle.price / 100).toFixed(2)}
                         <span className="text-muted-foreground text-xs ml-1">USD</span>
+                        <PricingNote bundle={bundle} />
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">
                         {bundle.items?.length ?? 0}
@@ -540,6 +540,14 @@ export default function AdminBundlesPage() {
                             disabled={updateBundle.isPending}
                           >
                             {bundle.isActive ? 'Deactivate' : 'Activate'}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setPricingTarget(bundle)}
+                            aria-label={`Price ${bundle.name}`}
+                          >
+                            <Calculator className="h-3 w-3" />
                           </Button>
                           <Button
                             variant="outline"
@@ -595,7 +603,7 @@ export default function AdminBundlesPage() {
       )}
 
       {/* Create dialog */}
-      <Dialog open={createOpen} onOpenChange={(open) => { setCreateOpen(open); if (!open) createForm.reset(defaultValues); }}>
+      <Dialog open={createOpen} onOpenChange={(open) => (open ? setCreateOpen(true) : closeCreate())}>
         <DialogContent className="max-w-xl">
           <DialogHeader>
             <DialogTitle>New Bundle</DialogTitle>
@@ -606,7 +614,13 @@ export default function AdminBundlesPage() {
             onSubmit={handleCreate}
             isPending={createBundle.isPending}
             submitLabel="Create Bundle"
-            onCancel={() => { setCreateOpen(false); createForm.reset(defaultValues); }}
+            onCancel={closeCreate}
+            pricing={
+              <div className="space-y-2">
+                <Label>Price</Label>
+                <BundlePricingFields value={newPricing} onChange={setNewPricing} />
+              </div>
+            }
           />
         </DialogContent>
       </Dialog>
@@ -624,9 +638,38 @@ export default function AdminBundlesPage() {
             isPending={updateBundle.isPending}
             submitLabel="Save Changes"
             onCancel={() => setEditTarget(null)}
+            pricing={
+              <p className="text-xs text-muted-foreground">
+                To change the price, use the calculator button in the list: it works the price out from
+                the sourcing cost and markup.
+              </p>
+            }
           />
         </DialogContent>
       </Dialog>
+
+      {pricingTarget && <BundlePricingDialog bundle={pricingTarget} onClose={() => setPricingTarget(null)} />}
     </div>
+  );
+}
+
+const pctLabel = (bps: number) => `${(bps / 100).toFixed(2).replace(/\.?0+$/, '')}%`;
+
+/** Gap below the target markup at which the list prompts a republish (the daily alert uses Settings). */
+const SLIPPED_BPS = 1000;
+
+/** How the price was made, and whether the naira has eroded its markup. */
+function PricingNote({ bundle }: { bundle: AdminBundle }) {
+  if (bundle.sourcingNgn == null || bundle.markupBps == null) {
+    return <span className="block text-xs text-amber-700">Typed by hand: not derived yet</span>;
+  }
+  const slipped = bundle.liveMarkupBps != null && bundle.liveMarkupBps < bundle.markupBps - SLIPPED_BPS;
+  return (
+    <span className={`block text-xs ${slipped ? 'text-destructive font-semibold' : 'text-muted-foreground'}`}>
+      ₦{(bundle.sourcingNgn / 100).toLocaleString('en-NG')} + {pctLabel(bundle.markupBps)}
+      {bundle.liveMarkupBps != null && (
+        <> · earning {pctLabel(bundle.liveMarkupBps)} today{slipped ? ': republish' : ''}</>
+      )}
+    </span>
   );
 }

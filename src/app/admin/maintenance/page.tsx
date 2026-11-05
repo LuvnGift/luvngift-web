@@ -32,6 +32,12 @@ const TASKS: Record<MaintenanceTask, { title: string; when: string; what: string
     what: "Re-prices every live subscription price at today's exchange rate and emails you about any whose markup has fallen more than the tolerance below its plan's. Republish the plan's pricing to fix it.",
     promise: 'Pricing',
   },
+  'bundles:margin-check': {
+    title: 'Bundle margin check',
+    when: 'Every day at 12:05 UTC',
+    what: "Re-prices every derived bundle price at today's exchange rate and emails you about any whose markup has fallen more than the tolerance below its own. Republish the bundle's price to fix it; the new price applies from the next checkout.",
+    promise: 'Pricing',
+  },
   'vendors:weekly-digest': {
     title: 'Weekly vendor email',
     when: 'Mondays at 06:00 UTC (07:00 Lagos)',

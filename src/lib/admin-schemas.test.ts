@@ -4,6 +4,8 @@ import {
   planFormSchema,
   planPricingFormSchema,
   toPricingInput,
+  bundlePricingFormSchema,
+  toBundlePricingInput,
   fieldErrors,
   quoteFormSchema,
   toMinorUnits,
@@ -174,5 +176,25 @@ describe('quoteFormSchema', () => {
   it('converts to the smallest unit without float drift', () => {
     expect(toMinorUnits('45.50')).toBe(4550);
     expect(toMinorUnits('19.99')).toBe(1999);
+  });
+});
+
+// Mirrors bundlePricingSchema in luvngift-api bundle-pricing.validation.
+describe('bundlePricingFormSchema', () => {
+  it('converts naira to kobo and keeps the markup as a percent', () => {
+    const result = bundlePricingFormSchema.safeParse({ sourcingMajor: '85000.50', markupPercent: '62.5' });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(toBundlePricingInput(result.data)).toEqual({ sourcingNgn: 85_000_50, markupPercent: 62.5 });
+    }
+  });
+
+  it('has no cadence: a bundle is bought once', () => {
+    expect(Object.keys(bundlePricingFormSchema.shape)).toEqual(['sourcingMajor', 'markupPercent']);
+  });
+
+  it('refuses a missing sourcing cost or a markup with three decimals', () => {
+    expect(bundlePricingFormSchema.safeParse({ sourcingMajor: '', markupPercent: '60' }).success).toBe(false);
+    expect(bundlePricingFormSchema.safeParse({ sourcingMajor: '1000', markupPercent: '60.125' }).success).toBe(false);
   });
 });
