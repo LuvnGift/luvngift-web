@@ -62,6 +62,7 @@ export function CustomOrderConversation({ order, onPaid }: Props) {
         order={paying ? order : null}
         onClose={() => setPaying(false)}
         onPaid={() => { setPaying(false); onPaid(); }}
+        conversationLink={false}
       />
     </Card>
   );

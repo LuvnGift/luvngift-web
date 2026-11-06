@@ -1,9 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { useCreatePaymentIntent, useVerifyPayment } from '@/hooks/use-checkout';
+import { useOrderConversation } from '@/hooks/use-orders';
+import { acceptedQuote } from '@/lib/custom-orders';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Spinner } from '@/components/ui/spinner';
@@ -23,6 +26,8 @@ export interface PayableOrder {
   deliveryState: string;
   currency: string;
   total: number;
+  /** Set on a custom gift request; null/absent for a bundle order. */
+  quoteStatus?: string | null;
 }
 
 /**
@@ -37,10 +42,13 @@ export function PayOrderDialog({
   order,
   onClose,
   onPaid,
+  conversationLink = true,
 }: {
   order: PayableOrder | null;
   onClose: () => void;
   onPaid: (orderId: string) => void;
+  /** Off where the dialog opens over the conversation itself (the order page). */
+  conversationLink?: boolean;
 }) {
   const { mutateAsync: createPaymentIntent } = useCreatePaymentIntent();
   const [clientSecret, setClientSecret] = useState<string | null>(null);
@@ -96,6 +104,8 @@ export function PayOrderDialog({
           </div>
         </div>
 
+        {order.quoteStatus && <AgreedQuote orderId={order.id} conversationLink={conversationLink} />}
+
         {clientSecret ? (
           <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme: 'stripe' } }}>
             <PaymentForm orderId={order.id} onBack={onClose} onSuccess={() => onPaid(order.id)} />
@@ -105,6 +115,37 @@ export function PayOrderDialog({
         )}
       </DialogContent>
     </Dialog>
+  );
+}
+
+/**
+ * What a custom gift's price buys, shown wherever it is paid for. A customer who
+ * accepts a quote and comes back later reaches payment from the order list,
+ * which used to show only a total, so they paid without seeing what was agreed.
+ */
+function AgreedQuote({ orderId, conversationLink }: { orderId: string; conversationLink: boolean }) {
+  const { data: conversation, isLoading } = useOrderConversation(orderId);
+  const quote = conversation ? acceptedQuote(conversation) : null;
+
+  return (
+    <div className="space-y-2 rounded-lg border p-4 text-sm">
+      <p className="text-xs uppercase tracking-wide text-muted-foreground">What you are paying for</p>
+      {isLoading && <Spinner size="sm" />}
+      {quote && (
+        <>
+          <p className="whitespace-pre-wrap">{quote.scope}</p>
+          {quote.note && <p className="whitespace-pre-wrap text-muted-foreground">{quote.note}</p>}
+        </>
+      )}
+      {!isLoading && !quote && (
+        <p className="text-muted-foreground">The agreed quote could not be loaded.</p>
+      )}
+      {conversationLink && (
+        <Link href={`/orders/${orderId}`} className="inline-block text-sm font-medium text-primary underline-offset-4 hover:underline">
+          See the full conversation
+        </Link>
+      )}
+    </div>
   );
 }
 
