@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { useCreatePaymentIntent, useVerifyPayment } from '@/hooks/use-checkout';
-import { useOrderConversation } from '@/hooks/use-orders';
+import { useOrder, useOrderConversation } from '@/hooks/use-orders';
 import { acceptedQuote } from '@/lib/custom-orders';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -14,6 +14,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
+import type { Order } from '@luvngift/shared';
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 
@@ -42,13 +43,13 @@ export function PayOrderDialog({
   order,
   onClose,
   onPaid,
-  conversationLink = true,
+  detailsLink = true,
 }: {
   order: PayableOrder | null;
   onClose: () => void;
   onPaid: (orderId: string) => void;
-  /** Off where the dialog opens over the conversation itself (the order page). */
-  conversationLink?: boolean;
+  /** Off where the dialog opens over the order page itself. */
+  detailsLink?: boolean;
 }) {
   const { mutateAsync: createPaymentIntent } = useCreatePaymentIntent();
   const [clientSecret, setClientSecret] = useState<string | null>(null);
@@ -104,7 +105,11 @@ export function PayOrderDialog({
           </div>
         </div>
 
-        {order.quoteStatus && <AgreedQuote orderId={order.id} conversationLink={conversationLink} />}
+        {order.quoteStatus ? (
+          <AgreedQuote orderId={order.id} detailsLink={detailsLink} />
+        ) : (
+          <BundleContents orderId={order.id} detailsLink={detailsLink} />
+        )}
 
         {clientSecret ? (
           <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme: 'stripe' } }}>
@@ -119,17 +124,70 @@ export function PayOrderDialog({
 }
 
 /**
- * What a custom gift's price buys, shown wherever it is paid for. A customer who
- * accepts a quote and comes back later reaches payment from the order list,
- * which used to show only a total, so they paid without seeing what was agreed.
+ * What the price buys is shown wherever an order is paid for. A customer who
+ * comes back to finish paying reaches this dialog from the order list, which
+ * used to show only a total, so they paid without seeing what was in it.
  */
-function AgreedQuote({ orderId, conversationLink }: { orderId: string; conversationLink: boolean }) {
+function PayingFor({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="space-y-2 rounded-lg border p-4 text-sm">
+      <p className="text-xs uppercase tracking-wide text-muted-foreground">What you are paying for</p>
+      {children}
+    </div>
+  );
+}
+
+function DetailsLink({ orderId, label }: { orderId: string; label: string }) {
+  return (
+    <Link href={`/orders/${orderId}`} className="inline-block text-sm font-medium text-primary underline-offset-4 hover:underline">
+      {label}
+    </Link>
+  );
+}
+
+/** A bundle checkout: the bundle, what is in it, and the message going with it. */
+function BundleContents({ orderId, detailsLink }: { orderId: string; detailsLink: boolean }) {
+  const { data, isLoading } = useOrder(orderId);
+  // The API embeds the bundle's public fields; @luvngift/shared does not declare it yet.
+  const full = data as (Order & { bundle?: { name: string } | null }) | undefined;
+
+  return (
+    <PayingFor>
+      {isLoading && <Spinner size="sm" />}
+      {full && (
+        <>
+          {full.bundle?.name && <p className="font-medium">{full.bundle.name}</p>}
+          {full.items && full.items.length > 0 && (
+            <ul className="space-y-0.5">
+              {full.items.map((item) => (
+                <li key={item.id} className="flex justify-between gap-3">
+                  <span>{item.name}</span>
+                  <span className="text-muted-foreground">× {item.quantity}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+          {full.personalMessage && (
+            <div>
+              <p className="text-xs text-muted-foreground">Your message</p>
+              <p className="whitespace-pre-wrap">{full.personalMessage}</p>
+            </div>
+          )}
+        </>
+      )}
+      {!isLoading && !full && <p className="text-muted-foreground">The order details could not be loaded.</p>}
+      {detailsLink && <DetailsLink orderId={orderId} label="See order details" />}
+    </PayingFor>
+  );
+}
+
+/** A custom gift: the scope of the quote the customer accepted. */
+function AgreedQuote({ orderId, detailsLink }: { orderId: string; detailsLink: boolean }) {
   const { data: conversation, isLoading } = useOrderConversation(orderId);
   const quote = conversation ? acceptedQuote(conversation) : null;
 
   return (
-    <div className="space-y-2 rounded-lg border p-4 text-sm">
-      <p className="text-xs uppercase tracking-wide text-muted-foreground">What you are paying for</p>
+    <PayingFor>
       {isLoading && <Spinner size="sm" />}
       {quote && (
         <>
@@ -140,12 +198,8 @@ function AgreedQuote({ orderId, conversationLink }: { orderId: string; conversat
       {!isLoading && !quote && (
         <p className="text-muted-foreground">The agreed quote could not be loaded.</p>
       )}
-      {conversationLink && (
-        <Link href={`/orders/${orderId}`} className="inline-block text-sm font-medium text-primary underline-offset-4 hover:underline">
-          See the full conversation
-        </Link>
-      )}
-    </div>
+      {detailsLink && <DetailsLink orderId={orderId} label="See the full conversation" />}
+    </PayingFor>
   );
 }
 
