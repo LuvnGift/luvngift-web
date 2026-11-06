@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { Gift, Package, User, LogOut, Menu, X, Home, LayoutDashboard, Repeat } from 'lucide-react';
+import { Gift, Package, User, LogOut, Menu, X, Home, LayoutDashboard, Repeat, CalendarHeart } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -22,6 +22,7 @@ const customerLinks = [
   { href: '/subscriptions', label: 'Monthly Gifting', icon: Repeat, protected: false },
   { href: '/custom', label: 'Custom Gift', icon: Package, protected: false },
   { href: '/orders', label: 'My Orders', icon: Package, protected: true },
+  { href: '/account/subscriptions', label: 'My Subscriptions', icon: CalendarHeart, protected: true },
 ];
 
 const adminLinks = [

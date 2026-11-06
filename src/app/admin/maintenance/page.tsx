@@ -44,6 +44,12 @@ const TASKS: Record<MaintenanceTask, { title: string; when: string; what: string
     what: 'Emails each active vendor their open orders, the subscription deliveries coming to them in the next 7 days, and one combined shopping list. Vendors with nothing that week get no email.',
     promise: 'Fulfilment',
   },
+  'subscriptions:first-charge-reminders': {
+    title: 'First-charge reminders',
+    when: 'Every day at 08:00 UTC',
+    what: 'Emails each subscriber who booked a later start about three days before their first charge, with the date and amount, so they can change the box or cancel at no cost first. Subscribers who booked inside those three days are not emailed.',
+    promise: 'Terms § 9',
+  },
   'refunds:timeliness': {
     title: 'Refund deadline check',
     when: 'Weekdays at 13:00 UTC',

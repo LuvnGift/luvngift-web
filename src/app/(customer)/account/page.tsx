@@ -18,12 +18,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { SavedCardsCard } from './saved-cards-card';
-import { MySubscriptionsCard } from './my-subscriptions-card';
+import Link from 'next/link';
 import { DeleteAccountCard } from './delete-account-card';
 import { latestAdultDateOfBirth } from '@/lib/age';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Spinner } from '@/components/ui/spinner';
-import { MapPin } from 'lucide-react';
+import { MapPin, Repeat, ChevronRight } from 'lucide-react';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from '@/components/ui/dialog';
@@ -278,8 +278,21 @@ export default function AccountPage() {
           </CardContent>
         </Card>
 
-        {/* Recurring gifts */}
-        <MySubscriptionsCard />
+        {/* Recurring gifts have their own page (/account/subscriptions). */}
+        <Link href="/account/subscriptions" className="block">
+          <Card className="transition-colors hover:bg-muted/40">
+            <CardHeader className="flex-row items-center justify-between space-y-0">
+              <div className="flex items-center gap-2">
+                <Repeat className="h-4 w-4 text-muted-foreground" />
+                <div>
+                  <CardTitle>My subscriptions</CardTitle>
+                  <CardDescription>Your recurring gifts: box, deliveries, skip, pause or cancel.</CardDescription>
+                </div>
+              </div>
+              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+          </Card>
+        </Link>
 
         {/* Saved cards */}
         <SavedCardsCard />

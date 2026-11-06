@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Repeat, SkipForward, PauseCircle, PlayCircle, XCircle } from 'lucide-react';
+import { Repeat, SkipForward, PauseCircle, PlayCircle, XCircle, Camera } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -13,12 +13,15 @@ import {
   useResumeSubscription,
   useCancelSubscription,
   useUpdateSubstitutionPreference,
+  hasNotStarted,
   type Subscription,
+  type SubscriptionDelivery,
   type SubscriptionStatus,
   type SubstitutionPreference,
 } from '@/hooks/use-subscriptions';
 import { DietaryEditor } from './dietary-editor';
 import { BoxEditor } from './box-editor';
+import { longDate } from '@/lib/subscription-start';
 
 const SYMBOLS: Record<string, string> = { CAD: 'CA$', USD: '$', GBP: '£', NGN: '₦' };
 
@@ -63,14 +66,15 @@ function SubscriptionRow({ sub }: { sub: Subscription }) {
   const price = amount !== undefined ? { amount, currency: sub.currency } : undefined;
   const cadence = sub.interval === 'MONTHLY' ? 'every month' : 'every 2 weeks';
   const ended = sub.status === 'CANCELLED';
+  // Booked to start later: nothing charged yet, so there is no cycle to skip
+  // or pause (the API refuses both), but cancelling is free.
+  const scheduled = !ended && hasNotStarted(sub);
 
   const handleCancel = () => {
-    if (
-      !confirm(
-        'Cancel this subscription? Your current cycle has been paid for and will still be delivered.',
-      )
-    )
-      return;
+    const message = scheduled
+      ? 'Cancel this subscription? Nothing has been charged yet, so you will not pay anything.'
+      : 'Cancel this subscription? Your current cycle has been paid for and will still be delivered.';
+    if (!confirm(message)) return;
     cancel.mutate(sub.id);
   };
 
@@ -80,11 +84,17 @@ function SubscriptionRow({ sub }: { sub: Subscription }) {
         <div className="min-w-0">
           <p className="font-medium flex items-center gap-2 flex-wrap">
             {sub.plan.name}
-            <span
-              className={`rounded-full px-2 py-0.5 text-xs font-semibold ${STATUS_STYLES[sub.status]}`}
-            >
-              {STATUS_LABELS[sub.status]}
-            </span>
+            {scheduled && sub.startsAt ? (
+              <span className="rounded-full bg-blue-100 text-blue-800 px-2 py-0.5 text-xs font-semibold">
+                Starts {longDate(sub.startsAt)}
+              </span>
+            ) : (
+              <span
+                className={`rounded-full px-2 py-0.5 text-xs font-semibold ${STATUS_STYLES[sub.status]}`}
+              >
+                {STATUS_LABELS[sub.status]}
+              </span>
+            )}
             {sub.skipNextCycle && sub.status !== 'CANCELLED' && (
               <span className="rounded-full bg-blue-100 text-blue-800 px-2 py-0.5 text-xs font-semibold">
                 Next cycle skipped
@@ -101,6 +111,18 @@ function SubscriptionRow({ sub }: { sub: Subscription }) {
           </p>
         </div>
 
+        {scheduled && sub.startsAt ? (
+          <div className="text-right text-xs text-muted-foreground shrink-0">
+            {sub.nextDeliveryDate && (
+              <>
+                <p>First delivery around</p>
+                <p className="font-medium text-foreground mb-1.5">{longDate(sub.nextDeliveryDate)}</p>
+              </>
+            )}
+            <p>{sub.cancelAtPeriodEnd ? 'Cancelled, never charged' : 'First charge'}</p>
+            {!sub.cancelAtPeriodEnd && <p className="font-medium text-foreground">{longDate(sub.startsAt)}</p>}
+          </div>
+        ) : (
         <div className="text-right text-xs text-muted-foreground shrink-0">
           {sub.nextDeliveryDate && sub.status === 'ACTIVE' && !sub.skipNextCycle && (
             <>
@@ -113,7 +135,17 @@ function SubscriptionRow({ sub }: { sub: Subscription }) {
           <p>{sub.cancelAtPeriodEnd || ended ? 'Ends' : 'Renews'}</p>
           <p className="font-medium text-foreground">{formatDate(sub.currentPeriodEnd)}</p>
         </div>
+        )}
       </div>
+
+      {scheduled && !sub.cancelAtPeriodEnd && (
+        <p className="mt-3 rounded-md bg-blue-50 border border-blue-200 px-3 py-2 text-xs text-blue-900">
+          Nothing has been charged yet. You can change the box now, or cancel at no cost before the first charge.
+          We&apos;ll email you a reminder a few days before.
+        </p>
+      )}
+
+      <Deliveries deliveries={sub.orders ?? []} />
 
       {sub.items.length > 0 && (
         <p className="text-xs text-muted-foreground mt-3">
@@ -164,7 +196,7 @@ function SubscriptionRow({ sub }: { sub: Subscription }) {
 
       {!ended && (
         <div className="flex flex-wrap gap-2 mt-4">
-          {sub.status !== 'PAUSED' &&
+          {!scheduled && sub.status !== 'PAUSED' &&
             (sub.skipNextCycle ? (
               <Button size="sm" variant="outline" disabled={busy} onClick={() => unskip.mutate(sub.id)}>
                 <SkipForward className="h-3.5 w-3.5 mr-1" /> Un-skip next
@@ -175,7 +207,7 @@ function SubscriptionRow({ sub }: { sub: Subscription }) {
               </Button>
             ))}
 
-          {sub.status === 'PAUSED' ? (
+          {scheduled ? null : sub.status === 'PAUSED' ? (
             <Button size="sm" variant="outline" disabled={busy} onClick={() => resume.mutate(sub.id)}>
               <PlayCircle className="h-3.5 w-3.5 mr-1" /> Resume
             </Button>
@@ -199,6 +231,50 @@ function SubscriptionRow({ sub }: { sub: Subscription }) {
         </div>
       )}
     </li>
+  );
+}
+
+const DELIVERY_STATUS: Record<string, string> = {
+  PENDING: 'Being arranged',
+  PROCESSING: 'Being prepared',
+  SHIPPED: 'On its way',
+  DELIVERED: 'Delivered',
+  CANCELLED: 'Cancelled',
+  REFUNDED: 'Refunded',
+};
+
+/** The most recent deliveries, newest first, with their photos. Older ones are in My Orders. */
+function Deliveries({ deliveries }: { deliveries: SubscriptionDelivery[] }) {
+  if (deliveries.length === 0) return null;
+  return (
+    <div className="mt-3">
+      <p className="text-xs font-medium text-foreground">Recent deliveries</p>
+      <ul className="mt-1 divide-y rounded-md border text-xs">
+        {deliveries.map((d) => (
+          <li key={d.id} className="flex items-center justify-between gap-3 px-3 py-2">
+            <div className="min-w-0">
+              <Link href={`/orders/${d.id}`} className="font-medium hover:underline">
+                {formatDate(d.deliveryProofAt ?? d.preferredDeliveryDate ?? d.createdAt)}
+              </Link>
+              <span className="text-muted-foreground"> · {DELIVERY_STATUS[d.status] ?? d.status}</span>
+            </div>
+            {d.deliveryProofUrl && (
+              <a
+                href={d.deliveryProofUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-primary hover:underline shrink-0"
+              >
+                <Camera className="h-3.5 w-3.5" /> Photo
+              </a>
+            )}
+          </li>
+        ))}
+      </ul>
+      <p className="mt-1 text-xs text-muted-foreground">
+        Older deliveries are in <Link href="/orders" className="underline underline-offset-2">My Orders</Link>.
+      </p>
+    </div>
   );
 }
 

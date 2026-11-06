@@ -72,6 +72,9 @@ function Header({ sub }: { sub: AdminSubscriptionDetail }) {
     <div>
       <h1 className="text-2xl font-bold flex items-center gap-2 flex-wrap">
         {personName(sub.user)} <StatusPill status={sub.status} />
+        {sub.startsAt && new Date(sub.startsAt).getTime() > Date.now() && (
+          <NotePill>Not started: first charge {shortDate(sub.startsAt)}</NotePill>
+        )}
         {sub.skipNextCycle && <NotePill>Skipping next delivery</NotePill>}
         {sub.cancelAtPeriodEnd && <NotePill tone="red">Ends {shortDate(sub.currentPeriodEnd)}</NotePill>}
       </h1>

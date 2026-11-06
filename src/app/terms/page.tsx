@@ -22,7 +22,7 @@ export default function TermsPage() {
   const mail = <a href={`mailto:${BUSINESS.email}`}>{BUSINESS.email}</a>;
 
   return (
-    <LegalPage title="Terms of Service" updated="October 19, 2026">
+    <LegalPage title="Terms of Service" updated="November 7, 2026">
       <h2>1. About us and these terms</h2>
       <p>
         {BUSINESS.tradingName} is operated by {BUSINESS.legalName}, a company based in Ontario,
@@ -133,9 +133,17 @@ export default function TermsPage() {
       <ul>
         <li>
           <strong>Billing:</strong> a subscription is charged monthly or every two weeks, as you
-          choose, at the price shown when you subscribe. The first charge is taken when you
-          subscribe. Each later charge is taken automatically at the start of each cycle{' '}
-          <strong>until you cancel</strong>.
+          choose, at the price shown when you subscribe. Each charge is taken automatically at the
+          start of each cycle <strong>until you cancel</strong>.
+        </li>
+        <li>
+          <strong>When it starts:</strong> you can start as soon as possible, in which case the
+          first charge is taken when you subscribe, or choose a first delivery date up to 60 days
+          ahead. If you choose a date, we save your card when you subscribe but charge nothing until
+          the first charge date shown at checkout, which is a few days before your first delivery so
+          the gift can be prepared. We email you a reminder a few days before that first charge.
+          You can change the box or cancel before then at no cost; skipping and pausing become
+          available once the subscription has started.
         </li>
         <li>
           <strong>Skip, pause or cancel</strong> from your account at any time, without calling us:
@@ -158,8 +166,9 @@ export default function TermsPage() {
           applies to your subscription. You can cancel before then if you do not want to continue.
         </li>
         <li>
-          <strong>What is in the box:</strong> you choose items up to the number your plan
-          allows. If you do not choose, we send the plan&apos;s default selection.
+          <strong>What is in the box:</strong> you choose the items. Each item shows how much of
+          your box it fills, and a box must be filled to at least the minimum shown and no more than
+          your plan covers. You can change it at any time; a change applies from the next delivery.
         </li>
       </ul>
 

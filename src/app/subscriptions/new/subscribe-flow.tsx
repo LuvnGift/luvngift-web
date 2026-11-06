@@ -25,6 +25,7 @@ import {
   useCreateAddress,
   useCatalogue,
   useCreateSubscription,
+  useStartDates,
   DIETARY_FLAGS,
   type SubscriptionInterval,
   type BoxPlan,
@@ -34,6 +35,10 @@ import { boxFill, type BoxFill } from '@/lib/box-fill';
 import { BoxPicker } from '@/components/subscriptions/box-picker';
 import { useUserCurrency } from '@/hooks/use-exchange-rates';
 import { pickPrice } from '@/components/subscriptions/plan-price';
+import { longDate, previewChargeDate } from '@/lib/subscription-start';
+
+/** Where a new subscriber lands: their subscriptions, with a confirmation. */
+const AFTER_SUBSCRIBE = '/account/subscriptions?subscribed=true';
 
 /** Fallback if a cached plans payload predates box sizing. Matches the API default. */
 const DEFAULT_MIN_FILL = 80;
@@ -101,6 +106,13 @@ export function SubscribeFlow() {
   const [dietaryFlags, setDietaryFlags] = useState<string[]>([]);
   const [dietaryNotes, setDietaryNotes] = useState('');
   const [clientSecret, setClientSecret] = useState<string | null>(null);
+  // 'now' = first charge today (the old behaviour); 'date' = the subscriber
+  // picks their first delivery and nothing is charged until lead time before it.
+  const [startChoice, setStartChoice] = useState<'now' | 'date'>('now');
+  const [firstDeliveryDate, setFirstDeliveryDate] = useState('');
+  const [intentType, setIntentType] = useState<'setup' | 'payment'>('payment');
+  const [startsAt, setStartsAt] = useState<string | null>(null);
+  const { data: startDates } = useStartDates();
 
   const { data: plans, isLoading: plansLoading } = usePlans();
   const plan: BoxPlan | undefined = useMemo(
@@ -162,14 +174,20 @@ export function SubscribeFlow() {
         substitutionPreference: preference,
         dietaryFlags,
         dietaryNotes: dietaryNotes.trim() || undefined,
+        ...(startChoice === 'date' && firstDeliveryDate ? { firstDeliveryDate } : {}),
       });
+      setIntentType(result.intentType ?? 'payment');
+      setStartsAt(result.startsAt ?? null);
       if (result.clientSecret) {
         setClientSecret(result.clientSecret);
         setStep('payment');
       } else {
-        // No confirmation needed — already active.
-        toast.success('Subscription active');
-        router.push('/account');
+        // Nothing to confirm: a zero-value first invoice, or a later start
+        // with a card already on file.
+        toast.success(
+          result.startsAt ? `Subscription booked. It starts on ${longDate(result.startsAt)}.` : 'Subscription active',
+        );
+        router.push(AFTER_SUBSCRIBE);
       }
     } catch {
       // surfaced by the hook
@@ -205,13 +223,13 @@ export function SubscribeFlow() {
             minFill={minFill}
             onBack={() => setStep('recipient')}
             onNext={handleSubscribe}
-            submitting={subscribing}
+            submitting={subscribing || (startChoice === 'date' && !firstDeliveryDate)}
           />
         )}
 
         {step === 'payment' && clientSecret && (
           <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme: 'stripe' } }}>
-            <PaymentStep onBack={() => setStep('box')} />
+            <PaymentStep onBack={() => setStep('box')} intentType={intentType} startsAt={startsAt} />
           </Elements>
         )}
       </div>
@@ -246,6 +264,16 @@ export function SubscribeFlow() {
         </div>
 
         <Separator />
+        <FirstDeliveryPicker
+          choice={startChoice}
+          setChoice={setStartChoice}
+          date={firstDeliveryDate}
+          setDate={setFirstDeliveryDate}
+          startDates={startDates}
+          disabled={step === 'payment'}
+        />
+
+        <Separator />
         <div className="flex justify-between">
           <span className="text-muted-foreground">Box filled</span>
           <span className={fill.status === 'OVER' ? 'text-red-600 font-medium' : ''}>
@@ -257,9 +285,102 @@ export function SubscribeFlow() {
           <span>{price ? fmt(price.amount, price.currency) : '—'}</span>
         </div>
         <p className="text-xs text-muted-foreground">
-          Charged {interval === 'MONTHLY' ? 'monthly' : 'every two weeks'} until you cancel.
+          <ChargeSummary
+            cadence={interval === 'MONTHLY' ? 'monthly' : 'every two weeks'}
+            chargeAt={
+              startsAt ??
+              (startChoice === 'date' && firstDeliveryDate && startDates
+                ? previewChargeDate(firstDeliveryDate, startDates.leadDays)?.toISOString() ?? null
+                : null)
+            }
+          />
         </p>
       </aside>
+    </div>
+  );
+}
+
+function ChargeSummary({ cadence, chargeAt }: { cadence: string; chargeAt: string | null }) {
+  if (!chargeAt) return <>Charged today, then {cadence} until you cancel.</>;
+  return <>Nothing is charged today. First charge on {longDate(chargeAt)}, then {cadence} until you cancel.</>;
+}
+
+/**
+ * When the first delivery should arrive. The subscriber picks the DELIVERY
+ * date (a birthday, a holiday); the API charges the lead time before it, so
+ * nothing is taken until then. The allowed range comes from the API.
+ */
+function FirstDeliveryPicker({
+  choice,
+  setChoice,
+  date,
+  setDate,
+  startDates,
+  disabled,
+}: {
+  choice: 'now' | 'date';
+  setChoice: (c: 'now' | 'date') => void;
+  date: string;
+  setDate: (d: string) => void;
+  startDates?: { earliest: string; latest: string; leadDays: number; maxDaysAhead: number };
+  disabled: boolean;
+}) {
+  const chargeAt = choice === 'date' && date && startDates ? previewChargeDate(date, startDates.leadDays) : null;
+  return (
+    <div>
+      <p className="text-xs uppercase tracking-wide text-muted-foreground mb-2">First delivery</p>
+      <div className="space-y-2">
+        <label className="flex items-start gap-2 cursor-pointer">
+          <input
+            type="radio"
+            name="start"
+            className="mt-0.5"
+            checked={choice === 'now'}
+            disabled={disabled}
+            onChange={() => setChoice('now')}
+          />
+          <span className="text-xs">
+            <span className="font-medium">As soon as possible</span>
+            {startDates && (
+              <span className="block text-muted-foreground">From around {longDate(startDates.earliest)}</span>
+            )}
+          </span>
+        </label>
+        <label className="flex items-start gap-2 cursor-pointer">
+          <input
+            type="radio"
+            name="start"
+            className="mt-0.5"
+            checked={choice === 'date'}
+            disabled={disabled || !startDates}
+            onChange={() => {
+              setChoice('date');
+              if (!date && startDates) setDate(startDates.earliest);
+            }}
+          />
+          <span className="text-xs font-medium">On a date I choose</span>
+        </label>
+        {choice === 'date' && startDates && (
+          <div className="pl-5 space-y-1">
+            <Input
+              type="date"
+              aria-label="First delivery date"
+              value={date}
+              min={startDates.earliest}
+              max={startDates.latest}
+              disabled={disabled}
+              onChange={(e) => setDate(e.target.value)}
+              className="h-8 text-xs"
+            />
+            <p className="text-xs text-muted-foreground">
+              {chargeAt
+                ? `We charge your card on ${longDate(chargeAt)}, so the delivery arrives from around the date you chose.`
+                : 'That is soon enough that we charge today and start preparing now.'}{' '}
+              Up to {startDates.maxDaysAhead} days ahead.
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -611,28 +732,43 @@ function BoxStep({
 
 // ─── Step 3: payment ──────────────────────────────────────────────────────────
 
-function PaymentStep({ onBack }: { onBack: () => void }) {
+function PaymentStep({
+  onBack,
+  intentType,
+  startsAt,
+}: {
+  onBack: () => void;
+  /** 'setup' for a later start: the card is checked and saved, not charged. */
+  intentType: 'setup' | 'payment';
+  startsAt: string | null;
+}) {
   const stripe = useStripe();
   const elements = useElements();
   const router = useRouter();
   const [processing, setProcessing] = useState(false);
+  const deferred = intentType === 'setup';
 
   const handlePay = async () => {
     if (!stripe || !elements) return;
     setProcessing(true);
 
-    const { error } = await stripe.confirmPayment({
-      elements,
-      confirmParams: { return_url: `${window.location.origin}/account?subscribed=true` },
-      redirect: 'if_required',
-    });
+    const confirmParams = { return_url: `${window.location.origin}${AFTER_SUBSCRIBE}` };
+    const { error } = deferred
+      ? await stripe.confirmSetup({ elements, confirmParams, redirect: 'if_required' })
+      : await stripe.confirmPayment({ elements, confirmParams, redirect: 'if_required' });
 
     if (error) {
-      toast.error(error.message ?? 'Payment failed. Please try again.');
+      toast.error(
+        error.message ?? (deferred ? 'We could not save your card. Please try again.' : 'Payment failed. Please try again.'),
+      );
       setProcessing(false);
     } else {
-      toast.success('Subscription active — your first delivery is being prepared');
-      router.push('/account?subscribed=true');
+      toast.success(
+        deferred && startsAt
+          ? `Subscription booked. It starts on ${longDate(startsAt)}.`
+          : 'Subscription active — your first delivery is being prepared',
+      );
+      router.push(AFTER_SUBSCRIBE);
     }
   };
 
@@ -645,12 +781,14 @@ function PaymentStep({ onBack }: { onBack: () => void }) {
           <ArrowLeft className="h-4 w-4 mr-1" /> Back
         </Button>
         <Button onClick={handlePay} disabled={processing || !stripe} className="flex-1">
-          {processing ? <><Spinner size="sm" className="mr-2" />Processing…</> : 'Start subscription'}
+          {processing ? <><Spinner size="sm" className="mr-2" />Processing…</> : deferred ? 'Save card and book' : 'Start subscription'}
         </Button>
       </div>
       <p className="text-center text-xs text-muted-foreground">
-        Your card is charged now and then each cycle until you cancel. By subscribing you agree to
-        our{' '}
+        {deferred && startsAt
+          ? `Nothing is charged today. Your card is saved and first charged on ${longDate(startsAt)}, then each cycle until you cancel. Cancel before then and you pay nothing.`
+          : 'Your card is charged now and then each cycle until you cancel.'}{' '}
+        By subscribing you agree to our{' '}
         <a href="/terms" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">
           Terms
         </a>{' '}

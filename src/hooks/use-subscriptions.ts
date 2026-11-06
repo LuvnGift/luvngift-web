@@ -11,25 +11,69 @@ import { toast } from 'sonner';
  */
 import type {
   SubscriptionPlan,
-  Subscription,
+  Subscription as SharedSubscription,
   SubscriptionCatalogueItem as CatalogueItem,
   SubscriptionInterval,
   SubstitutionPreference,
-  CreateSubscriptionResult,
+  CreateSubscriptionResult as SharedCreateSubscriptionResult,
 } from '@luvngift/shared';
 
 export { DIETARY_FLAGS } from '@luvngift/shared';
 export type {
   SubscriptionPlan,
   SubscriptionPrice,
-  Subscription,
   SubscriptionItem,
   SubscriptionCatalogueItem as CatalogueItem,
   SubscriptionInterval,
   SubscriptionStatus,
   SubstitutionPreference,
-  CreateSubscriptionResult,
 } from '@luvngift/shared';
+
+/** One delivery of a subscription, as its subscriber may see it. */
+export interface SubscriptionDelivery {
+  id: string;
+  status: string;
+  createdAt: string;
+  preferredDeliveryDate: string | null;
+  deliveryProofUrl: string | null;
+  deliveryProofAt: string | null;
+}
+
+/**
+ * The shared type plus what the API added after the last package publish:
+ * a later start date, and the most recent deliveries.
+ */
+export type Subscription = SharedSubscription & {
+  /** First charge time of a subscription that starts later; null = already charging. */
+  startsAt?: string | null;
+  orders?: SubscriptionDelivery[];
+};
+
+export type CreateSubscriptionResult = SharedCreateSubscriptionResult & {
+  /** confirmSetup for a later start (nothing charged now), confirmPayment otherwise. */
+  intentType?: 'setup' | 'payment';
+  startsAt?: string | null;
+  firstDeliveryFrom?: string | null;
+};
+
+/** True while a later-starting subscription has not taken its first charge. */
+export const hasNotStarted = (sub: Pick<Subscription, 'startsAt'>) =>
+  Boolean(sub.startsAt && new Date(sub.startsAt).getTime() > Date.now());
+
+/** The first delivery dates that can be chosen today, as YYYY-MM-DD. The API owns the rule. */
+export interface StartDates {
+  earliest: string;
+  latest: string;
+  leadDays: number;
+  maxDaysAhead: number;
+}
+
+export const useStartDates = () =>
+  useQuery<StartDates>({
+    queryKey: ['subscriptions', 'start-dates'],
+    queryFn: () => api.get('/api/v1/subscriptions/start-dates').then((r) => r.data.data),
+    staleTime: 5 * 60 * 1000,
+  });
 
 export interface Address {
   id: string;
@@ -115,6 +159,8 @@ interface CreateSubscriptionInput {
   substitutionPreference?: SubstitutionPreference;
   dietaryFlags?: string[];
   dietaryNotes?: string;
+  /** YYYY-MM-DD. Omitted = start now. */
+  firstDeliveryDate?: string;
 }
 
 export const useCreateSubscription = () =>

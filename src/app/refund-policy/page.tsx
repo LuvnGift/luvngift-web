@@ -17,7 +17,7 @@ export default function RefundPolicyPage() {
   const mail = <a href={`mailto:${BUSINESS.email}`}>{BUSINESS.email}</a>;
 
   return (
-    <LegalPage title="Refund Policy" updated="October 19, 2026">
+    <LegalPage title="Refund Policy" updated="November 7, 2026">
       <p>
         This policy explains what you can expect if you need to cancel an order or something goes
         wrong. It does not limit any rights you have by law as a consumer. Where the law gives you
@@ -98,6 +98,10 @@ export default function RefundPolicyPage() {
         <li>
           Cancelling takes effect at the end of the cycle you have already paid for. That cycle is
           still delivered, so it is not refunded.
+        </li>
+        <li>
+          If you chose a later start date, nothing is charged until the first charge date. Cancel
+          before then and there is nothing to refund, because you have not paid anything.
         </li>
         <li>
           If you are charged after cancelling or pausing because of our mistake, we will refund

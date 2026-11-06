@@ -963,6 +963,8 @@ export interface AdminSubscriptionRow {
   skipNextCycle: boolean;
   cancelAtPeriodEnd: boolean;
   currentPeriodEnd: string | null;
+  /** First charge of a subscription booked to start later; null once charging or if it started at once. */
+  startsAt?: string | null;
   createdAt: string;
   user: { id: string; email: string; firstName: string | null; lastName: string | null };
   plan: { id: string; name: string; isActive: boolean };
@@ -1502,7 +1504,8 @@ export type MaintenanceTask =
   | 'refunds:timeliness'
   | 'subscriptions:margin-check'
   | 'bundles:margin-check'
-  | 'vendors:weekly-digest';
+  | 'vendors:weekly-digest'
+  | 'subscriptions:first-charge-reminders';
 
 export interface MaintenanceTaskStatus {
   task: MaintenanceTask;
