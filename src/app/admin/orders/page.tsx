@@ -31,6 +31,10 @@ import {
 import { VendorLinkSection } from './vendor-link-section';
 import { RefundSection } from './refund-section';
 import { CustomOrderSection, customOrderStatusBlock, customOrderVendorBlock } from './custom-order-section';
+import { isVendorAssignable, vendorAssignmentBlock } from '@/lib/vendor-assignment';
+
+/** The custom-order gate first (its wording is more specific), then the general one. */
+const assignBlock = (order: any): string | null => customOrderVendorBlock(order) ?? vendorAssignmentBlock(order);
 import { ADMIN_STAGE, type QuoteStatus } from '@/lib/custom-orders';
 
 const ORDER_STATUSES = ['PENDING', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'REFUNDED'];
@@ -385,13 +389,13 @@ function OrderDetailModal({ orderId, onClose }: { orderId: string; onClose: () =
                   size="sm"
                   className="mt-1 gap-1"
                   onClick={() => setShowAssign(true)}
-                  disabled={!!customOrderVendorBlock(order)}
+                  disabled={!!assignBlock(order)}
                 >
                   <UserCheck className="h-3 w-3" />
                   {order.vendor ? 'Reassign vendor' : 'Assign vendor'}
                 </Button>
-                {customOrderVendorBlock(order) && (
-                  <p className="mt-1 text-xs text-muted-foreground">{customOrderVendorBlock(order)}</p>
+                {assignBlock(order) && (
+                  <p className="mt-1 text-xs text-muted-foreground">{assignBlock(order)}</p>
                 )}
               </div>
               <div>
@@ -578,10 +582,12 @@ function UpdateStatusDialog({
 
 function AssignVendorDialog({ order, onClose }: { order: any; onClose: () => void }) {
   const [vendorId, setVendorId] = useState(order.vendor?.id ?? '');
-  const { data: vendorsData, isLoading } = useVendors(1, 100);
+  // APPROVED only: without a status filter the list included pending and rejected
+  // applicants. The API filters isActive only when no status is given, so filter it here.
+  const { data: vendorsData, isLoading } = useVendors(1, 100, '', false, 'APPROVED');
   const assign = useAssignVendor();
 
-  const vendors = vendorsData?.vendors ?? [];
+  const vendors = (vendorsData?.vendors ?? []).filter(isVendorAssignable);
 
   const handleSubmit = () => {
     if (!vendorId) return;
@@ -614,7 +620,7 @@ function AssignVendorDialog({ order, onClose }: { order: any; onClose: () => voi
               <div className="flex justify-center py-4"><Spinner /></div>
             ) : vendors.length === 0 ? (
               <p className="text-sm text-muted-foreground italic">
-                No active vendors. Add vendors first.
+                No approved, active vendors. Approve a vendor first.
               </p>
             ) : (
               <Select value={vendorId} onValueChange={setVendorId}>
@@ -934,8 +940,8 @@ export default function AdminOrdersPage() {
                             size="sm"
                             className="gap-1"
                             onClick={() => setAssignOrder(order)}
-                            disabled={!!customOrderVendorBlock(order)}
-                            title={customOrderVendorBlock(order) ?? undefined}
+                            disabled={!!assignBlock(order)}
+                            title={assignBlock(order) ?? undefined}
                           >
                             <UserCheck className="h-3.5 w-3.5" />
                             {order.vendor ? 'Reassign' : 'Assign'}
