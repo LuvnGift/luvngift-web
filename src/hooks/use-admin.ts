@@ -1074,7 +1074,7 @@ export const useSetStandingVendor = () => {
       api.put(`/api/v1/admin/subscriptions/${id}/vendor`, body).then((r) => r.data.data),
     onSuccess: (_d, vars) => {
       invalidateSubscription(qc, vars.id);
-      toast.success('Standing vendor updated');
+      toast.success('Standing vendor updated. The vendors involved have been told by email and SMS.');
     },
     onError: (err: any) => toast.error(err?.response?.data?.error?.message ?? 'Could not change the vendor'),
   });

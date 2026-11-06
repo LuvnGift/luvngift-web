@@ -37,7 +37,8 @@ export function StandingVendorDialog({ sub, onClose }: { sub: AdminSubscriptionD
           <DialogTitle>Change standing vendor</DialogTitle>
           <DialogDescription>
             Future deliveries to {sub.address.recipientName} in {sub.address.state} go to this vendor automatically.
-            Deliveries already assigned are not moved. The subscriber is not emailed.
+            Deliveries already assigned are not moved. Both the new and the previous vendor are told by email and
+            SMS; the subscriber is not.
           </DialogDescription>
         </DialogHeader>
         {isLoading ? (

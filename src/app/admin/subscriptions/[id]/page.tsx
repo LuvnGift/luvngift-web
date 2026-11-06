@@ -175,9 +175,18 @@ function PeopleCard({ sub }: { sub: AdminSubscriptionDetail }) {
   );
 }
 
+/** Statuses in which a delivery is still with its vendor and could be moved. */
+const OPEN_DELIVERY = new Set(['PENDING', 'PROCESSING', 'SHIPPED']);
+
 function VendorCard({ sub }: { sub: AdminSubscriptionDetail }) {
   const [open, setOpen] = useState(false);
   const usable = sub.nextCycle.standingVendorAssignable;
+  // Changing the standing vendor moves only FUTURE cycles. A delivery already
+  // with the previous vendor stays there, which is easy to miss when the
+  // reason for the change is that the previous vendor cannot do the work.
+  const withOtherVendor = sub.orders.filter(
+    (o) => OPEN_DELIVERY.has(o.status) && o.vendor && o.vendor.id !== sub.vendor?.id,
+  );
   return (
     <Card title="Standing vendor" icon={Store}>
       {sub.vendor ? (
@@ -192,6 +201,28 @@ function VendorCard({ sub }: { sub: AdminSubscriptionDetail }) {
         Future deliveries go to this vendor automatically, unless the box needs review. Deliveries already assigned
         stay where they are; reassign those from the order.
       </p>
+      {withOtherVendor.length > 0 && (
+        <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+          <p className="flex items-center gap-1.5 font-medium">
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            {withOtherVendor.length === 1 ? 'A delivery is' : `${withOtherVendor.length} deliveries are`} still with a
+            different vendor
+          </p>
+          <ul className="mt-1 space-y-0.5">
+            {withOtherVendor.map((o) => (
+              <li key={o.id}>
+                <Link href={`/admin/orders?order=${o.id}`} className="font-mono text-primary hover:underline">
+                  {orderRef(o.id)}
+                </Link>{' '}
+                with {o.vendor!.name} ({o.status.toLowerCase()})
+              </li>
+            ))}
+          </ul>
+          <p className="mt-1 text-xs">
+            Reassign from the order if it should move. The previous vendor is told to stop when you do.
+          </p>
+        </div>
+      )}
       {sub.status !== 'CANCELLED' && (
         <Button size="sm" variant="outline" onClick={() => setOpen(true)}>Change standing vendor</Button>
       )}
