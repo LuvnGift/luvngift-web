@@ -65,6 +65,8 @@ export const useUpdateOrderStatus = () => {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'orders'] });
       qc.invalidateQueries({ queryKey: ['admin', 'metrics'] });
+      // Cancelling revokes the vendor link, so the panel must re-read it.
+      qc.invalidateQueries({ queryKey: ['admin', 'vendor-link'] });
       toast.success('Order status updated');
     },
     // The API explains a refusal (e.g. a custom order not yet paid) — show it.
@@ -88,6 +90,8 @@ export const useRefundOrder = () => {
     onSuccess: (result: { isFull?: boolean; status?: string }) => {
       qc.invalidateQueries({ queryKey: ['admin', 'orders'] });
       qc.invalidateQueries({ queryKey: ['admin', 'metrics'] });
+      // A full refund revokes the vendor link too.
+      qc.invalidateQueries({ queryKey: ['admin', 'vendor-link'] });
       const what = result?.isFull === false ? 'Partial refund' : 'Refund';
       toast.success(result?.status === 'pending' ? `${what} sent — Stripe is processing it` : `${what} processed`);
     },
@@ -594,6 +598,8 @@ export const useSendQuote = (orderId: string) => {
 export interface VendorLinkState {
   assigned: boolean;
   vendor?: { id: string; name: string };
+  /** Cancelled or refunded: the link was cancelled and the vendor told to stop. */
+  closed?: boolean;
   link: {
     issuedAt: string;
     expiresAt: string;

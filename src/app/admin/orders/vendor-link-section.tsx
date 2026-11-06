@@ -71,6 +71,25 @@ export function VendorLinkSection({ orderId }: { orderId: string }) {
     }
   }
 
+  // The API cancelled the link and told the vendor to stop when the order
+  // closed, and refuses to reissue it. Offering "Send link" here would only
+  // produce an error — and, before that guard, a "New order assigned" email.
+  if (data.closed) {
+    return (
+      <div className="rounded-lg border bg-muted/30 p-4">
+        <p className="mb-2 flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          <Link2 className="h-3.5 w-3.5" />
+          Vendor status link
+        </p>
+        <p className="text-sm text-muted-foreground">
+          Link cancelled. This order is closed, so {data.vendor?.name ?? 'the vendor'} was told by
+          email and SMS to stop work on it, unless it had already been delivered. Reopen the order
+          to brief them again.
+        </p>
+      </div>
+    );
+  }
+
   const link = data.link;
 
   return (
