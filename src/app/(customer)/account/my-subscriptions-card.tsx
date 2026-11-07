@@ -1,7 +1,17 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
-import { Repeat, SkipForward, PauseCircle, PlayCircle, XCircle, Camera } from 'lucide-react';
+import {
+  Repeat,
+  SkipForward,
+  PauseCircle,
+  PlayCircle,
+  XCircle,
+  Camera,
+  ChevronDown,
+  ChevronUp,
+} from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -278,8 +288,40 @@ function Deliveries({ deliveries }: { deliveries: SubscriptionDelivery[] }) {
   );
 }
 
+/**
+ * Cancelled subscriptions are history, not something to manage, so they sit
+ * behind a toggle below the current ones. A subscription ending after this
+ * cycle is still current: it has a delivery to come.
+ */
+function PastSubscriptions({ subs }: { subs: Subscription[] }) {
+  const [open, setOpen] = useState(false);
+  if (subs.length === 0) return null;
+  return (
+    <div className="mt-4 border-t pt-3">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className="flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground"
+      >
+        {open ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+        {open ? 'Hide' : 'Show'} past subscriptions ({subs.length})
+      </button>
+      {open && (
+        <ul className="mt-3 space-y-3">
+          {subs.map((sub) => (
+            <SubscriptionRow key={sub.id} sub={sub} />
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 export function MySubscriptionsCard() {
   const { data: subs, isLoading } = useMySubscriptions();
+  const current = (subs ?? []).filter((s) => s.status !== 'CANCELLED');
+  const past = (subs ?? []).filter((s) => s.status === 'CANCELLED');
 
   return (
     <Card>
@@ -295,21 +337,28 @@ export function MySubscriptionsCard() {
       <CardContent>
         {isLoading ? (
           <div className="flex justify-center py-6"><Spinner /></div>
-        ) : !subs || subs.length === 0 ? (
-          <div className="py-2">
-            <p className="text-sm text-muted-foreground">
-              You don&apos;t have any recurring gifts yet.
-            </p>
-            <Button asChild size="sm" className="mt-3">
-              <Link href="/subscriptions">Browse subscription plans</Link>
-            </Button>
-          </div>
         ) : (
-          <ul className="space-y-3">
-            {subs.map((sub) => (
-              <SubscriptionRow key={sub.id} sub={sub} />
-            ))}
-          </ul>
+          <>
+            {current.length === 0 ? (
+              <div className="py-2">
+                <p className="text-sm text-muted-foreground">
+                  {past.length > 0
+                    ? 'You have no active recurring gifts.'
+                    : 'You don’t have any recurring gifts yet.'}
+                </p>
+                <Button asChild size="sm" className="mt-3">
+                  <Link href="/subscriptions">Browse subscription plans</Link>
+                </Button>
+              </div>
+            ) : (
+              <ul className="space-y-3">
+                {current.map((sub) => (
+                  <SubscriptionRow key={sub.id} sub={sub} />
+                ))}
+              </ul>
+            )}
+            <PastSubscriptions subs={past} />
+          </>
         )}
       </CardContent>
     </Card>
