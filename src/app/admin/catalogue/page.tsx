@@ -1,29 +1,37 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Plus, Pencil, Ban, MapPin } from 'lucide-react';
+import { Plus, Pencil, Ban, MapPin, Tags } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Spinner } from '@/components/ui/spinner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { NIGERIAN_STATES } from '@/lib/nigerian-states';
 import {
   useAdminCatalogueItems,
   useCreateCatalogueItem,
   useUpdateCatalogueItem,
   useDeleteCatalogueItem,
+  useAdminItemCategories,
   type CatalogueItemInput,
 } from '@/hooks/use-admin';
+import { CategoryManager } from './category-manager';
 import { FieldError } from '@/components/ui/field-error';
 import { catalogueItemFormSchema, fieldErrors } from '@/lib/admin-schemas';
 
-interface CatalogueItem extends CatalogueItemInput {
+interface CatalogueItem extends Omit<CatalogueItemInput, 'categoryId'> {
   id: string;
+  category: string;
+  /** Null for an item saved before categories were managed: it must be re-filed. */
+  categoryId: string | null;
   availableStates: string[];
   isActive: boolean;
 }
+
+const UNFILED = '__unfiled';
 
 const SYMBOLS: Record<string, string> = { CAD: 'CA$', USD: '$', GBP: '£', NGN: '₦' };
 
@@ -38,7 +46,7 @@ const EMPTY: CatalogueItemInput = {
   description: '',
   price: 0,
   currency: 'NGN',
-  category: '',
+  categoryId: '',
   stock: 0,
   isActive: true,
   availableStates: [],
@@ -49,6 +57,8 @@ export default function AdminCataloguePage() {
   const createItem = useCreateCatalogueItem();
   const updateItem = useUpdateCatalogueItem();
   const deleteItem = useDeleteCatalogueItem();
+  const { data: categories = [] } = useAdminItemCategories();
+  const [managing, setManaging] = useState(false);
 
   const [editing, setEditing] = useState<CatalogueItem | null>(null);
   const [open, setOpen] = useState(false);
@@ -59,11 +69,22 @@ export default function AdminCataloguePage() {
 
   const items: CatalogueItem[] = data?.data ?? [];
 
-  const grouped = useMemo(() => {
-    const map: Record<string, CatalogueItem[]> = {};
-    for (const item of items) (map[item.category] ??= []).push(item);
-    return map;
-  }, [items]);
+  // Grouped in aisle order. Unfiled items come first: they need attention.
+  const groups = useMemo(() => {
+    const byId = new Map<string, CatalogueItem[]>();
+    for (const item of items) {
+      const key = item.categoryId ?? UNFILED;
+      byId.set(key, [...(byId.get(key) ?? []), item]);
+    }
+    const ordered: { key: string; label: string; items: CatalogueItem[] }[] = [];
+    const unfiled = byId.get(UNFILED);
+    if (unfiled) ordered.push({ key: UNFILED, label: 'Needs a category', items: unfiled });
+    for (const c of categories) {
+      const list = byId.get(c.id);
+      if (list) ordered.push({ key: c.id, label: c.name, items: list });
+    }
+    return ordered;
+  }, [items, categories]);
 
   const openNew = () => {
     setEditing(null);
@@ -80,7 +101,7 @@ export default function AdminCataloguePage() {
       description: item.description ?? '',
       price: item.price,
       currency: item.currency ?? 'NGN',
-      category: item.category,
+      categoryId: item.categoryId ?? '',
       stock: item.stock ?? 0,
       isActive: item.isActive,
       availableStates: item.availableStates ?? [],
@@ -151,10 +172,17 @@ export default function AdminCataloguePage() {
             uses. Leave states empty to offer an item nationwide.
           </p>
         </div>
-        <Button onClick={openNew}>
-          <Plus className="h-4 w-4 mr-1" /> Add item
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setManaging(true)}>
+            <Tags className="h-4 w-4 mr-1" /> Categories
+          </Button>
+          <Button onClick={openNew}>
+            <Plus className="h-4 w-4 mr-1" /> Add item
+          </Button>
+        </div>
       </div>
+
+      <CategoryManager open={managing} onOpenChange={setManaging} />
 
       {isLoading ? (
         <div className="flex justify-center py-16"><Spinner size="lg" /></div>
@@ -170,10 +198,17 @@ export default function AdminCataloguePage() {
           </Button>
         </div>
       ) : (
-        Object.entries(grouped).map(([category, catItems]) => (
-          <section key={category}>
-            <h2 className="text-xs uppercase tracking-wide text-muted-foreground mb-2">
-              {category}
+        groups.map(({ key, label, items: catItems }) => (
+          <section key={key}>
+            <h2
+              className={`text-xs uppercase tracking-wide mb-2 ${key === UNFILED ? 'text-red-700 font-semibold' : 'text-muted-foreground'}`}
+            >
+              {label}
+              {key === UNFILED && (
+                <span className="ml-2 normal-case tracking-normal font-normal">
+                  Saved before categories were managed. Edit each one and pick a category.
+                </span>
+              )}
             </h2>
             <ul className="space-y-2">
               {catItems.map((item) => (
@@ -258,14 +293,24 @@ export default function AdminCataloguePage() {
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="category">Category</Label>
-                <Input
-                  id="category"
-                  aria-invalid={!!errors.category}
-                  value={form.category}
-                  onChange={(e) => setForm({ ...form, category: e.target.value })}
-                  placeholder="Staples"
-                />
-                <FieldError message={errors.category} />
+                <Select value={form.categoryId} onValueChange={(v) => setForm({ ...form, categoryId: v })}>
+                  <SelectTrigger id="category" aria-invalid={!!errors.categoryId}>
+                    <SelectValue placeholder={categories.length ? 'Choose a category' : 'Add a category first'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FieldError message={errors.categoryId} />
+                <button
+                  type="button"
+                  onClick={() => setManaging(true)}
+                  className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                >
+                  Not listed? Manage categories
+                </button>
               </div>
             </div>
 

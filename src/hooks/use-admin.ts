@@ -1230,11 +1230,92 @@ export interface CatalogueItemInput {
   description?: string;
   price: number;
   currency?: 'CAD' | 'USD' | 'GBP' | 'NGN';
-  category: string;
+  /** Picked from the managed category list; the API copies its name onto the item. */
+  categoryId: string;
   stock?: number;
   isActive?: boolean;
   availableStates?: string[];
 }
+
+// ─── Catalogue categories (box-picker aisles) ────────────────────────────────
+
+export type ItemCategoryIcon =
+  | 'grains' | 'produce' | 'oils' | 'protein' | 'drinks' | 'snacks' | 'household' | 'baby' | 'other';
+
+export interface ItemCategory {
+  id: string;
+  name: string;
+  icon: ItemCategoryIcon;
+  sortOrder: number;
+  _count: { items: number };
+}
+
+const CATEGORIES_KEY = ['admin', 'item-categories'];
+
+const invalidateCatalogue = (qc: ReturnType<typeof useQueryClient>) => {
+  qc.invalidateQueries({ queryKey: CATEGORIES_KEY });
+  // Item rows carry the category name, so a rename or a move changes them too.
+  qc.invalidateQueries({ queryKey: ['admin', 'catalogue-items'] });
+};
+
+const apiError = (err: any, fallback: string) => toast.error(err?.response?.data?.error?.message ?? fallback);
+
+export const useAdminItemCategories = () =>
+  useQuery<ItemCategory[]>({
+    queryKey: CATEGORIES_KEY,
+    queryFn: () =>
+      api.get('/api/v1/admin/item-categories', { params: { page: 1, limit: 100 } }).then((r) => r.data.data.data),
+  });
+
+export const useCreateItemCategory = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { name: string; icon?: ItemCategoryIcon }) =>
+      api.post('/api/v1/admin/item-categories', data).then((r) => r.data.data as ItemCategory),
+    onSuccess: (c) => {
+      invalidateCatalogue(qc);
+      toast.success(`Added "${c.name}"`);
+    },
+    onError: (err) => apiError(err, 'Failed to add category'),
+  });
+};
+
+export const useUpdateItemCategory = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...data }: { id: string; name?: string; icon?: ItemCategoryIcon }) =>
+      api.patch(`/api/v1/admin/item-categories/${id}`, data).then((r) => r.data.data),
+    onSuccess: () => invalidateCatalogue(qc),
+    onError: (err) => apiError(err, 'Failed to update category'),
+  });
+};
+
+export const useReorderItemCategories = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (ids: string[]) => api.put('/api/v1/admin/item-categories/order', { ids }),
+    onSuccess: () => invalidateCatalogue(qc),
+    onError: (err) => {
+      apiError(err, 'Failed to reorder categories');
+      invalidateCatalogue(qc);
+    },
+  });
+};
+
+export const useDeleteItemCategory = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, moveToId }: { id: string; moveToId?: string }) =>
+      api
+        .delete(`/api/v1/admin/item-categories/${id}`, { params: moveToId ? { moveToId } : undefined })
+        .then((r) => r.data.data as { moved: number }),
+    onSuccess: ({ moved }) => {
+      invalidateCatalogue(qc);
+      toast.success(moved ? `Category deleted. ${moved} item${moved === 1 ? '' : 's'} moved.` : 'Category deleted');
+    },
+    onError: (err) => apiError(err, 'Failed to delete category'),
+  });
+};
 
 export const useAdminCatalogueItems = (page = 1, limit = 50) =>
   useQuery({

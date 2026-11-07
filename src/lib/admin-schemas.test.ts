@@ -21,7 +21,7 @@ const validItem = {
   name: 'Bag of rice (5kg)',
   description: 'Long grain',
   priceMajor: '8500',
-  category: 'Staples',
+  categoryId: 'cat_1',
   stock: 12,
   isActive: true,
   availableStates: ['Lagos'],

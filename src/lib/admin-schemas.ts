@@ -62,7 +62,8 @@ export const catalogueItemFormSchema = z.object({
   description: z.string().trim().max(500, 'Description must be at most 500 characters').optional(),
   /** Sourcing cost in naira. Always NGN: boxes are measured against a naira allowance. */
   priceMajor: majorAmount('Cost'),
-  category: z.string().trim().min(2, 'Category must be at least 2 characters').max(60),
+  /** Chosen from the managed list (Admin -> Catalogue -> Categories). */
+  categoryId: z.string().min(1, 'Choose a category'),
   stock: optionalCount('Stock', 1_000_000),
   isActive: z.boolean(),
   availableStates: z.array(z.string()).max(40, 'Select at most 40 states'),
