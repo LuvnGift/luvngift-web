@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 
 export default function VendorAgreementPage() {
   return (
-    <LegalPage title="Vendor Agreement" updated="October 19, 2026">
+    <LegalPage title="Vendor Agreement" updated="November 6, 2026">
       <h2>1. Parties</h2>
       <p>
         This Vendor Agreement is between DOCH FX INC (operating as Luvngift) and the approved vendor
@@ -45,13 +45,26 @@ export default function VendorAgreementPage() {
 
       <h2>6. Revenue share and payouts</h2>
       <p>
-        For each order you fulfil, you receive a fixed share of the price the customer paid, excluding
-        any taxes. Your share is set out in writing in your approval email, which forms part of this
-        agreement. Luvngift keeps the remainder, out of which it pays payment-processing fees, so those
-        fees never reduce your share. The goods for the order are bought out of your share. The payout
-        method and schedule are provided to you during onboarding. The share, method and schedule may
-        be updated from time to time with reasonable notice, and a change never applies to an order
-        already assigned to you.
+        For each order you fulfil, you receive a fixed share of the value of the goods you deliver,
+        excluding any taxes. For a bundle or a custom gift, that is the price of the order. For a
+        subscription delivery, it is the share of the plan&apos;s price that the box as ordered
+        accounts for: a box filled to 85% of its plan earns 85% of the price. &quot;As ordered&quot;
+        means the items the customer chose, so a substitution you make under our substitution policy
+        does not reduce your pay. Where a customer pays part of an order with Luvngift reward points,
+        Luvngift covers that part and your share is unchanged.
+      </p>
+      <p>
+        Your share is set out in writing in your approval email, which forms part of this agreement.
+        Luvngift keeps the remainder, out of which it pays payment-processing fees and the cost of
+        reward points, so neither ever reduces your share. The goods for the order are bought out of
+        your share. The payout method and schedule are provided to you during onboarding. The share,
+        method and schedule may be updated from time to time with at least 30 days&apos; notice by
+        email, and a change never applies to an order already assigned to you.
+      </p>
+      <p>
+        If you were approved before November 6, 2026, this version of section 6 applies to orders
+        assigned to you from the date given in our notice email, which is at least 30 days after we
+        sent it. Until then you are paid a share of the price the customer paid.
       </p>
 
       <h2>7. Cancellations and refunds</h2>

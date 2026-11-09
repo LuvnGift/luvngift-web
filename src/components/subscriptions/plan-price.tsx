@@ -1,9 +1,10 @@
 'use client';
 
 import { useUserCurrency } from '@/hooks/use-exchange-rates';
+import { OFFERED_INTERVALS, cycleWord, cadenceLabel, type Interval } from '@/lib/cadence';
 
 export interface PlanPriceRow {
-  interval: 'MONTHLY' | 'BIWEEKLY';
+  interval: Interval;
   currency: string;
   amount: number;
 }
@@ -31,22 +32,22 @@ export function PlanPrice({ prices }: { prices: PlanPriceRow[] }) {
   const { currency, ready } = useUserCurrency();
   if (!ready) return <span className="inline-block h-8 w-32 animate-pulse rounded bg-muted" aria-hidden="true" />;
 
-  const monthly = pickPrice(prices, 'MONTHLY', currency);
-  const biweekly = pickPrice(prices, 'BIWEEKLY', currency);
-  const main = monthly ?? biweekly;
+  // Headline the most frequent cadence on sale; name the others beneath it.
+  const offered = OFFERED_INTERVALS.map((i) => pickPrice(prices, i, currency)).filter(
+    (p): p is PlanPriceRow => Boolean(p),
+  );
+  const [main, ...others] = offered;
   if (!main) return <span>—</span>;
 
   return (
     <>
       <span className="text-2xl font-bold">
         {format(main)}
-        <span className="text-sm font-normal text-muted-foreground">
-          {main === monthly ? ' / month' : ' / 2 weeks'}
-        </span>
+        <span className="text-sm font-normal text-muted-foreground"> / {cycleWord(main.interval)}</span>
       </span>
-      {monthly && biweekly && (
+      {others.length > 0 && (
         <span className="block text-xs text-muted-foreground mt-0.5">
-          or {format(biweekly)} every two weeks
+          Also {others.map((o) => cadenceLabel(o.interval)).join(' or ')}
         </span>
       )}
     </>

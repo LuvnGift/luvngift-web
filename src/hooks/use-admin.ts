@@ -5,6 +5,7 @@ import { api } from '@/lib/api';
 import { toast } from 'sonner';
 import type { OrderConversation } from '@/lib/custom-orders';
 import type { OrderListParams, OrderTab } from '@/lib/admin-order-tabs';
+import type { Interval } from '@/lib/cadence';
 
 // ---------- Metrics ----------
 export const useAdminMetrics = () =>
@@ -806,7 +807,7 @@ export const useRecordSubstitutions = () => {
 
 // ─── Subscription plans ───────────────────────────────────────────────────────
 
-export type PlanInterval = 'MONTHLY' | 'BIWEEKLY';
+export type PlanInterval = Interval;
 export type PricedCurrency = 'USD' | 'CAD' | 'GBP';
 
 /** How a plan is priced. Prices are derived from these, never entered. */
@@ -1198,7 +1199,7 @@ export interface PriceChange {
   cancelledAt: string | null;
   createdByEmail: string | null;
   createdAt: string;
-  price: { interval: 'MONTHLY' | 'BIWEEKLY'; currency: string };
+  price: { interval: Interval; currency: string };
 }
 
 export const usePlanPriceChanges = (planId: string) =>
@@ -1539,6 +1540,8 @@ export interface SubscriptionRules {
   vendorSharePercent: number;
   marginTolerancePoints: number;
   cardFeePercent: Record<PricedCurrency, number>;
+  /** Points that take 1 unit of the buyer's currency off. */
+  pointsPerCurrencyUnit: number;
 }
 
 export const useSubscriptionRules = () =>

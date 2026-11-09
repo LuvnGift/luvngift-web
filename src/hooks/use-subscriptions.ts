@@ -10,24 +10,31 @@ import { toast } from 'sonner';
  * importing them from here.
  */
 import type {
-  SubscriptionPlan,
+  SubscriptionPlan as SharedSubscriptionPlan,
+  SubscriptionPrice as SharedSubscriptionPrice,
   Subscription as SharedSubscription,
   SubscriptionCatalogueItem as CatalogueItem,
-  SubscriptionInterval,
   SubstitutionPreference,
   CreateSubscriptionResult as SharedCreateSubscriptionResult,
 } from '@luvngift/shared';
+import type { Interval } from '@/lib/cadence';
 
 export { DIETARY_FLAGS } from '@luvngift/shared';
 export type {
-  SubscriptionPlan,
-  SubscriptionPrice,
   SubscriptionItem,
   SubscriptionCatalogueItem as CatalogueItem,
-  SubscriptionInterval,
   SubscriptionStatus,
   SubstitutionPreference,
 } from '@luvngift/shared';
+
+/**
+ * Cadences: the shared package still says MONTHLY | BIWEEKLY. Every 2 months
+ * and quarterly were added in the API first (2026-11-06), so these types are
+ * widened here until the next package publish.
+ */
+export type SubscriptionInterval = Interval;
+export type SubscriptionPrice = Omit<SharedSubscriptionPrice, 'interval'> & { interval: Interval };
+export type SubscriptionPlan = Omit<SharedSubscriptionPlan, 'prices'> & { prices: SubscriptionPrice[] };
 
 /** One delivery of a subscription, as its subscriber may see it. */
 export interface SubscriptionDelivery {
@@ -43,7 +50,8 @@ export interface SubscriptionDelivery {
  * The shared type plus what the API added after the last package publish:
  * a later start date, and the most recent deliveries.
  */
-export type Subscription = SharedSubscription & {
+export type Subscription = Omit<SharedSubscription, 'interval'> & {
+  interval: Interval;
   /** First charge time of a subscription that starts later; null = already charging. */
   startsAt?: string | null;
   orders?: SubscriptionDelivery[];
@@ -264,5 +272,54 @@ export const useUpdateSubscriptionItems = () => {
     },
     onError: (err: any) =>
       toast.error(err?.response?.data?.error?.message ?? "Couldn't update your box."),
+  });
+};
+
+// ─── Points ───────────────────────────────────────────────────────────────────
+
+export interface PointsSummary {
+  balance: number;
+  expiringSoon: { points: number; firstOn: string | null };
+  minRedeem: number;
+  /** Points that take 1 unit (US$1, CA$1, £1) off a charge. */
+  pointsPerCurrencyUnit: number;
+  earnRule: { pointsPerStep: number; stepPercent: number };
+  /** Points set to come off a subscription's next charge. */
+  pending: { subscriptionId: string; points: number; createdAt: string }[];
+  /** Points earned on each subscription and still unspent: what cancelling it removes. */
+  bySubscription: { subscriptionId: string; points: number }[];
+  history: { id: string; kind: 'EARNED' | 'REDEEMED' | 'FORFEITED'; points: number; createdAt: string; expiresAt: string | null; note: string | null }[];
+}
+
+const POINTS_KEY = ['subscriptions', 'points'] as const;
+
+export const usePoints = (enabled = true) =>
+  useQuery<PointsSummary>({
+    queryKey: POINTS_KEY,
+    queryFn: () => api.get('/api/v1/subscriptions/points').then((r) => r.data.data),
+    enabled,
+  });
+
+export const useApplyPoints = () => {
+  const qc = useQueryClient();
+  return useMutation<{ points: number; discount: number; currency: string }, Error, { id: string; points: number }>({
+    mutationFn: ({ id, points }) => api.post(`/api/v1/subscriptions/${id}/points`, { points }).then((r) => r.data.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: POINTS_KEY });
+      toast.success('Your points will come off the next charge');
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.error?.message ?? "Couldn't use your points."),
+  });
+};
+
+export const useUndoPoints = () => {
+  const qc = useQueryClient();
+  return useMutation<void, Error, string>({
+    mutationFn: (id) => api.delete(`/api/v1/subscriptions/${id}/points`).then(() => undefined),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: POINTS_KEY });
+      toast.success('Points returned to your balance');
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.error?.message ?? "Couldn't undo that."),
   });
 };

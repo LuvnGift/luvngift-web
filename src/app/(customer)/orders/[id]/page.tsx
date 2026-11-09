@@ -64,6 +64,7 @@ export default function OrderDetailPage({ params }: Props) {
   const subtotal = (order.subtotal / 100).toFixed(2);
   const tax = (order.tax / 100).toFixed(2);
   const total = (order.total / 100).toFixed(2);
+  const { pointsRedeemed = 0, pointsDiscount = 0 } = order as { pointsRedeemed?: number; pointsDiscount?: number };
 
   return (
     <div className="container mx-auto px-4 py-10 max-w-4xl">
@@ -218,6 +219,12 @@ export default function OrderDetailPage({ params }: Props) {
                 <div className="flex justify-between text-sm text-muted-foreground">
                   <span>Tax</span><span>{symbol}{tax}</span>
                 </div>
+                {pointsDiscount > 0 && (
+                  <div className="flex justify-between text-sm text-green-700">
+                    <span>Points ({pointsRedeemed.toLocaleString('en-GB')})</span>
+                    <span>−{symbol}{(pointsDiscount / 100).toFixed(2)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between font-semibold">
                   <span>Total</span><span>{symbol}{total}</span>
                 </div>

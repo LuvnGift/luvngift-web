@@ -36,6 +36,7 @@ import { BoxPicker } from '@/components/subscriptions/box-picker';
 import { useUserCurrency } from '@/hooks/use-exchange-rates';
 import { pickPrice } from '@/components/subscriptions/plan-price';
 import { longDate, previewChargeDate } from '@/lib/subscription-start';
+import { OFFERED_INTERVALS, cadenceLabel, cadenceTitle, type OfferedInterval } from '@/lib/cadence';
 
 /** Where a new subscriber lands: their subscriptions, with a confirmation. */
 const AFTER_SUBSCRIBE = '/account/subscriptions?subscribed=true';
@@ -100,7 +101,7 @@ export function SubscribeFlow() {
 
   const [step, setStep] = useState<Step>('recipient');
   const [addressId, setAddressId] = useState<string | null>(null);
-  const [interval, setInterval] = useState<SubscriptionInterval>('MONTHLY');
+  const [interval, setInterval] = useState<OfferedInterval>('MONTHLY');
   const [picked, setPicked] = useState<Record<string, number>>({});
   const [preference, setPreference] = useState<SubstitutionPreference>('SMART');
   const [dietaryFlags, setDietaryFlags] = useState<string[]>([]);
@@ -242,8 +243,8 @@ export function SubscribeFlow() {
 
         <div>
           <p className="text-xs uppercase tracking-wide text-muted-foreground mb-2">Frequency</p>
-          <div className="grid grid-cols-2 gap-2">
-            {(['MONTHLY', 'BIWEEKLY'] as const).map((opt) => {
+          <div className="grid grid-cols-3 gap-2">
+            {OFFERED_INTERVALS.map((opt) => {
               const available = plan.prices.some((p) => p.interval === opt);
               if (!available) return null;
               return (
@@ -256,7 +257,7 @@ export function SubscribeFlow() {
                     interval === opt ? 'border-foreground bg-muted' : 'hover:bg-muted/50'
                   }`}
                 >
-                  {opt === 'MONTHLY' ? 'Every month' : 'Every 2 weeks'}
+                  {cadenceTitle(opt)}
                 </button>
               );
             })}
@@ -286,7 +287,7 @@ export function SubscribeFlow() {
         </div>
         <p className="text-xs text-muted-foreground">
           <ChargeSummary
-            cadence={interval === 'MONTHLY' ? 'monthly' : 'every two weeks'}
+            cadence={cadenceLabel(interval)}
             chargeAt={
               startsAt ??
               (startChoice === 'date' && firstDeliveryDate && startDates

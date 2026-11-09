@@ -13,6 +13,7 @@ import {
   SEARCH_FROM_ITEMS,
 } from '@/lib/box-aisles';
 import { AISLE_ICONS } from './aisle-icons';
+import { pointsForFill } from '@/lib/points';
 
 /** A catalogue item as the picker needs it. `share`: % of the box one unit fills. */
 export interface PickerItem {
@@ -331,7 +332,11 @@ export function BoxMeter({
   const message = {
     EMPTY: `${Box} is empty. Add items until it is at least ${minFill}% full.`,
     UNDER: `${Box} is ${fill.percent}% full. Add a little more to reach ${minFill}%.`,
-    OK: `${Box} is ${fill.percent}% full. Ready to go.`,
+    // Only the subscriber earns, so admin sees no points hint.
+    OK:
+      whose === 'your' && pointsForFill(fill.percent) > 0
+        ? `${Box} is ${fill.percent}% full. Ready to go, and it earns ${pointsForFill(fill.percent)} points each delivery.`
+        : `${Box} is ${fill.percent}% full. Ready to go.`,
     OVER: `${Box} is ${fill.percent}% full. Remove or reduce something to bring it to 100%.`,
   }[fill.status];
 

@@ -23,7 +23,13 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import type { Bundle, Order } from '@luvngift/shared';
+import type { Bundle, Order as SharedOrder } from '@luvngift/shared';
+import { usePoints } from '@/hooks/use-subscriptions';
+import { useAuthStore } from '@/store/auth.store';
+import { formatPoints, pointsValue } from '@/lib/points';
+
+/** Points columns the API added after the last shared-package publish. */
+type Order = SharedOrder & { pointsRedeemed?: number; pointsDiscount?: number };
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 
@@ -70,6 +76,10 @@ export function PurchasePanel({ bundle }: Props) {
   const { mutateAsync: createOrder, isPending: creatingOrder } = useCreateOrder();
   const { mutateAsync: updateOrder, isPending: updatingOrder } = useUpdateOrder();
   const { mutateAsync: createPaymentIntent, isPending: creatingIntent } = useCreatePaymentIntent();
+  const { isAuthenticated } = useAuthStore();
+  const { data: points } = usePoints(isAuthenticated && checkoutOpen);
+  const [usePointsOnOrder, setUsePointsOnOrder] = useState(false);
+  const canUsePoints = !!points && points.balance >= points.minRedeem;
 
   const { register, handleSubmit, formState: { errors }, control } = useForm<RecipientForm>({
     resolver: zodResolver(recipientSchema),
@@ -88,7 +98,13 @@ export function PurchasePanel({ bundle }: Props) {
         targetOrder = await updateOrder({ orderId: order.id, ...payload });
         setOrder(targetOrder);
       } else {
-        targetOrder = await createOrder({ bundleId: bundle.id, ...payload });
+        // Points are checked when the order is created and spent when it is paid.
+        // The API takes off no more than the order allows, so the whole balance is offered.
+        targetOrder = await createOrder({
+          bundleId: bundle.id,
+          ...payload,
+          ...(usePointsOnOrder && canUsePoints ? { redeemPoints: points!.balance } : {}),
+        } as Parameters<typeof createOrder>[0]);
         setOrder(targetOrder);
       }
       const intent = await createPaymentIntent({ orderId: targetOrder.id });
@@ -221,6 +237,25 @@ export function PurchasePanel({ bundle }: Props) {
                 />
               </div>
 
+              {canUsePoints && !order && (
+                <label className="flex items-start gap-2.5 rounded-md border p-3 text-sm cursor-pointer hover:bg-muted/40 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={usePointsOnOrder}
+                    onChange={(e) => setUsePointsOnOrder(e.target.checked)}
+                    className="mt-0.5 h-4 w-4"
+                  />
+                  <span>
+                    Use my {formatPoints(points!.balance)} points
+                    <span className="block text-xs text-muted-foreground">
+                      Takes up to {currencySymbols[currency] ?? currency}
+                      {(pointsValue(points!.balance, points!.pointsPerCurrencyUnit) / 100).toFixed(2)} off. Points are
+                      only used once you pay.
+                    </span>
+                  </span>
+                </label>
+              )}
+
               <Button type="submit" className="w-full" disabled={creatingOrder || updatingOrder || creatingIntent}>
                 {(creatingOrder || updatingOrder || creatingIntent) ? (
                   <><Spinner size="sm" className="mr-2" />Setting up payment...</>
@@ -293,6 +328,12 @@ function OrderSummary({ order, bundleName }: { order: Order; bundleName: string 
           <span>Tax</span>
           <span>{order.tax > 0 ? fmt(order.tax) : <span className="text-xs">None</span>}</span>
         </div>
+        {!!order.pointsDiscount && (
+          <div className="flex justify-between text-green-700">
+            <span>Points ({formatPoints(order.pointsRedeemed ?? 0)})</span>
+            <span>−{fmt(order.pointsDiscount)}</span>
+          </div>
+        )}
         <div className="flex justify-between font-semibold text-base pt-1">
           <span>Total due</span>
           <span>{fmt(order.total)}</span>

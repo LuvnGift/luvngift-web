@@ -23,7 +23,7 @@ export const metadata: Metadata = {
 
 const BENEFITS = [
   { icon: TrendingUp, title: 'A steady stream of orders', desc: 'We bring the customers — diaspora buyers ordering gifts for delivery across Nigeria.' },
-  { icon: Wallet, title: 'A fixed share of every order', desc: 'You earn a set share of the price the customer paid, confirmed in writing when you are approved. Card fees come out of our share, not yours.' },
+  { icon: Wallet, title: 'A fixed share of every order', desc: 'You earn a set share of the value of the goods you deliver, confirmed in writing when you are approved. Card fees and customer reward points come out of our share, not yours.' },
   { icon: CalendarClock, title: 'Paid every two weeks', desc: 'Reliable payouts on a fortnightly schedule for completed, delivered orders.' },
   { icon: ShieldCheck, title: 'No upfront cost', desc: 'It is free to apply and join. You focus on fulfilment; we handle pricing and the customer experience.' },
 ];
@@ -121,7 +121,7 @@ export default function BecomeAVendorPage() {
                 </p>
                 <ul className="space-y-3">
                   {[
-                    'A fixed share of the price of every order you fulfil',
+                    'A fixed share of the value of every order you fulfil',
                     'Reliable payouts every two weeks',
                     'Order details delivered to you by email and SMS',
                     'Free to apply — no upfront cost',

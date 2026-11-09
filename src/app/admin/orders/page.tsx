@@ -36,6 +36,7 @@ import { isVendorAssignable, vendorAssignmentBlock } from '@/lib/vendor-assignme
 /** The custom-order gate first (its wording is more specific), then the general one. */
 const assignBlock = (order: any): string | null => customOrderVendorBlock(order) ?? vendorAssignmentBlock(order);
 import { ADMIN_STAGE, type QuoteStatus } from '@/lib/custom-orders';
+import { VendorPayBasis } from './vendor-pay-basis';
 
 const ORDER_STATUSES = ['PENDING', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'REFUNDED'];
 
@@ -282,10 +283,17 @@ function OrderDetailModal({ orderId, onClose }: { orderId: string; onClose: () =
                 <div className="flex justify-between text-muted-foreground">
                   <span>Tax</span><span>{order.tax > 0 ? fmt(order.tax, order.currency) : 'None'}</span>
                 </div>
+                {(order as { pointsDiscount?: number }).pointsDiscount ? (
+                  <div className="flex justify-between text-green-700">
+                    <span>Points ({((order as { pointsRedeemed?: number }).pointsRedeemed ?? 0).toLocaleString('en-GB')})</span>
+                    <span>−{fmt((order as { pointsDiscount: number }).pointsDiscount, order.currency)}</span>
+                  </div>
+                ) : null}
                 <div className="flex justify-between font-semibold text-base pt-1 border-t mt-1">
                   <span>Total</span><span>{fmt(order.total, order.currency)}</span>
                 </div>
               </div>
+              <VendorPayBasis order={order as never} fmt={fmt} />
               {order.quoteStatus === 'AWAITING_QUOTE' && (
                 <p className="mt-2 rounded-md border border-purple-200 bg-purple-50 p-3 text-xs text-purple-900">
                   This is a custom request, so it has no price until you quote it below —

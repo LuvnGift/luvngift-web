@@ -11,6 +11,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { ChevronLeft, ChevronRight, Plus, Search, ExternalLink } from 'lucide-react';
 import VendorFormModal from './vendor-form-modal';
 import VendorActiveModal from './vendor-active-modal';
+import { ShareTermsNotice } from './share-terms-notice';
 import type { Vendor } from '@luvngift/shared';
 
 // The installed shared Vendor type may not yet include the application fields.
@@ -99,6 +100,8 @@ export default function AdminVendorsPage() {
           Add vendor
         </Button>
       </div>
+
+      <ShareTermsNotice />
 
       {/* View tabs */}
       <div className="flex gap-2 border-b">

@@ -1,4 +1,5 @@
 import type { SubscriptionStatus } from '@/hooks/use-admin';
+import { cadenceTitle } from '@/lib/cadence';
 
 export const STATUS_LABEL: Record<SubscriptionStatus, string> = {
   ACTIVE: 'Active',
@@ -31,7 +32,7 @@ export function NotePill({ children, tone = 'gray' }: { children: React.ReactNod
   return <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${tones[tone]}`}>{children}</span>;
 }
 
-export const cadenceLabel = (interval: string) => (interval === 'MONTHLY' ? 'Monthly' : 'Every 2 weeks');
+export const cadenceLabel = (interval: string) => cadenceTitle(interval);
 
 export const personName = (u: { email: string; firstName: string | null; lastName: string | null }) =>
   [u.firstName, u.lastName].filter(Boolean).join(' ') || u.email;

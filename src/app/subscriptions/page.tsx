@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { CACHE_TAGS, CACHE_FALLBACK_SECONDS } from '@/lib/cache-tags';
 import { PlanPrice } from '@/components/subscriptions/plan-price';
 import { fetchList } from '@/lib/api-fetch';
+import type { Interval } from '@/lib/cadence';
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.luvngift.com';
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? '';
@@ -14,7 +15,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? '';
 export const metadata: Metadata = {
   title: 'Monthly Grocery Subscriptions to Nigeria — Luvngift',
   description:
-    'Send groceries to your parents in Nigeria every month or every two weeks. You choose the box, we handle sourcing and delivery, and you get a delivery photo each time — no sending money to anyone.',
+    'Send groceries to your parents in Nigeria every month, every 2 months or every 3 months. You choose the box, we handle sourcing and delivery, and you get a delivery photo each time — no sending money to anyone.',
   alternates: { canonical: `${BASE_URL}/subscriptions` },
   openGraph: {
     title: 'Recurring Grocery Deliveries to Nigeria',
@@ -26,7 +27,7 @@ export const metadata: Metadata = {
 };
 
 interface Price {
-  interval: 'MONTHLY' | 'BIWEEKLY';
+  interval: Interval;
   currency: string;
   amount: number;
 }
@@ -58,7 +59,7 @@ const HOW_IT_WORKS = [
   {
     icon: Repeat,
     title: 'We deliver, again and again',
-    body: 'Every month or every two weeks, our vetted partners in Nigeria source and deliver to your loved one. No transfers, no middlemen.',
+    body: 'Every month, every 2 months or every 3 months, our vetted partners in Nigeria source and deliver to your loved one. No transfers, no middlemen.',
   },
   {
     icon: Camera,

@@ -31,13 +31,14 @@ import {
   type PlanPricingFormValues,
 } from '@/lib/admin-schemas';
 import { PriceChangesSection } from './price-changes-section';
+import { OFFERED_INTERVALS, cycleWord, cadenceLabel } from '@/lib/cadence';
 
 const SYMBOLS: Record<string, string> = { CAD: 'CA$', USD: 'US$', GBP: '£' };
 const money = (cents: number, currency: string) =>
   `${cents < 0 ? '−' : ''}${SYMBOLS[currency] ?? currency}${(Math.abs(cents) / 100).toFixed(2)}`;
 const naira = (kobo: number) => `₦${(kobo / 100).toLocaleString('en-NG')}`;
 const pct = (bps: number) => `${(bps / 100).toFixed(2).replace(/\.?0+$/, '')}%`;
-const cadence = (i: PlanInterval) => (i === 'MONTHLY' ? 'month' : '2 weeks');
+const cadence = (i: PlanInterval) => cycleWord(i);
 
 interface Plan {
   id: string;
@@ -507,12 +508,19 @@ function PricingFields({
         </div>
       </div>
       <div className="flex gap-4 text-sm">
-        {(['MONTHLY', 'BIWEEKLY'] as const).map((i) => (
+        {OFFERED_INTERVALS.map((i) => (
           <label key={i} className="flex items-center gap-2 cursor-pointer">
             <input type="checkbox" checked={value.intervals.includes(i)} onChange={() => toggleInterval(i)} className="h-4 w-4" />
-            {i === 'MONTHLY' ? 'Sold monthly' : 'Sold every 2 weeks'}
+            Sold {cadenceLabel(i)}
           </label>
         ))}
+        {/* Retired: shown only so a plan still listing it can be unticked and saved. */}
+        {value.intervals.includes('BIWEEKLY') && (
+          <label className="flex items-center gap-2 cursor-pointer text-red-700">
+            <input type="checkbox" checked onChange={() => toggleInterval('BIWEEKLY')} className="h-4 w-4" />
+            Every 2 weeks (no longer sold: untick to save)
+          </label>
+        )}
       </div>
       <FieldError message={errors.intervals} />
     </div>

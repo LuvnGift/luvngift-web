@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { OFFERED_INTERVALS } from './cadence';
 
 /**
  * Client-side mirrors of the admin schemas in
@@ -103,8 +104,10 @@ export const planPricingFormSchema = z.object({
     .refine((v) => Number(v) >= 0 && Number(v) <= 1000, 'Markup must be between 0% and 1000%')
     .refine((v) => /^\d+(\.\d{1,2})?$/.test(v), 'At most two decimal places'),
   intervals: z
-    .array(z.enum(['MONTHLY', 'BIWEEKLY']))
-    .min(1, 'Sell the plan at least monthly or every two weeks'),
+    .array(z.enum([...OFFERED_INTERVALS, 'BIWEEKLY']))
+    .min(1, 'Offer the plan at least one cadence')
+    // A plan may still list every two weeks from before it was retired; it must be unticked to save.
+    .refine((v) => !v.includes('BIWEEKLY'), 'Every two weeks is no longer sold: untick it'),
 });
 
 export type PlanPricingFormValues = z.infer<typeof planPricingFormSchema>;

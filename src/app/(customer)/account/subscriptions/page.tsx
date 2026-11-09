@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { ArrowLeft, CheckCircle2 } from 'lucide-react';
 import { MySubscriptionsCard } from '../my-subscriptions-card';
+import { PointsCard } from '../points-card';
 import { hasNotStarted, useMySubscriptions } from '@/hooks/use-subscriptions';
 import { longDate } from '@/lib/subscription-start';
 
@@ -26,6 +27,7 @@ export default function MySubscriptionsPage() {
         <SubscribedBanner />
       </Suspense>
       <MySubscriptionsCard />
+      <PointsCard />
     </div>
   );
 }

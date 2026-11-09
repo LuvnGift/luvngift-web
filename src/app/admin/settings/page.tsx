@@ -191,6 +191,7 @@ function SubscriptionRulesCard() {
       vendorSharePercent: String(data.vendorSharePercent),
       marginTolerancePoints: String(data.marginTolerancePoints),
       minFillPercent: String(data.minFillPercent),
+      pointsPerCurrencyUnit: String(data.pointsPerCurrencyUnit),
       USD: String(data.cardFeePercent.USD),
       CAD: String(data.cardFeePercent.CAD),
       GBP: String(data.cardFeePercent.GBP),
@@ -205,6 +206,8 @@ function SubscriptionRulesCard() {
     within('marginTolerancePoints', 1, 50) &&
     within('minFillPercent', 50, 100) &&
     Number.isInteger(n('minFillPercent')) &&
+    within('pointsPerCurrencyUnit', 10, 10_000) &&
+    Number.isInteger(n('pointsPerCurrencyUnit')) &&
     ['USD', 'CAD', 'GBP'].every((c) => within(c, 0, 20));
 
   const field = (key: string, label: string, hint: string) => (
@@ -230,9 +233,10 @@ function SubscriptionRulesCard() {
         ) : (
           <>
             <div className="grid sm:grid-cols-3 gap-4">
-              {field('vendorSharePercent', 'Vendor share (%)', 'Of the price paid. The vendor buys the goods from it; card fees come from our share. 50–90.')}
+              {field('vendorSharePercent', 'Vendor share (%)', 'Of the value delivered (a cycle: price × box fill, before points). The vendor buys the goods from it; card fees and points come from our share. 50–90.')}
               {field('marginTolerancePoints', 'Margin tolerance (points)', 'Flag a price whose live markup falls this far below its plan’s. 1–50.')}
               {field('minFillPercent', 'Minimum box fill (%)', 'How full a subscriber’s box must be. 50–100.')}
+              {field('pointsPerCurrencyUnit', 'Points per US$1 / CA$1 / £1', 'How many points take 1 unit off a charge. 100 means 500 points = 5.00. 10–10,000.')}
             </div>
             <div>
               <p className="text-sm font-medium mb-2">Estimated card fees (%)</p>
@@ -258,6 +262,7 @@ function SubscriptionRulesCard() {
                   vendorSharePercent: n('vendorSharePercent'),
                   marginTolerancePoints: n('marginTolerancePoints'),
                   minFillPercent: n('minFillPercent'),
+                  pointsPerCurrencyUnit: n('pointsPerCurrencyUnit'),
                   cardFeePercent: { USD: n('USD'), CAD: n('CAD'), GBP: n('GBP') },
                 })
               }

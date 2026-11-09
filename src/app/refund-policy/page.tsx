@@ -17,7 +17,7 @@ export default function RefundPolicyPage() {
   const mail = <a href={`mailto:${BUSINESS.email}`}>{BUSINESS.email}</a>;
 
   return (
-    <LegalPage title="Refund Policy" updated="November 7, 2026">
+    <LegalPage title="Refund Policy" updated="November 6, 2026">
       <p>
         This policy explains what you can expect if you need to cancel an order or something goes
         wrong. It does not limit any rights you have by law as a consumer. Where the law gives you
@@ -106,6 +106,12 @@ export default function RefundPolicyPage() {
         <li>
           If you are charged after cancelling or pausing because of our mistake, we will refund
           that charge in full.
+        </li>
+        <li>
+          Points are a reward, not money: they are never refunded or paid out. If an order is fully
+          refunded, any points you spent on it are returned to you and any points it earned are
+          taken back. Points earned on a subscription are removed when its cancellation takes effect
+          (Terms § 9).
         </li>
         <li>
           Problems with a subscription delivery are handled under sections 2 and 3, and items we

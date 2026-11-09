@@ -3,9 +3,10 @@
 import { CalendarClock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useCancelPriceChange, usePlanPriceChanges } from '@/hooks/use-admin';
+import { cycleWord } from '@/lib/cadence';
 
 const money = (cents: number, currency: string) => `${(cents / 100).toFixed(2)} ${currency}`;
-const cycle = (interval: 'MONTHLY' | 'BIWEEKLY') => (interval === 'MONTHLY' ? 'month' : '2 weeks');
+const cycle = (interval: string) => cycleWord(interval);
 
 /**
  * Price changes waiting to reach existing subscribers. They are created by

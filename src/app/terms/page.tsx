@@ -22,7 +22,7 @@ export default function TermsPage() {
   const mail = <a href={`mailto:${BUSINESS.email}`}>{BUSINESS.email}</a>;
 
   return (
-    <LegalPage title="Terms of Service" updated="November 7, 2026">
+    <LegalPage title="Terms of Service" updated="November 6, 2026">
       <h2>1. About us and these terms</h2>
       <p>
         {BUSINESS.tradingName} is operated by {BUSINESS.legalName}, a company based in Ontario,
@@ -132,8 +132,8 @@ export default function TermsPage() {
       <h2>9. Subscriptions</h2>
       <ul>
         <li>
-          <strong>Billing:</strong> a subscription is charged monthly or every two weeks, as you
-          choose, at the price shown when you subscribe. Each charge is taken automatically at the
+          <strong>Billing:</strong> a subscription is charged every month, every 2 months or every
+          3 months, as you choose, at the price shown when you subscribe. Each charge is taken automatically at the
           start of each cycle <strong>until you cancel</strong>.
         </li>
         <li>
@@ -169,6 +169,24 @@ export default function TermsPage() {
           <strong>What is in the box:</strong> you choose the items. Each item shows how much of
           your box it fills, and a box must be filled to at least the minimum shown and no more than
           your plan covers. You can change it at any time; a change applies from the next delivery.
+        </li>
+        <li>
+          <strong>Points:</strong> when a delivery&apos;s box is not filled to the top, you earn
+          points as a thank-you: 10 points for every full 5% of the box left unfilled. They are a
+          reward, not a refund: they are not worth what was left unfilled, and they have no cash
+          value. You can use them, at least 500 at a time, off a bundle at checkout or off your next
+          subscription charge; what a point is worth is shown on your subscriptions page.
+          <ul>
+            <li>Points expire 12 months after you earn them. The oldest are used first, and we email you about 30 days before any expire.</li>
+            <li>
+              <strong>Points earned on a subscription are removed when that subscription&apos;s
+              cancellation takes effect</strong>, at the end of the cycle you have paid for. You can
+              still use them before then. Points you set to come off a charge that will not now happen
+              are returned first.
+            </li>
+            <li>A box we hold back for review earns no points. If an order is fully refunded, the points it earned are taken back and any points spent on it are returned.</li>
+            <li>Points cannot be transferred or exchanged for money. We may change how points are earned or what they are worth with 30 days&apos; notice; points you already have keep their expiry date.</li>
+          </ul>
         </li>
       </ul>
 

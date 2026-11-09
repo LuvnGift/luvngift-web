@@ -24,6 +24,7 @@ import {
   useCancelSubscription,
   useUpdateSubstitutionPreference,
   hasNotStarted,
+  usePoints,
   type Subscription,
   type SubscriptionDelivery,
   type SubscriptionStatus,
@@ -32,6 +33,8 @@ import {
 import { DietaryEditor } from './dietary-editor';
 import { BoxEditor } from './box-editor';
 import { longDate } from '@/lib/subscription-start';
+import { formatPoints } from '@/lib/points';
+import { cycleWord } from '@/lib/cadence';
 
 const SYMBOLS: Record<string, string> = { CAD: 'CA$', USD: '$', GBP: '£', NGN: '₦' };
 
@@ -64,6 +67,7 @@ function SubscriptionRow({ sub }: { sub: Subscription }) {
   const pause = usePauseSubscription();
   const resume = useResumeSubscription();
   const cancel = useCancelSubscription();
+  const { data: points } = usePoints();
   const updatePreference = useUpdateSubstitutionPreference();
 
   const busy =
@@ -74,16 +78,24 @@ function SubscriptionRow({ sub }: { sub: Subscription }) {
     (sub as { amount?: number | null }).amount ??
     sub.plan.prices?.find((p) => p.interval === sub.interval && p.currency === sub.currency)?.amount;
   const price = amount !== undefined ? { amount, currency: sub.currency } : undefined;
-  const cadence = sub.interval === 'MONTHLY' ? 'every month' : 'every 2 weeks';
+  const cadence = `every ${cycleWord(sub.interval)}`;
   const ended = sub.status === 'CANCELLED';
   // Booked to start later: nothing charged yet, so there is no cycle to skip
   // or pause (the API refuses both), but cancelling is free.
   const scheduled = !ended && hasNotStarted(sub);
 
   const handleCancel = () => {
-    const message = scheduled
+    const base = scheduled
       ? 'Cancel this subscription? Nothing has been charged yet, so you will not pay anything.'
       : 'Cancel this subscription? Your current cycle has been paid for and will still be delivered.';
+    // Terms: points earned on a subscription are removed when its cancellation takes effect.
+    const earned = points?.bySubscription.find((p) => p.subscriptionId === sub.id)?.points ?? 0;
+    const ends = sub.currentPeriodEnd ? ` on ${longDate(sub.currentPeriodEnd)}` : '';
+    const message = earned
+      ? `${base}
+
+The ${formatPoints(earned)} points you earned on it will be removed when it ends${ends}. You can still use them before then.`
+      : base;
     if (!confirm(message)) return;
     cancel.mutate(sub.id);
   };
