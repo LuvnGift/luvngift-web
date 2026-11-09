@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { isInSection, safeNextPath, sessionRefreshUrl } from '@/lib/auth-redirect';
+import { isStaging } from '@/lib/app-env';
 
 // Routes that require the user to be logged in.
 // Note: /custom is intentionally public — guests can build a custom gift; auth is
@@ -139,6 +140,8 @@ export function middleware(request: NextRequest) {
   response.headers.set('X-Frame-Options', 'DENY');
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
   response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  // A staging copy in search results would compete with the live site.
+  if (isStaging) response.headers.set('X-Robots-Tag', 'noindex, nofollow');
 
   return response;
 }

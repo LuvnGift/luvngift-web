@@ -6,6 +6,7 @@ import { Toaster } from 'sonner';
 import { CookieConsentBanner } from '@/components/layout/cookie-consent-banner';
 import { AccountDeletedNotice } from '@/components/layout/account-deleted-notice';
 import { ConsentedAnalytics } from '@/components/layout/consented-analytics';
+import { StagingBanner } from '@/components/layout/staging-banner';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -81,6 +82,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         >
           Skip to content
         </a>
+        <StagingBanner />
         <Providers>{children}</Providers>
         <Toaster richColors position="top-right" />
         <CookieConsentBanner />
