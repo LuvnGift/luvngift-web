@@ -117,7 +117,7 @@ export default function OrderDetailPage({ params }: Props) {
               <CardTitle className="text-base">Tracking</CardTitle>
             </CardHeader>
             <CardContent>
-              <OrderTimeline status={order.status as OrderStatus} />
+              <OrderTimeline status={order.status as OrderStatus} events={(order as any).events ?? []} />
             </CardContent>
           </Card>
 

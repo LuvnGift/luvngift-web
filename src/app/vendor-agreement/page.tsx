@@ -6,7 +6,7 @@ const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.luvngift.com';
 export const metadata: Metadata = {
   title: 'Vendor Agreement',
   description:
-    'The agreement between DOCH FX INC (Luvngift) and approved vendors — relationship, pricing, fulfillment, revenue share, and responsibilities.',
+    'The agreement between DOCH FX INC (Luvngift) and approved vendors — relationship, pricing, fulfillment, pay, vetting, and responsibilities.',
   alternates: { canonical: `${BASE_URL}/vendor-agreement` },
   robots: { index: true, follow: true },
 };
@@ -43,28 +43,53 @@ export default function VendorAgreementPage() {
         of physical items or execution of experiences.
       </p>
 
-      <h2>6. Revenue share and payouts</h2>
+      <h2>6. Pay and payouts</h2>
       <p>
-        For each order you fulfil, you receive a fixed share of the value of the goods you deliver,
-        excluding any taxes. For a bundle or a custom gift, that is the price of the order. For a
-        subscription delivery, it is the share of the plan&apos;s price that the box as ordered
-        accounts for: a box filled to 85% of its plan earns 85% of the price. &quot;As ordered&quot;
-        means the items the customer chose, so a substitution you make under our substitution policy
-        does not reduce your pay. Where a customer pays part of an order with Luvngift reward points,
-        Luvngift covers that part and your share is unchanged.
+        An order can have up to three parts: buying the goods, managing the order (the agent&apos;s
+        part), and delivery. You may be given one part or all of them. For each part you are given,
+        Luvngift tells you in naira, on the order, what you are paid for it. That amount is fixed
+        when the order is placed: it does not change with exchange rates, with what the customer
+        paid, or if the customer uses reward points, and Luvngift pays payment-processing fees from
+        its own share. For buying the goods, the amount is what the goods cost; for a subscription
+        delivery, it is what the box the customer ordered costs, so a substitution you make under
+        our substitution policy does not reduce it.
       </p>
       <p>
-        Your share is set out in writing in your approval email, which forms part of this agreement.
-        Luvngift keeps the remainder, out of which it pays payment-processing fees and the cost of
-        reward points, so neither ever reduces your share. The goods for the order are bought out of
-        your share. The payout method and schedule are provided to you during onboarding. The share,
-        method and schedule may be updated from time to time with at least 30 days&apos; notice by
-        email, and a change never applies to an order already assigned to you.
+        When you are paid depends on your payout schedule, set out in your approval email (which
+        forms part of this agreement) and shown on each order:
+      </p>
+      <ul>
+        <li><strong>Advance:</strong> the goods money is paid to you before you buy; the rest once
+          the order is delivered.</li>
+        <li><strong>Reimburse:</strong> the goods money is paid once Luvngift approves the receipts
+          you upload for the order, up to the amount for the goods; the rest once the order is
+          delivered.</li>
+        <li><strong>Split:</strong> the stated percentage of each amount is paid when you are
+          assigned the order, and the rest once it is delivered.</li>
+      </ul>
+      <p>
+        An order is delivered when the delivery photo is uploaded and, where Luvngift asks for it,
+        the recipient has confirmed receiving it with the code we text them. Luvngift may set a
+        different schedule for a particular order, and tells you on the order if it does. If an
+        order is cancelled or moved to another partner, nothing more falls due to you on it, and you
+        must return any advance you have not spent on it (with receipts for what you have spent).
+        The schedule may be changed with at least 30 days&apos; notice by email, and a change never
+        applies to an order already assigned to you.
       </p>
       <p>
-        If you were approved before November 6, 2026, this version of section 6 applies to orders
-        assigned to you from the date given in our notice email, which is at least 30 days after we
-        sent it. Until then you are paid a share of the price the customer paid.
+        If you were approved before November 10, 2026 and are paid a share of the price, that share
+        continues until the date given in our notice email, which is at least 30 days after we sent
+        it.
+      </p>
+
+      <h2>6A. Vetting, receipts and ratings</h2>
+      <p>
+        Before approving an individual fulfilment agent, Luvngift checks their identity, guarantor
+        and references, may visit their address, interviews them and trains them. Shops and
+        delivery companies are visited and interviewed. Receipts you upload must be genuine and for
+        the order they are uploaded to. Luvngift rates the work done on each delivered order
+        (punctuality, quality and communication) and uses these ratings, with on-time delivery and
+        recipient confirmation, when deciding who is offered orders.
       </p>
 
       <h2>7. Cancellations and refunds</h2>

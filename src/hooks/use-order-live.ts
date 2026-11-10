@@ -45,10 +45,13 @@ export function useOrderLive(
     socket.on('connect', join);
     socket.on('order:conversation', refresh);
     socket.on('order:status', status);
+    // Custody milestones (partner assigned, goods bought, recipient confirmed).
+    socket.on('order:event', refresh);
     return () => {
       socket.off('connect', join);
       socket.off('order:conversation', refresh);
       socket.off('order:status', status);
+      socket.off('order:event', refresh);
     };
   }, [socket, orderId, keys, qc, onStatus]);
 }

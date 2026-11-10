@@ -20,6 +20,7 @@ const BUSINESS_TYPES = [
   { value: 'RETAIL', label: 'Retail — supplies goods / products' },
   { value: 'DELIVERY', label: 'Delivery — delivers to recipients' },
   { value: 'LOGISTICS', label: 'Logistics — sourcing & fulfilment' },
+  { value: 'AGENT', label: 'Fulfilment agent — an individual (starts pending: vet before approving)' },
 ] as const;
 
 const NAME_RE = /^[a-zA-ZÀ-ÖØ-öø-ÿ'\-\s]+$/;
@@ -32,7 +33,7 @@ const schema = z.object({
   phone: z.string().regex(/^\d{11}$/, 'Enter a valid 11-digit number'),
   address: z.string().trim().min(5, 'Address is required').max(200),
   state: z.string().min(2, 'Please select a state'),
-  businessType: z.enum(['RETAIL', 'DELIVERY', 'LOGISTICS']),
+  businessType: z.enum(['RETAIL', 'DELIVERY', 'LOGISTICS', 'AGENT']),
   notes: z.string().trim().max(500).optional(),
 });
 

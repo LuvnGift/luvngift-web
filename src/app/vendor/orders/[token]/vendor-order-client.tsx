@@ -16,6 +16,7 @@ import {
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { RecipientCode, Receipts, SourcedButton, YourPay, type PartnerState } from './partner-actions';
 
 /**
  * A vendor's single-order view, built for a phone on a Nigerian mobile network.
@@ -30,7 +31,7 @@ import { Textarea } from '@/components/ui/textarea';
  *    against the API's 10MB cap on a weak connection.
  */
 
-interface VendorOrder {
+interface VendorOrder extends PartnerState {
   reference: string;
   status: string;
   vendorName: string;
@@ -289,6 +290,8 @@ export function VendorOrderClient({ token }: { token: string }) {
         </p>
       )}
 
+      <SourcedButton token={token} state={order} onDone={load} />
+
       {order.canMarkShipped && (
         <Button
           size="lg"
@@ -300,6 +303,8 @@ export function VendorOrderClient({ token }: { token: string }) {
           <span className="ml-2">Mark as on its way</span>
         </Button>
       )}
+
+      <RecipientCode token={token} state={order} onDone={load} />
 
       {order.canUploadProof && (
         <Section icon={<Camera className="h-4 w-4" />} title="Photo at handover">
@@ -376,6 +381,9 @@ export function VendorOrderClient({ token }: { token: string }) {
           )}
         </Section>
       )}
+
+      <Receipts token={token} state={order} onDone={load} />
+      <YourPay state={order} />
     </Shell>
   );
 }

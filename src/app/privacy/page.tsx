@@ -74,6 +74,12 @@ export default function PrivacyPage() {
         show it to you, the buyer.
       </p>
       <p>
+        At the handover we may text the recipient a one-time code, which they read to the person
+        delivering, so we know the gift reached them. The message comes from Luvngift and does not
+        name the buyer. We record only that, and when, the recipient confirmed; the code itself is
+        never stored and stops working after 30 minutes.
+      </p>
+      <p>
         <strong>If you are a buyer,</strong> please give us only the recipient details needed for
         delivery, and only where the recipient would expect you to share them.{' '}
         <strong>If you are a recipient</strong> and have questions about your information, contact
@@ -96,8 +102,17 @@ export default function PrivacyPage() {
           letter
         </li>
         <li>
-          <strong>Vendor applicants:</strong> your business name, contact name, email address, phone
-          number, business address and state
+          <strong>Vendor and partner applicants:</strong> your business name, contact name, email
+          address, phone number, business address and state. If you apply as an individual
+          fulfilment agent, also: the type of your ID and the last four characters of its number
+          (never the full number), a photo or scan of the ID (stored privately and opened only by
+          our team), the name, phone number and relationship of a guarantor and two references, how
+          you travel, and the states and kinds of work you can cover. We use these only to vet you
+          before approval
+        </li>
+        <li>
+          <strong>Partners at work:</strong> photos of purchase receipts you upload for an order,
+          and the ratings we record of your work
         </li>
         <li>
           <strong>Roadmap updates:</strong> your email address, if you ask to be told when a feature
@@ -135,7 +150,8 @@ export default function PrivacyPage() {
           delivery updates, quotes and replies
         </li>
         <li>To answer questions and support requests</li>
-        <li>To review job and vendor applications</li>
+        <li>To review job, vendor and partner applications, and vet fulfilment agents</li>
+        <li>To pay our fulfilment partners and keep a record of their work</li>
         <li>To prevent fraud, keep our services secure, and find and fix faults</li>
         <li>To keep the tax and accounting records the law requires</li>
       </ul>
@@ -181,10 +197,11 @@ export default function PrivacyPage() {
       <h2>4. Who we share it with</h2>
       <h3>Delivery partners in Nigeria</h3>
       <p>
-        The independent vendor who prepares and delivers a gift receives what they need for that
-        delivery: the recipient&apos;s name, phone number and address, the items, your personal
-        message, and any dietary or religious requirements. They do not receive your name, contact
-        details or payment information.
+        The independent partners who prepare and deliver a gift (a fulfilment agent, a shop or a
+        delivery company) receive what they need for that delivery: the recipient&apos;s name,
+        phone number and address, the items, your personal message, and any dietary or religious
+        requirements. They do not receive your name, contact details or payment information. On
+        the order page we tell you which kind of partner has your gift, not who they are.
       </p>
 
       <h3>Service providers who work on our behalf</h3>
@@ -195,7 +212,7 @@ export default function PrivacyPage() {
         <li><strong>Stripe</strong>: payments and saved cards</li>
         <li><strong>Resend</strong>: sending email</li>
         <li><strong>Twilio</strong>: sending SMS</li>
-        <li><strong>Cloudinary</strong>: storing images, delivery photos, invoices and CVs</li>
+        <li><strong>Cloudinary</strong>: storing images, delivery photos, purchase receipts, invoices, CVs and (privately) partner ID documents</li>
         <li><strong>Neon</strong>: database hosting</li>
         <li><strong>Railway</strong>: hosting our servers</li>
         <li><strong>Vercel</strong>: hosting our website, and analytics if you accept them</li>
@@ -241,8 +258,13 @@ export default function PrivacyPage() {
           unless you ask us to delete them sooner
         </li>
         <li>
-          <strong>Vendor applications:</strong> for as long as you work with us, and up to 12
-          months after that if your application is not accepted
+          <strong>Vendor and partner applications:</strong> for as long as you work with us, and up
+          to 12 months after that if your application is not accepted
+        </li>
+        <li>
+          <strong>A partner&apos;s ID document:</strong> while you work with us, and deleted 24
+          months after your partnership ends (12 months after a rejected application). Payment
+          records for work you did are kept as tax records, like orders
         </li>
         <li>
           <strong>Server logs and error reports:</strong> up to 90 days

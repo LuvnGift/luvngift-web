@@ -89,20 +89,41 @@ export const planFormSchema = z.object({
 
 export type PlanFormValues = z.infer<typeof planFormSchema>;
 
-/**
- * Mirrors `planPricingSchema` in the API's subscriptions.validation.ts. Prices
- * are never entered: the API derives them from these at today's rate.
- */
-export const planPricingFormSchema = z.object({
-  /** Sourcing amount per delivery, in naira. */
-  sourcingMajor: nairaAmount('Sourcing amount'),
-  markupPercent: z
+/** A fee in naira that may be zero (a partner who charges nothing for that part). */
+const nairaFee = (label: string) =>
+  z
     .string()
     .trim()
-    .min(1, 'Markup is required')
-    .refine((v) => Number.isFinite(Number(v)), 'Markup must be a number')
-    .refine((v) => Number(v) >= 0 && Number(v) <= 1000, 'Markup must be between 0% and 1000%')
+    .min(1, `${label} is required (0 if none)`)
+    .refine((v) => Number.isFinite(Number(v)), `${label} must be a number`)
+    .refine((v) => Number(v) >= 0, `${label} cannot be negative`)
+    .refine((v) => Math.round(Number(v) * 100) <= 100_000_000_00, `${label} is implausibly large`);
+
+/**
+ * Mirrors `costStackSchema` in the API's partners/cost-stack.validation.ts:
+ * the partners' naira fees and the platform's share. The goods amount is
+ * named per caller (sourcing for a bundle, the box allowance for a plan).
+ */
+const costStackFields = {
+  /** What one delivery's goods cost to buy, in naira. */
+  sourcingMajor: nairaAmount('Goods cost'),
+  agentFeeMajor: nairaFee('Agent fee'),
+  deliveryFeeMajor: nairaFee('Delivery fee'),
+  platformPercent: z
+    .string()
+    .trim()
+    .min(1, 'Platform share is required')
+    .refine((v) => Number.isFinite(Number(v)), 'Platform share must be a number')
+    .refine((v) => Number(v) >= 0 && Number(v) <= 60, 'Platform share must be between 0% and 60%')
     .refine((v) => /^\d+(\.\d{1,2})?$/.test(v), 'At most two decimal places'),
+};
+
+/**
+ * Mirrors `planPricingSchema` in the API's subscriptions.validation.ts. Prices
+ * are never entered: the API derives them from the cost stack at today's rate.
+ */
+export const planPricingFormSchema = z.object({
+  ...costStackFields,
   intervals: z
     .array(z.enum([...OFFERED_INTERVALS, 'BIWEEKLY']))
     .min(1, 'Offer the plan at least one cadence')
@@ -112,24 +133,43 @@ export const planPricingFormSchema = z.object({
 
 export type PlanPricingFormValues = z.infer<typeof planPricingFormSchema>;
 
+const toKobo = (major: string) => Math.round(Number(major) * 100);
+
 /** Form values → the API's pricing input. */
 export const toPricingInput = (v: PlanPricingFormValues) => ({
-  boxAllowanceNgn: Math.round(Number(v.sourcingMajor) * 100),
-  markupPercent: Number(v.markupPercent),
+  boxAllowanceNgn: toKobo(v.sourcingMajor),
+  agentFeeNgn: toKobo(v.agentFeeMajor),
+  deliveryFeeNgn: toKobo(v.deliveryFeeMajor),
+  platformPercent: Number(v.platformPercent),
   intervals: v.intervals,
 });
 
 /**
  * Mirrors `bundlePricingSchema` in the API's bundle-pricing.validation: the
- * plan's sourcing + markup without cadences — a bundle is bought once.
+ * same cost stack without cadences — a bundle is bought once.
  */
-export const bundlePricingFormSchema = planPricingFormSchema.pick({ sourcingMajor: true, markupPercent: true });
+export const bundlePricingFormSchema = z.object(costStackFields);
 export type BundlePricingFormValues = z.infer<typeof bundlePricingFormSchema>;
 
 /** Form values → the API's bundle pricing input. */
 export const toBundlePricingInput = (v: BundlePricingFormValues) => ({
-  sourcingNgn: Math.round(Number(v.sourcingMajor) * 100),
-  markupPercent: Number(v.markupPercent),
+  sourcingNgn: toKobo(v.sourcingMajor),
+  agentFeeNgn: toKobo(v.agentFeeMajor),
+  deliveryFeeNgn: toKobo(v.deliveryFeeMajor),
+  platformPercent: Number(v.platformPercent),
+});
+
+/** A stored stack (kobo / basis points) → form values; blanks for a legacy item. */
+export const stackFormValues = (row: {
+  goodsNgn?: number | null;
+  agentFeeNgn?: number | null;
+  deliveryFeeNgn?: number | null;
+  platformBps?: number | null;
+}): BundlePricingFormValues => ({
+  sourcingMajor: row.goodsNgn ? String(row.goodsNgn / 100) : '',
+  agentFeeMajor: row.agentFeeNgn != null ? String(row.agentFeeNgn / 100) : '',
+  deliveryFeeMajor: row.deliveryFeeNgn != null ? String(row.deliveryFeeNgn / 100) : '',
+  platformPercent: row.platformBps != null ? String(row.platformBps / 100) : '',
 });
 
 /**

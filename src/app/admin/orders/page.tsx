@@ -29,6 +29,7 @@ import {
   type OrderListParams,
 } from '@/lib/admin-order-tabs';
 import { VendorLinkSection } from './vendor-link-section';
+import { PartnersSection } from './partners-section';
 import { RefundSection } from './refund-section';
 import { CustomOrderSection, customOrderStatusBlock, customOrderVendorBlock } from './custom-order-section';
 import { isVendorAssignable, vendorAssignmentBlock } from '@/lib/vendor-assignment';
@@ -425,6 +426,11 @@ function OrderDetailModal({ orderId, onClose }: { orderId: string; onClose: () =
 
             {/* Vendor status link — only renders once a vendor is assigned. */}
             <VendorLinkSection orderId={order.id} />
+
+            <Separator />
+
+            {/* Partner lines per role, payouts, receipts, recipient confirmation, ratings */}
+            <PartnersSection orderId={order.id} />
 
             {/* Personal message + admin notes */}
             {(order.personalMessage || order.adminNotes) && (

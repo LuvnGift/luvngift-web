@@ -3,38 +3,44 @@
 import { useEffect, useState } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   useBundlePricingPreview,
   usePublishBundlePricing,
   type BundlePricingPreview,
+  type PricedCurrency,
 } from '@/hooks/use-admin';
 import {
   bundlePricingFormSchema,
   toBundlePricingInput,
   fieldErrors,
+  stackFormValues,
   type BundlePricingFormValues,
 } from '@/lib/admin-schemas';
+import { CostStackInputs, SPLIT_HEADERS, SplitCells, StackSummary, money } from '@/components/admin/cost-stack';
 
-const SYMBOLS: Record<string, string> = { CAD: 'CA$', USD: 'US$', GBP: '£' };
-const money = (cents: number, currency: string) =>
-  `${cents < 0 ? '−' : ''}${SYMBOLS[currency] ?? currency}${(Math.abs(cents) / 100).toFixed(2)}`;
-const pct = (bps: number) => `${(bps / 100).toFixed(2).replace(/\.?0+$/, '')}%`;
+export const EMPTY_BUNDLE_PRICING: BundlePricingFormValues = {
+  sourcingMajor: '',
+  agentFeeMajor: '',
+  deliveryFeeMajor: '',
+  platformPercent: '',
+};
 
-export const EMPTY_BUNDLE_PRICING: BundlePricingFormValues = { sourcingMajor: '', markupPercent: '' };
+type PricedBundle = {
+  sourcingNgn?: number | null;
+  agentFeeNgn?: number | null;
+  deliveryFeeNgn?: number | null;
+  platformBps?: number | null;
+};
 
-/** A priced bundle's current inputs, or blank for a legacy (hand-priced) one. */
-export const pricingOf = (b: { sourcingNgn?: number | null; markupBps?: number | null }): BundlePricingFormValues => ({
-  sourcingMajor: b.sourcingNgn ? String(b.sourcingNgn / 100) : '',
-  markupPercent: b.markupBps != null ? String(b.markupBps / 100) : '',
-});
+/** A cost-stack bundle's current inputs; a legacy bundle keeps only its goods cost. */
+export const pricingOf = (b: PricedBundle): BundlePricingFormValues =>
+  stackFormValues({ goodsNgn: b.sourcingNgn, agentFeeNgn: b.agentFeeNgn, deliveryFeeNgn: b.deliveryFeeNgn, platformBps: b.platformBps });
 
 /**
- * Sourcing amount and markup, with the price they make at today's rate. The
- * preview re-runs as the admin types (debounced); nothing is saved here.
+ * The cost stack, with the price it makes at today's rate. The preview re-runs
+ * as the admin types (debounced); nothing is saved here.
  */
 export function BundlePricingFields({
   value,
@@ -49,8 +55,8 @@ export function BundlePricingFields({
 }) {
   const preview = useBundlePricingPreview();
   const parsed = bundlePricingFormSchema.safeParse(value);
-  const errors = parsed.success ? {} : fieldErrors(parsed.error);
-  const touched = value.sourcingMajor !== '' || value.markupPercent !== '';
+  const touched = Object.values(value).some((v) => v !== '');
+  const errors = parsed.success || !touched ? {} : fieldErrors(parsed.error);
 
   useEffect(() => {
     if (!parsed.success) {
@@ -65,35 +71,11 @@ export function BundlePricingFields({
     }, 400);
     return () => clearTimeout(timer);
     // Re-run only when the inputs change, not on every render of `preview`.
-  }, [value.sourcingMajor, value.markupPercent, bundleId]);
+  }, [value.sourcingMajor, value.agentFeeMajor, value.deliveryFeeMajor, value.platformPercent, bundleId]);
 
   return (
     <div className="space-y-3 rounded-md border p-3">
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div className="space-y-1.5">
-          <Label htmlFor="bundle-sourcing">Sourcing cost (₦)</Label>
-          <Input
-            id="bundle-sourcing"
-            inputMode="decimal"
-            value={value.sourcingMajor}
-            onChange={(e) => onChange({ ...value, sourcingMajor: e.target.value })}
-            placeholder="e.g. 85000"
-          />
-          <p className="text-xs text-muted-foreground">What one bundle&apos;s contents cost to buy in Nigeria.</p>
-          {touched && errors.sourcingMajor && <p className="text-xs text-destructive">{errors.sourcingMajor}</p>}
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="bundle-markup">Markup (%)</Label>
-          <Input
-            id="bundle-markup"
-            inputMode="decimal"
-            value={value.markupPercent}
-            onChange={(e) => onChange({ ...value, markupPercent: e.target.value })}
-            placeholder="e.g. 60"
-          />
-          {touched && errors.markupPercent && <p className="text-xs text-destructive">{errors.markupPercent}</p>}
-        </div>
-      </div>
+      <CostStackInputs value={value} onChange={onChange} errors={errors} goodsHint="What one bundle's contents cost to buy in Nigeria." idPrefix="bundle" />
       {preview.isPending && <Spinner size="sm" />}
       {preview.isError && (
         <p className="text-xs text-destructive">
@@ -106,44 +88,37 @@ export function BundlePricingFields({
 }
 
 function PreviewTable({ preview }: { preview: BundlePricingPreview }) {
+  const currencies = Object.keys(preview.amounts) as PricedCurrency[];
   return (
     <div className="space-y-2 text-sm">
       <p>
-        Costs <strong>{money(Math.round(preview.costUsdCents), 'USD')}</strong> at ₦
-        {preview.rates.NGN.toLocaleString('en-NG')}/US$ → price{' '}
-        <strong>{money(preview.usdCents, 'USD')}</strong>
+        Price <strong>{money(preview.usdCents, 'USD')}</strong>
         {preview.current !== null && preview.change !== 'SAME' && (
           <span className="text-muted-foreground"> (now {money(preview.current, 'USD')})</span>
         )}
         {preview.change === 'SAME' && <span className="text-muted-foreground"> (unchanged)</span>}
       </p>
+      <StackSummary quote={preview} />
       <div className="overflow-x-auto">
-        <table className="w-full text-xs min-w-[360px]">
+        <table className="w-full text-xs min-w-[520px]">
           <thead className="text-muted-foreground text-left">
             <tr>
-              <th className="py-1 font-medium">Buyer pays today</th>
-              <th className="py-1 font-medium">Vendor share</th>
-              <th className="py-1 font-medium">Vendor keeps after goods</th>
-              <th className="py-1 font-medium">Luvngift after card fees</th>
+              <th className="px-2 py-1 font-medium">Buyer pays today</th>
+              {SPLIT_HEADERS.map((h) => <th key={h} className="px-2 py-1 font-medium">{h}</th>)}
             </tr>
           </thead>
           <tbody>
-            {preview.lines.map((l) => (
-              <tr key={l.currency} className="border-t">
-                <td className="py-1">{money(l.amount, l.currency)}</td>
-                <td className="py-1">{money(l.split.vendor, l.currency)}</td>
-                <td className={`py-1 ${l.vendorMargin < 0 ? 'text-destructive font-semibold' : ''}`}>
-                  {money(l.vendorMargin, l.currency)}
-                </td>
-                <td className="py-1">{money(l.split.luvngift, l.currency)}</td>
+            {currencies.map((c) => (
+              <tr key={c} className="border-t">
+                <td className="px-2 py-1.5 font-medium">{money(preview.amounts[c], c)}</td>
+                <SplitCells split={preview.splits[c]} currency={c} />
               </tr>
             ))}
           </tbody>
         </table>
       </div>
       <p className="text-xs text-muted-foreground">
-        CA$ and £ are indicative: checkout converts the US$ price at the rate on the day. The vendor breaks
-        even above {pct(preview.breakEvenMarkupBps)} markup.
+        CA$ and £ are indicative: checkout converts the US$ price at the rate on the day.
       </p>
       {preview.problems.map((p) => (
         <p key={p} className="text-xs text-destructive flex gap-1.5">
@@ -159,13 +134,13 @@ export function BundlePricingDialog({
   bundle,
   onClose,
 }: {
-  bundle: { id: string; name: string; sourcingNgn?: number | null; markupBps?: number | null };
+  bundle: { id: string; name: string } & PricedBundle;
   onClose: () => void;
 }) {
   const [value, setValue] = useState(pricingOf(bundle));
   const [preview, setPreview] = useState<BundlePricingPreview | null>(null);
   const publish = usePublishBundlePricing();
-  const legacy = bundle.sourcingNgn == null;
+  const legacy = bundle.platformBps == null;
   const canPublish = !!preview && preview.problems.length === 0 && preview.change !== 'SAME' && !publish.isPending;
 
   const submit = async () => {
@@ -181,14 +156,14 @@ export function BundlePricingDialog({
 
   return (
     <Dialog open onOpenChange={(o) => { if (!o && !publish.isPending) onClose(); }}>
-      <DialogContent className="max-w-xl">
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>Price {bundle.name}</DialogTitle>
           <DialogDescription>
             {legacy
-              ? 'This bundle has a hand-typed price. Set its sourcing cost and markup to derive the price instead.'
+              ? 'This bundle is priced the old way (a markup). Set its goods cost, partner fees and platform share to derive the price from the cost stack.'
               : 'The US$ price is worked out at today’s rate and stays fixed until you publish again.'}{' '}
-            The new price applies from the next checkout; orders already placed keep theirs.
+            The new price applies from the next checkout; orders already placed keep theirs, and keep what their partners are owed.
           </DialogDescription>
         </DialogHeader>
         <BundlePricingFields value={value} onChange={setValue} bundleId={bundle.id} onPreview={setPreview} />
