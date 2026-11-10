@@ -45,11 +45,18 @@ type AdminBundle = Bundle & {
   faqs?: { question: string; answer: string }[] | null;
   /** Kobo. Null = a legacy bundle whose price was typed by hand. */
   sourcingNgn?: number | null;
+  /** Legacy markup pricing; null once priced on the cost stack. */
   markupBps?: number | null;
+  /** The cost stack (kobo / basis points); null on a legacy bundle. */
+  agentFeeNgn?: number | null;
+  deliveryFeeNgn?: number | null;
+  platformBps?: number | null;
   pricedNgnPerUsd?: number | null;
   pricedAt?: string | null;
-  /** What the US$ price earns at today's rate; null when legacy or no rate. */
+  /** Legacy: what the US$ price earns at today's rate as a markup. */
   liveMarkupBps?: number | null;
+  /** Cost stack: the platform share the price earns at today's rate. */
+  livePlatformBps?: number | null;
 };
 
 // Kept in sync with createBundleSchema in @luvngift/shared
@@ -389,7 +396,7 @@ export default function AdminBundlesPage() {
   const handleCreate = (values: BundleFormValues) => {
     const pricing = bundlePricingFormSchema.safeParse(newPricing);
     if (!pricing.success) {
-      toast.error('Set the sourcing cost and markup: the price is worked out from them.');
+      toast.error('Set the goods cost, partner fees and platform share: the price is worked out from them.');
       return;
     }
     createBundle.mutate(
@@ -474,9 +481,10 @@ export default function AdminBundlesPage() {
         <div>
           <h1 className="text-2xl font-bold">Bundles</h1>
           <p className="text-muted-foreground text-sm max-w-2xl">
-            Set what a bundle costs to source in naira and your markup. The US$ price is worked out at
-            today&apos;s rate when you publish and stays fixed until you publish again; buyers see it
-            converted to their currency at checkout.
+            Set what a bundle&apos;s goods cost in naira, what the agent and delivery partner are paid,
+            and the platform&apos;s share. The US$ price is worked out at today&apos;s rate when you
+            publish and stays fixed until you publish again; buyers see one all-in price, converted to
+            their currency at checkout.
           </p>
         </div>
         <Button onClick={() => setCreateOpen(true)}>
@@ -641,7 +649,7 @@ export default function AdminBundlesPage() {
             pricing={
               <p className="text-xs text-muted-foreground">
                 To change the price, use the calculator button in the list: it works the price out from
-                the sourcing cost and markup.
+                the cost stack.
               </p>
             }
           />
@@ -658,8 +666,9 @@ const pctLabel = (bps: number) => `${(bps / 100).toFixed(2).replace(/\.?0+$/, ''
 /** Gap below the target markup at which the list prompts a republish (the daily alert uses Settings). */
 const SLIPPED_BPS = 1000;
 
-/** How the price was made, and whether the naira has eroded its markup. */
+/** How the price was made, and whether the naira has eroded its margin. */
 function PricingNote({ bundle }: { bundle: AdminBundle }) {
+  if (bundle.sourcingNgn != null && bundle.platformBps != null) return <StackNote bundle={bundle} />;
   if (bundle.sourcingNgn == null || bundle.markupBps == null) {
     return <span className="block text-xs text-amber-700">Typed by hand: not derived yet</span>;
   }
@@ -669,6 +678,23 @@ function PricingNote({ bundle }: { bundle: AdminBundle }) {
       ₦{(bundle.sourcingNgn / 100).toLocaleString('en-NG')} + {pctLabel(bundle.markupBps)}
       {bundle.liveMarkupBps != null && (
         <> · earning {pctLabel(bundle.liveMarkupBps)} today{slipped ? ': republish' : ''}</>
+      )}
+    </span>
+  );
+}
+
+/**
+ * A cost-stack bundle: the partners' naira, the target platform share, and what
+ * it earns today. Red once the FX buffer is used up (the daily alert's rule).
+ */
+function StackNote({ bundle }: { bundle: AdminBundle }) {
+  const partners = (bundle.sourcingNgn ?? 0) + (bundle.agentFeeNgn ?? 0) + (bundle.deliveryFeeNgn ?? 0);
+  const slipped = bundle.livePlatformBps != null && bundle.livePlatformBps < bundle.platformBps!;
+  return (
+    <span className={`block text-xs ${slipped ? 'text-destructive font-semibold' : 'text-muted-foreground'}`}>
+      Partners ₦{(partners / 100).toLocaleString('en-NG')} · platform {pctLabel(bundle.platformBps!)}
+      {bundle.livePlatformBps != null && (
+        <> · keeping {pctLabel(bundle.livePlatformBps)} today{slipped ? ': republish' : ''}</>
       )}
     </span>
   );

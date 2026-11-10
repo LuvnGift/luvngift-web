@@ -15,6 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Spinner } from '@/components/ui/spinner';
+import { FulfilmentRulesCard } from './fulfilment-rules-card';
 
 export default function AdminSettingsPage() {
   const { data, isLoading } = useAdminExchangeRates();
@@ -171,6 +172,7 @@ export default function AdminSettingsPage() {
       </Card>
 
       <DeliveryWindowCard />
+      <FulfilmentRulesCard />
       <SubscriptionRulesCard />
     </div>
   );
@@ -223,8 +225,8 @@ function SubscriptionRulesCard() {
       <CardHeader>
         <CardTitle className="text-base">Subscription pricing</CardTitle>
         <p className="text-sm text-muted-foreground">
-          Each plan&apos;s price is its naira sourcing amount, converted to US$ and marked up. These
-          settings decide whether a markup pays the vendor, and when a price has drifted.
+          Card fees are used by every price. The vendor share and tolerance apply only to bundles and plans
+          still priced the old way (a markup) until they are republished on the cost stack.
         </p>
       </CardHeader>
       <CardContent className="space-y-5">
@@ -233,7 +235,7 @@ function SubscriptionRulesCard() {
         ) : (
           <>
             <div className="grid sm:grid-cols-3 gap-4">
-              {field('vendorSharePercent', 'Vendor share (%)', 'Of the value delivered (a cycle: price × box fill, before points). The vendor buys the goods from it; card fees and points come from our share. 50–90.')}
+              {field('vendorSharePercent', 'Legacy vendor share (%)', 'Only for vendors still on the revenue share (approved before fixed naira pay). Of the value delivered; card fees and points come from our share. 50–90.')}
               {field('marginTolerancePoints', 'Margin tolerance (points)', 'Flag a price whose live markup falls this far below its plan’s. 1–50.')}
               {field('minFillPercent', 'Minimum box fill (%)', 'How full a subscriber’s box must be. 50–100.')}
               {field('pointsPerCurrencyUnit', 'Points per US$1 / CA$1 / £1', 'How many points take 1 unit off a charge. 100 means 500 points = 5.00. 10–10,000.')}

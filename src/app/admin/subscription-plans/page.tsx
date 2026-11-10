@@ -28,8 +28,10 @@ import {
   planPricingFormSchema,
   toPricingInput,
   fieldErrors,
+  stackFormValues,
   type PlanPricingFormValues,
 } from '@/lib/admin-schemas';
+import { CostStackInputs, SPLIT_HEADERS, SplitCells, StackSummary } from '@/components/admin/cost-stack';
 import { PriceChangesSection } from './price-changes-section';
 import { OFFERED_INTERVALS, cycleWord, cadenceLabel } from '@/lib/cadence';
 
@@ -49,7 +51,12 @@ interface Plan {
   sortOrder: number;
   isActive: boolean;
   boxAllowanceNgn: number | null;
+  /** Legacy markup pricing; null once priced on the cost stack. */
   markupBps: number | null;
+  /** The cost stack (kobo / basis points); null on a legacy plan. */
+  agentFeeNgn?: number | null;
+  deliveryFeeNgn?: number | null;
+  platformBps?: number | null;
   intervals: PlanInterval[];
   pricedNgnPerUsd: number | null;
   pricedAt: string | null;
@@ -66,13 +73,20 @@ interface DetailsForm {
 }
 
 const EMPTY_DETAILS: DetailsForm = { name: '', description: '', slotCount: 5, sortOrder: 0, isActive: true };
-const EMPTY_PRICING: PlanPricingFormValues = { sourcingMajor: '', markupPercent: '', intervals: ['MONTHLY'] };
+const EMPTY_PRICING: PlanPricingFormValues = {
+  sourcingMajor: '',
+  agentFeeMajor: '',
+  deliveryFeeMajor: '',
+  platformPercent: '',
+  intervals: ['MONTHLY'],
+};
 
 const pricingOf = (plan: Plan): PlanPricingFormValues => ({
-  sourcingMajor: plan.boxAllowanceNgn ? String(plan.boxAllowanceNgn / 100) : '',
-  markupPercent: plan.markupBps !== null ? String(plan.markupBps / 100) : '',
+  ...stackFormValues({ goodsNgn: plan.boxAllowanceNgn, agentFeeNgn: plan.agentFeeNgn, deliveryFeeNgn: plan.deliveryFeeNgn, platformBps: plan.platformBps }),
   intervals: plan.intervals.length ? plan.intervals : ['MONTHLY'],
 });
+
+const isStack = (plan: Plan) => plan.boxAllowanceNgn !== null && plan.platformBps != null;
 
 export default function AdminSubscriptionPlansPage() {
   const { data, isLoading } = useAdminPlans();
@@ -109,9 +123,10 @@ export default function AdminSubscriptionPlansPage() {
         <div>
           <h1 className="text-2xl font-bold">Subscription plans</h1>
           <p className="text-muted-foreground text-sm max-w-2xl">
-            Set what one delivery costs to source in naira and your markup. The US$, CA$ and £
-            prices are worked out at today&apos;s exchange rate when you publish, and stay fixed
-            until you publish again.
+            Set what one delivery&apos;s goods cost in naira, what the agent and delivery partner are
+            paid, and the platform&apos;s share. The US$, CA$ and £ prices are worked out at
+            today&apos;s exchange rate when you publish, and stay fixed until you publish again.
+            Subscribers see one all-in price.
           </p>
         </div>
         <Button onClick={() => setCreating(true)}>
@@ -171,7 +186,7 @@ function PlanCard({
   onReinstate: () => void;
   onDelete: () => void;
 }) {
-  const priced = plan.boxAllowanceNgn !== null && plan.markupBps !== null;
+  const priced = plan.boxAllowanceNgn !== null && (plan.markupBps !== null || plan.platformBps != null);
   const live = liveCount(plan.subscriberCounts);
   return (
     <li className={`rounded-lg border p-4 ${plan.isActive ? '' : 'opacity-60'}`}>
@@ -186,8 +201,13 @@ function PlanCard({
           <p className="text-sm text-muted-foreground mt-1">{plan.description}</p>
           {priced && (
             <p className="text-xs text-muted-foreground mt-2">
-              Sourcing <strong className="text-foreground">{naira(plan.boxAllowanceNgn!)}</strong> per
-              delivery · markup <strong className="text-foreground">{pct(plan.markupBps!)}</strong>
+              Goods <strong className="text-foreground">{naira(plan.boxAllowanceNgn!)}</strong> per delivery
+              {isStack(plan) ? (
+                <> · agent {naira(plan.agentFeeNgn ?? 0)} · delivery {naira(plan.deliveryFeeNgn ?? 0)} · platform{' '}
+                  <strong className="text-foreground">{pct(plan.platformBps!)}</strong></>
+              ) : (
+                <> · markup <strong className="text-foreground">{pct(plan.markupBps!)}</strong> (legacy: republish to use the cost stack)</>
+              )}
               {plan.pricedNgnPerUsd && plan.pricedAt && (
                 <> · published at ₦{plan.pricedNgnPerUsd.toLocaleString('en-NG')}/US$ on{' '}
                   {new Date(plan.pricedAt).toLocaleDateString()}</>
@@ -233,11 +253,13 @@ function PlanCard({
 }
 
 /**
- * A live price and the markup it earns at today's rate. Red when the exchange
- * rate has moved it further below the plan's markup than the tolerance allows.
+ * A live price and what it earns at today's rate: the platform share for a
+ * cost-stack plan (red once the FX buffer is used up), the markup for a legacy
+ * one (red past the tolerance). The same rules as the daily alert.
  */
 function PriceChip({ price, plan, rules }: { price: PlanPrice; plan: Plan; rules?: SubscriptionRules }) {
   const onSale = plan.intervals.includes(price.interval);
+  if (isStack(plan)) return <StackPriceChip price={price} plan={plan} onSale={onSale} />;
   const slipped =
     price.liveMarkupBps !== null &&
     plan.markupBps !== null &&
@@ -251,6 +273,23 @@ function PriceChip({ price, plan, rules }: { price: PlanPrice; plan: Plan; rules
       {price.liveMarkupBps !== null && (
         <span className={`ml-1.5 font-normal ${slipped ? 'text-red-700 font-semibold' : 'text-muted-foreground'}`}>
           · earning {pct(price.liveMarkupBps)} today{slipped ? ': republish' : ''}
+        </span>
+      )}
+    </span>
+  );
+}
+
+function StackPriceChip({ price, plan, onSale }: { price: PlanPrice; plan: Plan; onSale: boolean }) {
+  const live = price.livePlatformBps ?? null;
+  const slipped = live !== null && live < plan.platformBps!;
+  return (
+    <span className={`rounded-md border px-2 py-1 text-xs font-medium ${slipped ? 'border-red-300 bg-red-50' : ''}`}>
+      {money(price.amount, price.currency)}{' '}
+      <span className="text-muted-foreground font-normal">/ {cadence(price.interval)}</span>
+      {!onSale && <span className="text-muted-foreground font-normal"> · existing subscribers only</span>}
+      {live !== null && (
+        <span className={`ml-1.5 font-normal ${slipped ? 'text-red-700 font-semibold' : 'text-muted-foreground'}`}>
+          · keeping {pct(live)} today{slipped ? ': republish' : ''}
         </span>
       )}
     </span>
@@ -493,20 +532,14 @@ function PricingFields({
   return (
     <div className="space-y-3 rounded-lg border p-3">
       <p className="text-sm font-medium">Pricing</p>
-      <div className="grid sm:grid-cols-2 gap-3">
-        <div className="space-y-1.5">
-          <Label htmlFor="sourcing">Sourcing amount (₦ per delivery)</Label>
-          <Input id="sourcing" type="number" min={0} step="1" placeholder="150000" aria-invalid={!!errors.sourcingMajor} value={value.sourcingMajor} onChange={(e) => onChange({ ...value, sourcingMajor: e.target.value })} />
-          <FieldError message={errors.sourcingMajor} />
-          <p className="text-xs text-muted-foreground">What the box&apos;s groceries cost to buy. Subscribers fill it from the catalogue.</p>
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="markup">Markup (%)</Label>
-          <Input id="markup" inputMode="decimal" placeholder="60" aria-invalid={!!errors.markupPercent} value={value.markupPercent} onChange={(e) => onChange({ ...value, markupPercent: e.target.value })} />
-          <FieldError message={errors.markupPercent} />
-          <p className="text-xs text-muted-foreground">Added to the US$ cost. It pays the vendor&apos;s share and ours.</p>
-        </div>
-      </div>
+      <CostStackInputs
+        value={value}
+        onChange={onChange}
+        errors={errors}
+        goodsLabel="Box allowance (₦ per delivery)"
+        goodsHint="What the box's groceries cost to buy. Subscribers fill it from the catalogue."
+        idPrefix="plan"
+      />
       <div className="flex gap-4 text-sm">
         {OFFERED_INTERVALS.map((i) => (
           <label key={i} className="flex items-center gap-2 cursor-pointer">
@@ -586,13 +619,10 @@ function PreviewTable({ preview }: { preview: PricingPreview }) {
   const { rates } = preview;
   return (
     <div className="space-y-2 text-sm">
-      <p className="text-muted-foreground">
-        Cost <strong className="text-foreground">{money(Math.round(preview.costUsdCents), 'USD')}</strong> at
-        ₦{rates.NGN.toLocaleString('en-NG')}/US$ + {pct(preview.markupBps)} markup ={' '}
-        <strong className="text-foreground">{money(preview.usdCents, 'USD')}</strong>. Local prices use
-        CA${rates.CAD} and £{rates.GBP} per US$. The vendor receives their share of the price and buys
-        the goods from it, so they break even at a {pct(preview.breakEvenMarkupBps)} markup. Card fees
-        come out of Luvngift&apos;s share.
+      <StackSummary quote={preview} />
+      <p className="text-xs text-muted-foreground">
+        Local prices use CA${rates.CAD} and £{rates.GBP} per US$. The goods line is the box allowance:
+        each cycle&apos;s partner line is what that box actually costs.
       </p>
       {preview.problems.map((p) => (
         <p key={p} className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-red-800">{p}</p>
@@ -601,7 +631,7 @@ function PreviewTable({ preview }: { preview: PricingPreview }) {
         <table className="w-full text-xs">
           <thead className="bg-muted/50 text-muted-foreground">
             <tr>
-              {['Price', 'Change', 'Card fees', 'Vendor gets', 'Vendor keeps after goods', 'Luvngift gets'].map((h) => (
+              {['Price', 'Change', ...SPLIT_HEADERS].map((h) => (
                 <th key={h} className="px-2 py-1.5 text-left font-medium">{h}</th>
               ))}
             </tr>
@@ -617,10 +647,7 @@ function PreviewTable({ preview }: { preview: PricingPreview }) {
                       ? 'No change'
                       : `${l.change === 'INCREASE' ? 'Up' : 'Down'} from ${money(l.current!, l.currency)}`}
                 </td>
-                <td className="px-2 py-1.5">{money(l.split.fees, l.currency)}</td>
-                <td className="px-2 py-1.5">{money(l.split.vendor, l.currency)}</td>
-                <td className={`px-2 py-1.5 ${l.vendorMargin < 0 ? 'text-red-700 font-semibold' : ''}`}>{money(l.vendorMargin, l.currency)}</td>
-                <td className="px-2 py-1.5">{money(l.split.luvngift, l.currency)}</td>
+                <SplitCells split={l.split} currency={l.currency} />
               </tr>
             ))}
           </tbody>

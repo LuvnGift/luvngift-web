@@ -24,6 +24,7 @@ const BUSINESS_TYPE_LABELS: Record<string, string> = {
   RETAIL: 'Retail',
   DELIVERY: 'Delivery',
   LOGISTICS: 'Logistics',
+  AGENT: 'Fulfilment agent',
 };
 
 export default function AdminVendorsPage() {

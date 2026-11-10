@@ -107,18 +107,32 @@ describe('planFormSchema', () => {
 });
 
 describe('planPricingFormSchema', () => {
-  const valid = { sourcingMajor: '150000', markupPercent: '62.5', intervals: ['MONTHLY' as const] };
+  const valid = {
+    sourcingMajor: '150000',
+    agentFeeMajor: '5000',
+    deliveryFeeMajor: '0',
+    platformPercent: '25.5',
+    intervals: ['MONTHLY' as const],
+  };
 
-  it('accepts a well-formed pricing input and converts it for the API', () => {
+  it('accepts a well-formed cost stack and converts it for the API', () => {
     const result = planPricingFormSchema.safeParse(valid);
     expect(result.success).toBe(true);
     if (result.success) {
       expect(toPricingInput(result.data)).toEqual({
         boxAllowanceNgn: 150_000_00,
-        markupPercent: 62.5,
+        agentFeeNgn: 5_000_00,
+        deliveryFeeNgn: 0,
+        platformPercent: 25.5,
         intervals: ['MONTHLY'],
       });
     }
+  });
+
+  it('allows a zero fee but not a negative or blank one', () => {
+    expect(planPricingFormSchema.safeParse({ ...valid, agentFeeMajor: '0' }).success).toBe(true);
+    expect(planPricingFormSchema.safeParse({ ...valid, agentFeeMajor: '-1' }).success).toBe(false);
+    expect(planPricingFormSchema.safeParse({ ...valid, deliveryFeeMajor: '' }).success).toBe(false);
   });
 
   it('requires a sourcing amount, up to the API limit', () => {
@@ -127,8 +141,9 @@ describe('planPricingFormSchema', () => {
     expect(planPricingFormSchema.safeParse({ ...valid, sourcingMajor: '100000000.01' }).success).toBe(false);
   });
 
-  it.each([[''], ['-1'], ['abc'], ['62.555'], ['1001']])('rejects markup %s', (markupPercent) => {
-    expect(planPricingFormSchema.safeParse({ ...valid, markupPercent }).success).toBe(false);
+  // Mirrors percentSchema(60) in the API's cost-stack.validation.
+  it.each([[''], ['-1'], ['abc'], ['25.555'], ['61']])('rejects platform share %s', (platformPercent) => {
+    expect(planPricingFormSchema.safeParse({ ...valid, platformPercent }).success).toBe(false);
   });
 
   it('requires at least one cadence', () => {
@@ -181,20 +196,32 @@ describe('quoteFormSchema', () => {
 
 // Mirrors bundlePricingSchema in luvngift-api bundle-pricing.validation.
 describe('bundlePricingFormSchema', () => {
-  it('converts naira to kobo and keeps the markup as a percent', () => {
-    const result = bundlePricingFormSchema.safeParse({ sourcingMajor: '85000.50', markupPercent: '62.5' });
+  const valid = { sourcingMajor: '85000.50', agentFeeMajor: '5000', deliveryFeeMajor: '4000', platformPercent: '25' };
+
+  it('converts naira to kobo and keeps the platform share as a percent', () => {
+    const result = bundlePricingFormSchema.safeParse(valid);
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(toBundlePricingInput(result.data)).toEqual({ sourcingNgn: 85_000_50, markupPercent: 62.5 });
+      expect(toBundlePricingInput(result.data)).toEqual({
+        sourcingNgn: 85_000_50,
+        agentFeeNgn: 5_000_00,
+        deliveryFeeNgn: 4_000_00,
+        platformPercent: 25,
+      });
     }
   });
 
   it('has no cadence: a bundle is bought once', () => {
-    expect(Object.keys(bundlePricingFormSchema.shape)).toEqual(['sourcingMajor', 'markupPercent']);
+    expect(Object.keys(bundlePricingFormSchema.shape)).toEqual([
+      'sourcingMajor',
+      'agentFeeMajor',
+      'deliveryFeeMajor',
+      'platformPercent',
+    ]);
   });
 
-  it('refuses a missing sourcing cost or a markup with three decimals', () => {
-    expect(bundlePricingFormSchema.safeParse({ sourcingMajor: '', markupPercent: '60' }).success).toBe(false);
-    expect(bundlePricingFormSchema.safeParse({ sourcingMajor: '1000', markupPercent: '60.125' }).success).toBe(false);
+  it('refuses a missing goods cost or a share with three decimals', () => {
+    expect(bundlePricingFormSchema.safeParse({ ...valid, sourcingMajor: '' }).success).toBe(false);
+    expect(bundlePricingFormSchema.safeParse({ ...valid, platformPercent: '25.125' }).success).toBe(false);
   });
 });

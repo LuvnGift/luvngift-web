@@ -409,9 +409,11 @@ export const useCreateBundle = () => {
       occasionId: string;
       name: string;
       description: string;
-      /** Sourcing cost in kobo; the price is derived from it and the markup. */
+      /** The cost stack, in kobo; the price is derived from it. */
       sourcingNgn: number;
-      markupPercent: number;
+      agentFeeNgn: number;
+      deliveryFeeNgn: number;
+      platformPercent: number;
       estimatedDeliveryDays: number;
       images: string[];
       items: { name: string; description?: string; quantity: number }[];
@@ -453,28 +455,44 @@ export const useUpdateBundle = () => {
   });
 };
 
-/** Mirrors BundlePricingPreview in the API's bundle-pricing.service. */
-export interface BundlePricingPreview {
+/** Who gets what from one charge. Mirrors StackSplit in the API's partners/cost-stack. */
+export interface StackSplit {
+  amount: number;
+  cardFees: number;
+  goods: number;
+  agent: number;
+  delivery: number;
+  platform: number;
+  platformBps: number;
+}
+
+/** A cost stack priced at today's rate. Mirrors StackQuote in the API's partners/stack-pricing. */
+export interface StackQuote {
   rates: { NGN: number; CAD: number; GBP: number; USD: 1 };
+  stack: { goodsNgn: number; agentFeeNgn: number; deliveryFeeNgn: number };
+  platformBps: number;
+  fxBufferPercent: number;
+  cardFeePercent: Record<PricedCurrency, number>;
+  deductionPercent: number;
   costUsdCents: number;
   usdCents: number;
-  current: number | null;
-  change: 'NEW' | 'INCREASE' | 'DECREASE' | 'SAME';
-  markupBps: number;
-  breakEvenMarkupBps: number;
-  lines: {
-    currency: PricedCurrency;
-    amount: number;
-    split: { fees: number; vendor: number; luvngift: number };
-    vendorMargin: number;
-  }[];
+  amounts: Record<PricedCurrency, number>;
+  splits: Record<PricedCurrency, StackSplit>;
   problems: string[];
 }
 
+/** Mirrors BundlePricingPreview in the API's bundle-pricing.service. */
+export interface BundlePricingPreview extends StackQuote {
+  current: number | null;
+  change: 'NEW' | 'INCREASE' | 'DECREASE' | 'SAME';
+}
+
 export interface BundlePricingInput {
-  /** Kobo. */
+  /** All kobo. */
   sourcingNgn: number;
-  markupPercent: number;
+  agentFeeNgn: number;
+  deliveryFeeNgn: number;
+  platformPercent: number;
 }
 
 /** A mutation rather than a query: it runs on demand as admin edits. */
@@ -657,7 +675,7 @@ export interface VendorInput {
   phone: string;
   address: string;
   state: string;
-  businessType: 'RETAIL' | 'DELIVERY' | 'LOGISTICS';
+  businessType: 'RETAIL' | 'DELIVERY' | 'LOGISTICS' | 'AGENT';
   notes?: string;
 }
 
@@ -812,10 +830,12 @@ export type PricedCurrency = 'USD' | 'CAD' | 'GBP';
 
 /** How a plan is priced. Prices are derived from these, never entered. */
 export interface PlanPricingInput {
-  /** Sourcing amount per delivery, in kobo. */
+  /** Goods amount per delivery (the box allowance), in kobo. */
   boxAllowanceNgn: number;
-  /** e.g. 62.5 = 62.5%. */
-  markupPercent: number;
+  agentFeeNgn: number;
+  deliveryFeeNgn: number;
+  /** e.g. 25.5 = 25.5%. */
+  platformPercent: number;
   intervals: PlanInterval[];
 }
 
@@ -836,26 +856,21 @@ export interface PlanPrice {
   currency: PricedCurrency;
   amount: number;
   usdRate: number | null;
-  /** Markup this price earns at today's rates; null when no rate is available. */
+  /** Legacy (markup-priced) plans: the markup it earns at today's rates. */
   liveMarkupBps: number | null;
+  /** Cost-stack plans: the platform share it earns at today's rates. */
+  livePlatformBps?: number | null;
 }
 
 /** Mirrors PricingPreview in the API's plan-pricing.service. */
-export interface PricingPreview {
-  rates: { NGN: number; CAD: number; GBP: number; USD: 1 };
-  costUsdCents: number;
-  usdCents: number;
-  markupBps: number;
-  breakEvenMarkupBps: number;
-  problems: string[];
+export interface PricingPreview extends StackQuote {
   lines: {
     interval: PlanInterval;
     currency: PricedCurrency;
     amount: number;
     current: number | null;
     change: 'NEW' | 'INCREASE' | 'DECREASE' | 'SAME';
-    split: { fees: number; vendor: number; luvngift: number };
-    vendorMargin: number;
+    split: StackSplit;
   }[];
 }
 

@@ -12,6 +12,7 @@ import { ChevronLeft, ChevronRight, ArrowLeft, Mail, Phone, MapPin, FileText, Pe
 import VendorFormModal from '../vendor-form-modal';
 import VendorActiveModal from '../vendor-active-modal';
 import type { Vendor } from '@luvngift/shared';
+import { PartnerProfilePanel } from './partner-profile';
 
 type AdminVendor = Vendor & {
   contactName?: string | null;
@@ -23,6 +24,7 @@ const BUSINESS_TYPE_LABELS: Record<string, string> = {
   RETAIL: 'Retail',
   DELIVERY: 'Delivery',
   LOGISTICS: 'Logistics',
+  AGENT: 'Fulfilment agent',
 };
 
 const STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'outline' | 'destructive'> = {
@@ -164,6 +166,9 @@ export default function VendorDetailPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Vetting, coverage, pay terms, score */}
+      <PartnerProfilePanel vendorId={vendor.id} />
 
       {/* Assigned orders */}
       <Card>

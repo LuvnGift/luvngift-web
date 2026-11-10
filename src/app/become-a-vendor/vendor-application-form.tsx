@@ -14,6 +14,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
+import { AgentFields, EMPTY_AGENT, agentErrors, agentPayload, type AgentDetails } from './agent-fields';
 
 const NIGERIAN_STATES = [
   'Abia', 'Adamawa', 'Akwa Ibom', 'Anambra', 'Bauchi', 'Bayelsa', 'Benue', 'Borno',
@@ -27,6 +28,7 @@ const BUSINESS_TYPES = [
   { value: 'RETAIL', label: 'Retail — I supply goods / products' },
   { value: 'DELIVERY', label: 'Delivery — I deliver to recipients' },
   { value: 'LOGISTICS', label: 'Logistics — I handle sourcing & fulfilment' },
+  { value: 'AGENT', label: 'Fulfilment agent — I source, deliver and look after gifts in my state' },
 ] as const;
 
 const NAME_RE = /^[a-zA-ZÀ-ÖØ-öø-ÿ'\-\s]+$/;
@@ -39,7 +41,7 @@ const schema = z.object({
   phone: z.string().regex(/^\d{11}$/, 'Enter a valid 11-digit phone number'),
   address: z.string().trim().min(5, 'Business address is required').max(200),
   state: z.string().min(2, 'Please select a state'),
-  businessType: z.enum(['RETAIL', 'DELIVERY', 'LOGISTICS'], {
+  businessType: z.enum(['RETAIL', 'DELIVERY', 'LOGISTICS', 'AGENT'], {
     errorMap: () => ({ message: 'Please select a business type' }),
   }),
   notes: z.string().trim().max(1000).optional(),
@@ -72,21 +74,29 @@ function SectionHeading({ icon: Icon, children }: { icon: typeof User; children:
 
 export function VendorApplicationForm() {
   const [submitted, setSubmitted] = useState(false);
+  const [agent, setAgent] = useState<AgentDetails>(EMPTY_AGENT);
+  const [agentErrs, setAgentErrs] = useState<Record<string, string>>({});
   const { mutateAsync, isPending } = useApplyVendor();
 
   const {
     register,
     handleSubmit,
     control,
+    watch,
     formState: { errors },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: { companyWebsite: '' },
   });
 
+  const isAgent = watch('businessType') === 'AGENT';
+
   const onSubmit = async (values: FormValues) => {
+    const errs = isAgent ? agentErrors(agent) : {};
+    setAgentErrs(errs);
+    if (Object.keys(errs).length) return;
     try {
-      await mutateAsync({
+      await mutateAsync({ idDocument: isAgent ? agent.idDocument : null, data: {
         name: values.name,
         contactName: `${values.firstName.trim()} ${values.lastName.trim()}`,
         email: values.email,
@@ -95,8 +105,9 @@ export function VendorApplicationForm() {
         state: values.state,
         businessType: values.businessType,
         notes: values.notes,
+        ...(isAgent ? agentPayload(agent) : {}),
         agreedToTerms: true,
-      });
+      } });
       setSubmitted(true);
     } catch {
       // error toast handled in the hook
@@ -241,6 +252,8 @@ export function VendorApplicationForm() {
             </div>
           </div>
 
+          {isAgent && <AgentFields value={agent} onChange={setAgent} errors={agentErrs} />}
+
           {/* Honeypot — visually hidden, not announced to screen readers. */}
           <div aria-hidden="true" className="hidden">
             <label htmlFor="companyWebsite">Company website</label>
@@ -259,7 +272,7 @@ export function VendorApplicationForm() {
                 <Link href="/vendor-agreement" target="_blank" className="font-medium text-foreground underline underline-offset-2">
                   Vendor Agreement
                 </Link>
-                , including the revenue share and payout terms.
+                , including how partners are paid.
               </span>
             </label>
             {errors.agreedToTerms && <p className="text-destructive text-xs">{errors.agreedToTerms.message}</p>}
