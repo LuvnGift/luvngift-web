@@ -10,7 +10,7 @@ const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.luvngift.com';
 export const metadata: Metadata = {
   title: 'Become a Vendor — Sell with Luvngift',
   description:
-    'Sell with Luvngift and fulfil curated gift orders for the Nigerian diaspora. Apply to become a vendor — retail, delivery, or logistics. Earn a fixed share of every order you fulfil, paid every two weeks.',
+    'Sell with Luvngift and fulfil curated gift orders for the Nigerian diaspora. Apply to become a partner — a fulfilment agent, a shop, or a delivery or logistics company. Every order states, in naira, what you are paid for your part.',
   alternates: { canonical: `${BASE_URL}/become-a-vendor` },
   openGraph: {
     title: 'Become a Luvngift Vendor',
@@ -23,14 +23,14 @@ export const metadata: Metadata = {
 
 const BENEFITS = [
   { icon: TrendingUp, title: 'A steady stream of orders', desc: 'We bring the customers — diaspora buyers ordering gifts for delivery across Nigeria.' },
-  { icon: Wallet, title: 'A fixed share of every order', desc: 'You earn a set share of the value of the goods you deliver, confirmed in writing when you are approved. Card fees and customer reward points come out of our share, not yours.' },
-  { icon: CalendarClock, title: 'Paid every two weeks', desc: 'Reliable payouts on a fortnightly schedule for completed, delivered orders.' },
+  { icon: Wallet, title: 'Clear naira pay on every order', desc: 'Each order states what you are paid, in naira, for the part you handle: buying the goods, managing the order or delivering it. It does not move with exchange rates, and card fees and customer reward points come out of our share, not yours.' },
+  { icon: CalendarClock, title: 'Paid on a schedule that suits the work', desc: 'Goods money in advance, or reimbursed on your receipts, or part up front and the rest on delivery: agreed when you are approved and shown on every order.' },
   { icon: ShieldCheck, title: 'No upfront cost', desc: 'It is free to apply and join. You focus on fulfilment; we handle pricing and the customer experience.' },
 ];
 
 const STEPS = [
   { icon: Store, title: 'Apply', desc: 'Tell us about your business and what you can fulfil across Nigeria.' },
-  { icon: BadgeCheck, title: 'Get approved', desc: 'We review your application and send your onboarding pack.' },
+  { icon: BadgeCheck, title: 'Get vetted and approved', desc: 'We check who you are (agents: ID, a guarantor and two references), interview you and send your onboarding pack.' },
   { icon: PackageCheck, title: 'Receive orders', desc: 'We assign orders to you with full delivery details by email and SMS.' },
   { icon: Truck, title: 'Fulfil & earn', desc: 'Deliver the gift, keep us updated, and get paid on our payout schedule.' },
 ];
@@ -57,8 +57,8 @@ export default function BecomeAVendorPage() {
               and earn on every order you complete.
             </p>
             <div className="mt-8 flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm font-medium">
-              <span className="flex items-center gap-1.5"><Wallet className="h-4 w-4 text-primary" /> A fixed share of every order</span>
-              <span className="flex items-center gap-1.5"><CalendarClock className="h-4 w-4 text-primary" /> Paid every two weeks</span>
+              <span className="flex items-center gap-1.5"><Wallet className="h-4 w-4 text-primary" /> Clear naira pay on every order</span>
+              <span className="flex items-center gap-1.5"><CalendarClock className="h-4 w-4 text-primary" /> Advance or reimbursement</span>
               <span className="flex items-center gap-1.5"><ShieldCheck className="h-4 w-4 text-primary" /> Free to join</span>
             </div>
           </div>
@@ -121,8 +121,8 @@ export default function BecomeAVendorPage() {
                 </p>
                 <ul className="space-y-3">
                   {[
-                    'A fixed share of the value of every order you fulfil',
-                    'Reliable payouts every two weeks',
+                    'A stated naira amount for your part of every order',
+                    'Paid in advance, on receipts, or part up front',
                     'Order details delivered to you by email and SMS',
                     'Free to apply — no upfront cost',
                   ].map((point) => (

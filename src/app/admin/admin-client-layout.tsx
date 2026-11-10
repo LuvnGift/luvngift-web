@@ -24,6 +24,7 @@ import {
   Wrench,
   CalendarClock,
   ClipboardList,
+  Banknote,
 } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -40,7 +41,8 @@ const NAV_ITEMS = [
   { href: '/admin/fulfilment', label: 'Fulfilment', icon: ClipboardList },
   { href: '/admin/subscription-plans', label: 'Plans', icon: Repeat },
   { href: '/admin/catalogue', label: 'Catalogue', icon: ShoppingBasket },
-  { href: '/admin/vendors', label: 'Vendors', icon: Store },
+  { href: '/admin/vendors', label: 'Partners', icon: Store },
+  { href: '/admin/payouts', label: 'Payouts', icon: Banknote },
   { href: '/admin/users', label: 'Users', icon: Users },
   { href: '/admin/chat', label: 'Support Chat', icon: MessageSquare },
   { href: '/admin/reviews', label: 'Reviews', icon: Star },
