@@ -30,6 +30,7 @@ interface Price {
   interval: Interval;
   currency: string;
   amount: number;
+  billing?: 'PER_DELIVERY' | 'ANNUAL';
 }
 
 interface Plan {
@@ -40,6 +41,11 @@ interface Plan {
   slotCount: number;
   image: string | null;
   prices: Price[];
+  /** CURATED: a set box. ALLOWANCE: the subscriber fills it. */
+  kind?: 'ALLOWANCE' | 'CURATED' | 'BASKET';
+  /** What paying for the year saves; null when the plan is not sold by the year. */
+  annualDiscountPercent?: number | null;
+  contents?: { quantity: number; customItem: { id: string; name: string } }[];
 }
 
 /** Throws on an outage instead of returning [] — see fetchList. */
@@ -53,8 +59,8 @@ function fetchPlans(): Promise<Plan[]> {
 const HOW_IT_WORKS = [
   {
     icon: Check,
-    title: 'Pick a plan and build the box',
-    body: 'Each plan is a box of a set size. You fill it from our catalogue with what your family actually uses, and change it whenever you like.',
+    title: 'Pick a box',
+    body: 'Take a box we put together from our catalogue of groceries sourced in Nigeria, or fill a basket yourself. Either way you see exactly what is in it, and the price, before you subscribe.',
   },
   {
     icon: Repeat,
@@ -69,7 +75,7 @@ const HOW_IT_WORKS = [
   {
     icon: PauseCircle,
     title: 'Change it whenever',
-    body: 'Skip a cycle, swap items, pause, or cancel from your account. No phone calls, no notice periods.',
+    body: 'Skip a cycle, pause, or cancel from your account. No phone calls, no notice periods.',
   },
 ];
 
@@ -122,16 +128,49 @@ export default async function SubscriptionsPage() {
 
                     {/* Client-side: the buyer's currency is unknown at prerender. */}
                     <div className="mt-4">
-                      <PlanPrice prices={plan.prices} />
+                      {plan.kind === 'BASKET' ? (
+                        <p className="text-sm font-medium">
+                          Priced by what you pick
+                          {plan.annualDiscountPercent ? (
+                            <span className="block text-xs font-medium text-green-700 mt-0.5">
+                              Pay for the year and save {plan.annualDiscountPercent}%
+                            </span>
+                          ) : null}
+                        </p>
+                      ) : (
+                        <PlanPrice prices={plan.prices} annualDiscountPercent={plan.annualDiscountPercent} />
+                      )}
                     </div>
 
-                    <p className="mt-4 text-sm flex items-start gap-2">
-                      <Check className="h-4 w-4 text-green-600 mt-0.5 shrink-0" />
-                      <span>
-                        Fill it with up to <strong>{plan.slotCount}</strong> different item
-                        {plan.slotCount === 1 ? '' : 's'} from our catalogue
-                      </span>
-                    </p>
+                    {plan.kind === 'BASKET' ? (
+                      <p className="mt-4 text-sm flex items-start gap-2">
+                        <Check className="h-4 w-4 text-green-600 mt-0.5 shrink-0" />
+                        <span>
+                          Fill a basket from our catalogue with what they need, up to a set size.
+                          You see the price as you go, and it stays fixed until you change the basket.
+                        </span>
+                      </p>
+                    ) : plan.kind === 'CURATED' ? (
+                      <ul className="mt-4 space-y-1.5 text-sm">
+                        {(plan.contents ?? []).map((c) => (
+                          <li key={c.customItem.id} className="flex items-start gap-2">
+                            <Check className="h-4 w-4 text-green-600 mt-0.5 shrink-0" />
+                            <span>
+                              {c.customItem.name}
+                              {c.quantity > 1 && <span className="text-muted-foreground"> × {c.quantity}</span>}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="mt-4 text-sm flex items-start gap-2">
+                        <Check className="h-4 w-4 text-green-600 mt-0.5 shrink-0" />
+                        <span>
+                          Fill it with up to <strong>{plan.slotCount}</strong> different item
+                          {plan.slotCount === 1 ? '' : 's'} from our catalogue
+                        </span>
+                      </p>
+                    )}
 
                     <Button asChild className="mt-6 w-full">
                       <Link href={`/subscriptions/new?plan=${plan.slug}`}>Get started</Link>

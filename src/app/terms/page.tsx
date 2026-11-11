@@ -83,7 +83,9 @@ export default function TermsPage() {
         </li>
         <li>
           Delivery within Nigeria is included in the price. There are no separate delivery or
-          service fees.
+          service fees. The one fee we may charge is an administration fee if you cancel a
+          subscription paid for the year part-way through, taken from your refund as our{' '}
+          <Link href="/refund-policy">Refund Policy</Link> (section 6) explains.
         </li>
         <li>
           We do not add sales tax. What you buy is delivered to your recipient in Nigeria, so
@@ -157,6 +159,19 @@ export default function TermsPage() {
           </ul>
         </li>
         <li>
+          <strong>Paying for the year:</strong> on curated and basket plans you can pay for a year
+          of deliveries at once, at the annual discount shown before you subscribe. How often
+          deliveries come stays as you chose. The year renews, and is charged again, at the end of
+          it unless you cancel. A plan paid for the year cannot be paused; skipping a delivery moves
+          it one cycle later, and the year still brings the same number of deliveries. Cancelling
+          part-way ends the plan straight away and refunds the deliveries not yet made, less an
+          administration fee and the discount on the deliveries already made, as set out in our{' '}
+          <Link href="/refund-policy">Refund Policy</Link> (section 6). A price change reaches a
+          plan paid for the year at its next renewal, with the notice below. A basket paid for the
+          year can be changed during it for one costing no more than the basket last agreed; a new
+          price for it applies from the renewal.
+        </li>
+        <li>
           <strong>Failed payments:</strong> if a charge fails, we will tell you and retry it for up
           to about two weeks. Deliveries may continue during that time. If payment cannot be
           collected, we may cancel the subscription.
@@ -166,13 +181,23 @@ export default function TermsPage() {
           applies to your subscription. You can cancel before then if you do not want to continue.
         </li>
         <li>
-          <strong>What is in the box:</strong> you choose the items. Each item shows how much of
-          your box it fills, and a box must be filled to at least the minimum shown and no more than
-          your plan covers. You can change it at any time; a change applies from the next delivery.
+          <strong>What is in the box:</strong> most plans are curated: we choose the items, and the
+          plan page lists them before you subscribe. If we change what a curated box holds, we email
+          you what changed and why, and the change applies from your next delivery. A change to the
+          box does not change your price; if your price changes, the notice below applies. On a
+          basket plan you fill a basket from our catalogue, up to the most one delivery can hold,
+          and pay one all-in price for what is in it, shown before you subscribe. That price is
+          fixed: it changes only when you change your basket, which you confirm at the new price
+          and which applies from your next delivery, or when what is in it costs us more or less to
+          buy and deliver, in which case the notice below applies. On a plan
+          where you choose the items yourself, each item shows how much of your box it fills, and a
+          box must be filled to at least the minimum shown and no more than your plan covers. You
+          can change it at any time; a change applies from the next delivery.
         </li>
         <li>
-          <strong>Points:</strong> when a delivery&apos;s box is not filled to the top, you earn
-          points as a thank-you: 10 points for every full 5% of the box left unfilled. They are a
+          <strong>Points:</strong> on a plan where you choose the items, when a delivery&apos;s box
+          is not filled to the top, you earn points as a thank-you: 10 points for every full 5% of
+          the box left unfilled. A curated box always arrives complete and a basket is priced on what is in it, so neither earns any. They are a
           reward, not a refund: they are not worth what was left unfilled, and they have no cash
           value. You can use them, at least 500 at a time, off a bundle at checkout or off your next
           subscription charge; what a point is worth is shown on your subscriptions page.

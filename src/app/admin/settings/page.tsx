@@ -194,6 +194,8 @@ function SubscriptionRulesCard() {
       marginTolerancePoints: String(data.marginTolerancePoints),
       minFillPercent: String(data.minFillPercent),
       pointsPerCurrencyUnit: String(data.pointsPerCurrencyUnit),
+      annualDiscountPercent: String(data.annualDiscountPercent ?? 10),
+      annualCancellationFeePercent: String(data.annualCancellationFeePercent ?? 10),
       USD: String(data.cardFeePercent.USD),
       CAD: String(data.cardFeePercent.CAD),
       GBP: String(data.cardFeePercent.GBP),
@@ -210,6 +212,8 @@ function SubscriptionRulesCard() {
     Number.isInteger(n('minFillPercent')) &&
     within('pointsPerCurrencyUnit', 10, 10_000) &&
     Number.isInteger(n('pointsPerCurrencyUnit')) &&
+    within('annualDiscountPercent', 0, 30) &&
+    within('annualCancellationFeePercent', 0, 25) &&
     ['USD', 'CAD', 'GBP'].every((c) => within(c, 0, 20));
 
   const field = (key: string, label: string, hint: string) => (
@@ -241,6 +245,18 @@ function SubscriptionRulesCard() {
               {field('pointsPerCurrencyUnit', 'Points per US$1 / CA$1 / £1', 'How many points take 1 unit off a charge. 100 means 500 points = 5.00. 10–10,000.')}
             </div>
             <div>
+              <p className="text-sm font-medium mb-2">Paying for the year</p>
+              <div className="grid sm:grid-cols-2 gap-4">
+                {field('annualDiscountPercent', 'Annual discount (%)', 'Off a year of deliveries paid at once, on curated and basket plans. Comes out of the platform share. Applies to prices published after a change. 0–30.')}
+                {field('annualCancellationFeePercent', 'Cancellation admin fee (%)', 'Taken from the refund when a paid year is cancelled part-way, on the undelivered value. 0–25.')}
+              </div>
+              <p className="text-xs text-amber-800 mt-2">
+                The Refund Policy (section 6) states a 10% fee and the Terms state the discount is shown before
+                subscribing. Change the policy wording with the fee. The fee awaits the accountant&apos;s and a
+                lawyer&apos;s view: set it to 0 to stop charging it at once.
+              </p>
+            </div>
+            <div>
               <p className="text-sm font-medium mb-2">Estimated card fees (%)</p>
               <div className="grid grid-cols-3 gap-4">
                 {field('CAD', 'CAD charges', 'Canadian cards.')}
@@ -265,6 +281,8 @@ function SubscriptionRulesCard() {
                   marginTolerancePoints: n('marginTolerancePoints'),
                   minFillPercent: n('minFillPercent'),
                   pointsPerCurrencyUnit: n('pointsPerCurrencyUnit'),
+                  annualDiscountPercent: n('annualDiscountPercent'),
+                  annualCancellationFeePercent: n('annualCancellationFeePercent'),
                   cardFeePercent: { USD: n('USD'), CAD: n('CAD'), GBP: n('GBP') },
                 })
               }

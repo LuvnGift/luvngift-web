@@ -829,9 +829,24 @@ export type PlanInterval = Interval;
 export type PricedCurrency = 'USD' | 'CAD' | 'GBP';
 
 /** How a plan is priced. Prices are derived from these, never entered. */
+/** One line of a curated box: a catalogue item and how many. */
+export interface PlanContentLine {
+  customItemId: string;
+  quantity: number;
+}
+
+export type PlanKind = 'ALLOWANCE' | 'CURATED' | 'BASKET';
+
 export interface PlanPricingInput {
-  /** Goods amount per delivery (the box allowance), in kobo. */
-  boxAllowanceNgn: number;
+  /** Goods amount per delivery (the box allowance), in kobo. Allowance plans only. */
+  boxAllowanceNgn?: number;
+  /**
+   * A curated plan not yet created: priced from these items. A saved curated
+   * plan is always priced from its stored contents, so this is ignored there.
+   */
+  contents?: PlanContentLine[];
+  /** A plan not yet created: its kind decides whether annual prices are previewed. */
+  kind?: PlanKind;
   agentFeeNgn: number;
   deliveryFeeNgn: number;
   /** e.g. 25.5 = 25.5%. */
@@ -842,13 +857,14 @@ export interface PlanPricingInput {
 export interface PlanDetailsInput {
   name: string;
   description: string;
-  slotCount: number;
+  /** Allowance plans only: a curated plan has one slot per item. */
+  slotCount?: number;
   image?: string;
   sortOrder?: number;
   isActive?: boolean;
 }
 
-export type PlanInput = PlanDetailsInput & PlanPricingInput;
+export type PlanInput = PlanDetailsInput & PlanPricingInput & { kind?: PlanKind };
 
 export interface PlanPrice {
   id: string;
@@ -860,6 +876,9 @@ export interface PlanPrice {
   liveMarkupBps: number | null;
   /** Cost-stack plans: the platform share it earns at today's rates. */
   livePlatformBps?: number | null;
+  /** ANNUAL: `amount` is a year of deliveries at this cadence. */
+  billing?: 'PER_DELIVERY' | 'ANNUAL';
+  discountBps?: number | null;
 }
 
 /** Mirrors PricingPreview in the API's plan-pricing.service. */
@@ -870,9 +889,76 @@ export interface PricingPreview extends StackQuote {
     amount: number;
     current: number | null;
     change: 'NEW' | 'INCREASE' | 'DECREASE' | 'SAME';
+    /** ANNUAL lines are a year of deliveries; their split is per delivery. */
+    billing?: 'PER_DELIVERY' | 'ANNUAL';
     split: StackSplit;
   }[];
+  /** The goods line the prices were built on, in kobo (a curated box: its catalogue cost). */
+  goodsNgn: number;
 }
+
+/** What POST /admin/subscription-plans/:id/basket-reprice reports. */
+export interface BasketRepriceReport {
+  dryRun: boolean;
+  checked: number;
+  unchanged: number;
+  alreadyScheduled: number;
+  /** Baskets holding an item that can no longer be costed. */
+  needsAttention: string[];
+  changes: { subscriptionId: string; currency: string; oldAmount: number; newAmount: number; effectiveAt: string }[];
+}
+
+/**
+ * Reprices every basket on a plan at today's catalogue cost and rate. Run with
+ * `dryRun` first to show what would change; the real run schedules each change
+ * (an increase after the notice period) and emails each subscriber.
+ */
+export const useRepriceBaskets = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ planId, dryRun }: { planId: string; dryRun: boolean }) =>
+      api
+        .post(`/api/v1/admin/subscription-plans/${planId}/basket-reprice`, { dryRun })
+        .then((r) => r.data.data as BasketRepriceReport),
+    onSuccess: (report) => {
+      if (report.dryRun) return;
+      qc.invalidateQueries({ queryKey: ['admin', 'subscription-plans'] });
+      toast.success(`${report.changes.length} basket price change${report.changes.length === 1 ? '' : 's'} scheduled; each subscriber emailed.`);
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.error?.message ?? 'Could not reprice baskets'),
+  });
+};
+
+/** What PUT /admin/subscription-plans/:id/contents reports back. */
+export interface PlanContentsResult {
+  contentsCostNgn: number;
+  publishedGoodsNgn: number | null;
+  needsRepublish: boolean;
+  applied: number;
+  overridden: string[];
+  undeliverableStates: string[];
+}
+
+/**
+ * Changes what a curated plan delivers. Every live subscriber's box changes
+ * with it and each is emailed the reason; the price does not change.
+ */
+export const useSetPlanContents = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ planId, ...body }: { planId: string; contents: PlanContentLine[]; reason: string }) =>
+      api
+        .put(`/api/v1/admin/subscription-plans/${planId}/contents`, body)
+        .then((r) => r.data.data as PlanContentsResult),
+    onSuccess: ({ applied }) => {
+      qc.invalidateQueries({ queryKey: ['admin', 'subscription-plans'] });
+      qc.invalidateQueries({ queryKey: ['subscriptions', 'plans'] });
+      toast.success(`Box updated for ${applied} subscriber${applied === 1 ? '' : 's'}; each has been emailed.`);
+    },
+    onError: (err: any) =>
+      toast.error(err?.response?.data?.error?.message ?? 'Could not change the box'),
+  });
+};
 
 export const useAdminPlans = (page = 1, limit = 50) =>
   useQuery({
@@ -1045,6 +1131,28 @@ export interface AdminSubscriptionDetail extends Omit<AdminSubscriptionRow, 'use
     boxWarning: string | null;
     standingVendorAssignable: boolean;
   };
+  /** Per delivery, or paid a year at a time. */
+  billing?: 'PER_DELIVERY' | 'ANNUAL';
+  /** ANNUAL: the paid years, newest first. */
+  terms?: {
+    id: string;
+    deliveries: number;
+    deliveriesMade: number;
+    nextDueAt: string | null;
+    startedAt: string;
+    amountPaid: number;
+    cancelledAt: string | null;
+    refundAmount: number | null;
+  }[];
+  /** ANNUAL: what cancelling now would refund; null once the year is fully delivered. */
+  annualCancelQuote?: {
+    feePercent: number;
+    undelivered: number;
+    undeliveredValue: number;
+    fee: number;
+    clawback: number;
+    refund: number;
+  } | null;
 }
 
 export type AdminSubscriptionAction = 'SKIP' | 'UNSKIP' | 'PAUSE' | 'RESUME' | 'CANCEL' | 'UNCANCEL';
@@ -1161,6 +1269,10 @@ export interface AdminSubscriptionBox {
     id: string;
     status: string;
     planName: string;
+    /** CURATED: an edit gives this subscriber a box of their own. */
+    planKind?: 'ALLOWANCE' | 'CURATED' | 'BASKET';
+    /** Set once a curated subscriber has their own box; plan changes no longer reach it. */
+    boxOverriddenAt?: string | null;
     slotCount: number;
     recipientState: string;
     dietaryFlags: string[];
@@ -1338,6 +1450,38 @@ export const useAdminCatalogueItems = (page = 1, limit = 50) =>
     queryKey: ['admin', 'catalogue-items', page, limit],
     queryFn: () =>
       api.get('/api/v1/admin/catalogue-items', { params: { page, limit } }).then((r) => r.data.data),
+  });
+
+/** A catalogue row as admin sees it, with its naira cost. */
+export interface AdminCatalogueItem {
+  id: string;
+  name: string;
+  category: string;
+  price: number;
+  currency: string;
+  isActive: boolean;
+  availableStates: string[];
+}
+
+/**
+ * Every catalogue item, for picking a curated box. The list endpoint caps a
+ * page at 100, so this walks the pages rather than silently showing only the
+ * first hundred.
+ */
+export const useAllCatalogueItems = () =>
+  useQuery<AdminCatalogueItem[]>({
+    queryKey: ['admin', 'catalogue-items', 'all'],
+    queryFn: async () => {
+      const all: AdminCatalogueItem[] = [];
+      for (let page = 1; page <= 50; page++) {
+        const { data, meta } = (
+          await api.get('/api/v1/admin/catalogue-items', { params: { page, limit: 100 } })
+        ).data.data;
+        all.push(...data);
+        if (page >= meta.totalPages) break;
+      }
+      return all;
+    },
   });
 
 export const useCreateCatalogueItem = () => {
@@ -1557,6 +1701,10 @@ export interface SubscriptionRules {
   cardFeePercent: Record<PricedCurrency, number>;
   /** Points that take 1 unit of the buyer's currency off. */
   pointsPerCurrencyUnit: number;
+  /** Off a year paid at once; out of the platform share. */
+  annualDiscountPercent: number;
+  /** On the undelivered value when an annual plan is cancelled part-way. */
+  annualCancellationFeePercent: number;
 }
 
 export const useSubscriptionRules = () =>

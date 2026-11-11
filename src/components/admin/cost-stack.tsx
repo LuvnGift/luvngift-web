@@ -30,6 +30,7 @@ function Field({
   error,
   placeholder,
   onChange,
+  readOnly = false,
 }: {
   id: string;
   label: string;
@@ -38,11 +39,12 @@ function Field({
   error?: string;
   placeholder: string;
   onChange: (v: string) => void;
+  readOnly?: boolean;
 }) {
   return (
     <div className="space-y-1.5">
       <Label htmlFor={id}>{label}</Label>
-      <Input id={id} inputMode="decimal" placeholder={placeholder} value={value} aria-invalid={!!error} onChange={(e) => onChange(e.target.value)} />
+      <Input id={id} inputMode="decimal" placeholder={placeholder} value={value} aria-invalid={!!error} readOnly={readOnly} className={readOnly ? 'bg-muted' : undefined} onChange={(e) => onChange(e.target.value)} />
       {error ? <p className="text-xs text-destructive">{error}</p> : <p className="text-xs text-muted-foreground">{hint}</p>}
     </div>
   );
@@ -55,6 +57,7 @@ export function CostStackInputs<T extends StackValues>({
   errors,
   goodsLabel = 'Goods cost (₦)',
   goodsHint = 'What the contents cost to buy in Nigeria.',
+  goodsReadOnly = false,
   idPrefix = 'stack',
 }: {
   value: T;
@@ -62,6 +65,8 @@ export function CostStackInputs<T extends StackValues>({
   errors: Record<string, string | undefined>;
   goodsLabel?: string;
   goodsHint?: string;
+  /** The goods line is worked out elsewhere (a curated box's catalogue cost). */
+  goodsReadOnly?: boolean;
   idPrefix?: string;
 }) {
   const set = (key: keyof StackValues) => (v: string) => onChange({ ...value, [key]: v });
@@ -79,7 +84,7 @@ export function CostStackInputs<T extends StackValues>({
   }, [defaults, value.agentFeeMajor === '' && value.deliveryFeeMajor === '' && value.platformPercent === '']);
   return (
     <div className="grid gap-3 sm:grid-cols-2">
-      <Field id={`${idPrefix}-goods`} label={goodsLabel} hint={goodsHint} placeholder="85000" value={value.sourcingMajor} error={errors.sourcingMajor} onChange={set('sourcingMajor')} />
+      <Field id={`${idPrefix}-goods`} label={goodsLabel} hint={goodsHint} placeholder="85000" value={value.sourcingMajor} error={errors.sourcingMajor} onChange={set('sourcingMajor')} readOnly={goodsReadOnly} />
       <Field id={`${idPrefix}-platform`} label="Platform share (%)" hint="What Luvngift keeps of the price, after card fees." placeholder="25" value={value.platformPercent} error={errors.platformPercent} onChange={set('platformPercent')} />
       <Field id={`${idPrefix}-agent`} label="Agent fee (₦)" hint="Paid to the agent who owns the order in the state." placeholder="5000" value={value.agentFeeMajor} error={errors.agentFeeMajor} onChange={set('agentFeeMajor')} />
       <Field id={`${idPrefix}-delivery`} label="Delivery fee (₦)" hint="Paid to whoever delivers it. 0 if the agent delivers for their fee." placeholder="4000" value={value.deliveryFeeMajor} error={errors.deliveryFeeMajor} onChange={set('deliveryFeeMajor')} />

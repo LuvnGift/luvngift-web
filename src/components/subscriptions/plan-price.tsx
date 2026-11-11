@@ -3,10 +3,14 @@
 import { useUserCurrency } from '@/hooks/use-exchange-rates';
 import { OFFERED_INTERVALS, cycleWord, cadenceLabel, type Interval } from '@/lib/cadence';
 
+export type Billing = 'PER_DELIVERY' | 'ANNUAL';
+
 export interface PlanPriceRow {
   interval: Interval;
   currency: string;
   amount: number;
+  /** Missing on rows from before annual billing: per delivery. */
+  billing?: Billing;
 }
 
 const SYMBOLS: Record<string, string> = { CAD: 'CA$', USD: 'US$', GBP: '£' };
@@ -23,12 +27,16 @@ export function pickPrice(
   prices: PlanPriceRow[],
   interval: PlanPriceRow['interval'],
   currency: string,
+  // Explicit: an annual row has the same cadence and currency as the per-delivery one.
+  billing: Billing = 'PER_DELIVERY',
 ): PlanPriceRow | undefined {
-  return prices.find((p) => p.interval === interval && p.currency === currency);
+  return prices.find(
+    (p) => p.interval === interval && p.currency === currency && (p.billing ?? 'PER_DELIVERY') === billing,
+  );
 }
 
 /** Headline price for a plan card. A placeholder until the buyer's currency is known. */
-export function PlanPrice({ prices }: { prices: PlanPriceRow[] }) {
+export function PlanPrice({ prices, annualDiscountPercent }: { prices: PlanPriceRow[]; annualDiscountPercent?: number | null }) {
   const { currency, ready } = useUserCurrency();
   if (!ready) return <span className="inline-block h-8 w-32 animate-pulse rounded bg-muted" aria-hidden="true" />;
 
@@ -50,6 +58,11 @@ export function PlanPrice({ prices }: { prices: PlanPriceRow[] }) {
           Also {others.map((o) => cadenceLabel(o.interval)).join(' or ')}
         </span>
       )}
+      {annualDiscountPercent ? (
+        <span className="block text-xs font-medium text-green-700 mt-0.5">
+          Or pay for the year and save {annualDiscountPercent}%
+        </span>
+      ) : null}
     </>
   );
 }

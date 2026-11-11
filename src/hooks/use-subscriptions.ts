@@ -33,8 +33,63 @@ export type {
  * widened here until the next package publish.
  */
 export type SubscriptionInterval = Interval;
-export type SubscriptionPrice = Omit<SharedSubscriptionPrice, 'interval'> & { interval: Interval };
-export type SubscriptionPlan = Omit<SharedSubscriptionPlan, 'prices'> & { prices: SubscriptionPrice[] };
+export type SubscriptionPrice = Omit<SharedSubscriptionPrice, 'interval'> & {
+  interval: Interval;
+  /** Missing on rows from before annual billing: per delivery. */
+  billing?: 'PER_DELIVERY' | 'ANNUAL';
+};
+/** One line of a curated box, as the public may see it (no naira cost). */
+export interface PlanContent {
+  quantity: number;
+  customItem: { id: string; name: string; description?: string | null; category: string; availableStates: string[] };
+}
+
+/**
+ * `kind` and `contents` came with curated plans (2026-11-11) and are not in
+ * the shared package yet. CURATED: the box is set by us and delivered as is.
+ * ALLOWANCE (or missing, from an older API): the subscriber fills the box.
+ */
+export type SubscriptionPlan = Omit<SharedSubscriptionPlan, 'prices'> & {
+  prices: SubscriptionPrice[];
+  kind?: 'ALLOWANCE' | 'CURATED' | 'BASKET';
+  contents?: PlanContent[];
+  /** What paying for the year saves; null when the plan is not sold by the year. */
+  annualDiscountPercent?: number | null;
+  intervals?: Interval[];
+};
+
+/** The year being delivered on an annual plan. */
+export interface SubscriptionTermSummary {
+  deliveries: number;
+  deliveriesMade: number;
+  nextDueAt: string | null;
+  startedAt: string;
+  amountPaid: number;
+}
+
+/** What cancelling an annual plan now would refund (Refund Policy § 6). */
+export interface CancelQuote {
+  currency: string;
+  feePercent: number;
+  undelivered: number;
+  undeliveredValue: number;
+  fee: number;
+  clawback: number;
+  refund: number;
+  deliveriesMade: number;
+  deliveries: number;
+  amountPaid: number;
+}
+
+/** Null for a plan paid per delivery, or a year fully delivered. */
+export const fetchCancelQuote = (id: string) =>
+  api.get(`/api/v1/subscriptions/${id}/cancel-quote`).then((r) => r.data.data as CancelQuote | null);
+
+/** A basket: the subscriber picks like a cart and pays for what is in it. */
+export const isBasket = (plan?: object | null) => (plan as { kind?: string } | null)?.kind === 'BASKET';
+
+/** Takes any plan shape: the subscriber view's plan is still the shared type, which has no `kind`. */
+export const isCurated = (plan?: object | null) => (plan as { kind?: string } | null)?.kind === 'CURATED';
 
 /** One delivery of a subscription, as its subscriber may see it. */
 export interface SubscriptionDelivery {
@@ -169,14 +224,57 @@ interface CreateSubscriptionInput {
   dietaryNotes?: string;
   /** YYYY-MM-DD. Omitted = start now. */
   firstDeliveryDate?: string;
+  /** A basket's price as quoted and shown; the API refuses if it moved. */
+  expectedAmount?: number;
+  /** Per delivery (default), or a year at a time at the annual discount. */
+  billing?: 'PER_DELIVERY' | 'ANNUAL';
 }
 
-export const useCreateSubscription = () =>
-  useMutation<CreateSubscriptionResult, Error, CreateSubscriptionInput>({
-    mutationFn: (data) => api.post('/api/v1/subscriptions', data).then((r) => r.data.data),
-    onError: (err: any) =>
-      toast.error(err?.response?.data?.error?.message ?? "Couldn't start your subscription."),
+export interface BasketQuote {
+  currency: string;
+  /** Per delivery, smallest unit; null for an empty basket. */
+  amount: number | null;
+  /** How much of the plan's maximum it uses. */
+  fillPercent: number;
+  /** The same basket paid for the year, per cadence. */
+  annual: { discountPercent: number; amounts: Partial<Record<Interval, number>> } | null;
+}
+
+/**
+ * A basket's all-in price per delivery as it is built. Keyed on the exact
+ * contents so the shown price always belongs to the basket on screen;
+ * `placeholderData` keeps the last figure while the next one loads.
+ */
+export const useBasketQuote = (
+  planId: string | undefined,
+  addressId: string | undefined,
+  picked: Record<string, number>,
+  enabled: boolean,
+) => {
+  const items = Object.entries(picked)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([customItemId, quantity]) => ({ customItemId, quantity }));
+  return useQuery<BasketQuote>({
+    queryKey: ['subscriptions', 'basket-quote', planId, addressId, items],
+    queryFn: () =>
+      api.post('/api/v1/subscriptions/basket-quote', { planId, addressId, items }).then((r) => r.data.data),
+    enabled: enabled && Boolean(planId && addressId),
+    placeholderData: (previous) => previous,
+    retry: false,
   });
+};
+
+export const useCreateSubscription = () => {
+  const qc = useQueryClient();
+  return useMutation<CreateSubscriptionResult, Error, CreateSubscriptionInput>({
+    mutationFn: (data) => api.post('/api/v1/subscriptions', data).then((r) => r.data.data),
+    onError: (err: any) => {
+      // A basket price that moved since it was shown: fetch the new one.
+      qc.invalidateQueries({ queryKey: ['subscriptions', 'basket-quote'] });
+      toast.error(err?.response?.data?.error?.message ?? "Couldn't start your subscription.");
+    },
+  });
+};
 
 // ─── Manage ───────────────────────────────────────────────────────────────────
 
@@ -262,16 +360,19 @@ export const useUpdateSubscriptionItems = () => {
   return useMutation<
     Subscription,
     Error,
-    { id: string; items: { customItemId: string; quantity: number }[] }
+    { id: string; items: { customItemId: string; quantity: number }[]; expectedAmount?: number }
   >({
-    mutationFn: ({ id, items }) =>
-      api.put(`/api/v1/subscriptions/${id}/items`, { items }).then((r) => r.data.data),
+    mutationFn: ({ id, items, expectedAmount }) =>
+      api.put(`/api/v1/subscriptions/${id}/items`, { items, expectedAmount }).then((r) => r.data.data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: MINE_KEY });
       toast.success('Box updated');
     },
-    onError: (err: any) =>
-      toast.error(err?.response?.data?.error?.message ?? "Couldn't update your box."),
+    onError: (err: any) => {
+      // A basket price that moved: refresh the quote so the new one is on screen.
+      qc.invalidateQueries({ queryKey: ['subscriptions', 'basket-quote'] });
+      toast.error(err?.response?.data?.error?.message ?? "Couldn't update your box.");
+    },
   });
 };
 

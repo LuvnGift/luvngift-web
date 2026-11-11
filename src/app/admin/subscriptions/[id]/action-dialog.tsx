@@ -19,7 +19,10 @@ export const MIN_REASON = 10;
 export const ACTION_COPY: Record<AdminSubscriptionAction, { label: string; effect: (s: AdminSubscriptionDetail) => string }> = {
   SKIP: {
     label: 'Skip next delivery',
-    effect: (s) => `The next delivery is skipped and not charged. Charges resume on ${shortDate(s.currentPeriodEnd)}.`,
+    effect: (s) =>
+      s.billing === 'ANNUAL'
+        ? 'The next delivery of the paid year moves one cycle later. Nothing is charged or refunded; the year still brings the same number of deliveries.'
+        : `The next delivery is skipped and not charged. Charges resume on ${shortDate(s.currentPeriodEnd)}.`,
   },
   UNSKIP: { label: 'Restore next delivery', effect: () => 'The next delivery goes ahead and is charged as usual.' },
   PAUSE: { label: 'Pause', effect: () => 'Nothing is charged or delivered until the subscription is resumed.' },
@@ -27,7 +30,9 @@ export const ACTION_COPY: Record<AdminSubscriptionAction, { label: string; effec
   CANCEL: {
     label: 'Cancel',
     effect: (s) =>
-      s.stripeSubscriptionId
+      s.billing === 'ANNUAL' && s.annualCancelQuote
+        ? `Ends today, part-way through a paid year. ${s.annualCancelQuote.undelivered} deliveries not made are refunded at the price paid, less the ${s.annualCancelQuote.feePercent}% admin fee and the annual discount on those made: ${(s.annualCancelQuote.refund / 100).toFixed(2)} ${s.currency} back to the card (Refund Policy § 6).`
+        : s.stripeSubscriptionId
         ? `Ends after the current period (${shortDate(s.currentPeriodEnd)}). The delivery already paid for still arrives; nothing more is charged. No refund is issued: refund a delivery from its order.`
         : 'Stripe never set this subscription up, so it is cancelled straight away.',
   },
@@ -40,6 +45,8 @@ export function actionsFor(s: AdminSubscriptionDetail): AdminSubscriptionAction[
   if (!s.stripeSubscriptionId) return ['CANCEL'];
   const ending: AdminSubscriptionAction = s.cancelAtPeriodEnd ? 'UNCANCEL' : 'CANCEL';
   if (s.status === 'PAUSED') return ['RESUME', ending];
+  // A paid year cannot be paused (the API refuses it).
+  if (s.billing === 'ANNUAL') return [s.skipNextCycle ? 'UNSKIP' : 'SKIP', ending];
   return [s.skipNextCycle ? 'UNSKIP' : 'SKIP', 'PAUSE', ending];
 }
 

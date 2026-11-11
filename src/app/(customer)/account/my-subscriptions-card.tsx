@@ -29,6 +29,10 @@ import {
   type SubscriptionDelivery,
   type SubscriptionStatus,
   type SubstitutionPreference,
+  isCurated,
+  fetchCancelQuote,
+  type CancelQuote,
+  type SubscriptionTermSummary,
 } from '@/hooks/use-subscriptions';
 import { DietaryEditor } from './dietary-editor';
 import { BoxEditor } from './box-editor';
@@ -61,6 +65,24 @@ function formatDate(value?: string | null) {
   });
 }
 
+const money = (cents: number, currency: string) => `${SYMBOLS[currency] ?? currency}${(cents / 100).toFixed(2)}`;
+
+/** The refund, line by line, before anyone confirms (Refund Policy § 6). */
+function annualCancelMessage(q: CancelQuote): string {
+  const c = q.currency;
+  if (q.refund === 0) {
+    return `Cancel this plan now? ${q.deliveriesMade} of ${q.deliveries} deliveries have been made, and there is nothing left to refund. You will not be charged again.`;
+  }
+  return [
+    `Cancel this plan now? It ends today and you will not be charged again.`,
+    '',
+    `${q.undelivered} deliveries not yet made: ${money(q.undeliveredValue, c)}`,
+    `Less the ${q.feePercent}% admin fee: -${money(q.fee, c)}`,
+    `Less the annual discount on the ${q.deliveriesMade} made: -${money(q.clawback, c)}`,
+    `Refund to your card: ${money(q.refund, c)}`,
+  ].join('\n');
+}
+
 function SubscriptionRow({ sub }: { sub: Subscription }) {
   const skip = useSkipCycle(true);
   const unskip = useSkipCycle(false);
@@ -74,17 +96,32 @@ function SubscriptionRow({ sub }: { sub: Subscription }) {
     skip.isPending || unskip.isPending || pause.isPending || resume.isPending || cancel.isPending;
   // What THIS subscriber is charged. The plan's price row can already hold a
   // newer price that only reaches existing subscribers after the notice period.
+  const annualSub = (sub as { billing?: string }).billing === 'ANNUAL';
+  const year = (sub as { terms?: SubscriptionTermSummary[] }).terms?.[0];
   const amount =
     (sub as { amount?: number | null }).amount ??
-    sub.plan.prices?.find((p) => p.interval === sub.interval && p.currency === sub.currency)?.amount;
+    sub.plan.prices?.find(
+      (p) => p.interval === sub.interval && p.currency === sub.currency && ((p as { billing?: string }).billing ?? 'PER_DELIVERY') === (annualSub ? 'ANNUAL' : 'PER_DELIVERY'),
+    )?.amount;
   const price = amount !== undefined ? { amount, currency: sub.currency } : undefined;
-  const cadence = `every ${cycleWord(sub.interval)}`;
+  const cadence = annualSub
+    ? `a year, delivered every ${cycleWord(sub.interval)}${year ? ` · ${year.deliveriesMade} of ${year.deliveries} deliveries made` : ''}`
+    : `every ${cycleWord(sub.interval)}`;
   const ended = sub.status === 'CANCELLED';
   // Booked to start later: nothing charged yet, so there is no cycle to skip
   // or pause (the API refuses both), but cancelling is free.
   const scheduled = !ended && hasNotStarted(sub);
 
-  const handleCancel = () => {
+  const handleCancel = async () => {
+    // A paid year part-way through: cancelling ends it now, with the refund shown first.
+    if (annualSub && !scheduled) {
+      const quote = await fetchCancelQuote(sub.id).catch(() => null);
+      if (quote) {
+        if (!confirm(annualCancelMessage(quote))) return;
+        cancel.mutate(sub.id);
+        return;
+      }
+    }
     const base = scheduled
       ? 'Cancel this subscription? Nothing has been charged yet, so you will not pay anything.'
       : 'Cancel this subscription? Your current cycle has been paid for and will still be delivered.';
@@ -162,7 +199,9 @@ The ${formatPoints(earned)} points you earned on it will be removed when it ends
 
       {scheduled && !sub.cancelAtPeriodEnd && (
         <p className="mt-3 rounded-md bg-blue-50 border border-blue-200 px-3 py-2 text-xs text-blue-900">
-          Nothing has been charged yet. You can change the box now, or cancel at no cost before the first charge.
+          {isCurated(sub.plan)
+            ? 'Nothing has been charged yet. You can cancel at no cost before the first charge.'
+            : 'Nothing has been charged yet. You can change the box now, or cancel at no cost before the first charge.'}
           We&apos;ll email you a reminder a few days before.
         </p>
       )}
@@ -184,7 +223,8 @@ The ${formatPoints(earned)} points you earned on it will be removed when it ends
           them before your next delivery so we know what to send.
         </p>
       )}
-      {!ended && <BoxEditor sub={sub} />}
+      {/* A curated box is set by us: there is nothing for the subscriber to edit. */}
+      {!ended && !isCurated(sub.plan) && <BoxEditor sub={sub} />}
 
       <DietaryEditor sub={sub} readOnly={ended} />
 
@@ -225,11 +265,12 @@ The ${formatPoints(earned)} points you earned on it will be removed when it ends
               </Button>
             ) : (
               <Button size="sm" variant="outline" disabled={busy} onClick={() => skip.mutate(sub.id)}>
-                <SkipForward className="h-3.5 w-3.5 mr-1" /> Skip next delivery
+                <SkipForward className="h-3.5 w-3.5 mr-1" /> {annualSub ? 'Move next delivery later' : 'Skip next delivery'}
               </Button>
             ))}
 
-          {scheduled ? null : sub.status === 'PAUSED' ? (
+          {/* A paid year cannot be paused: the API refuses it. */}
+          {scheduled || annualSub ? null : sub.status === 'PAUSED' ? (
             <Button size="sm" variant="outline" disabled={busy} onClick={() => resume.mutate(sub.id)}>
               <PlayCircle className="h-3.5 w-3.5 mr-1" /> Resume
             </Button>

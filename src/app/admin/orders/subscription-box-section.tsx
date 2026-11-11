@@ -77,7 +77,13 @@ export function EditBoxDialog({ box, order, onClose }: { box: AdminSubscriptionB
   const [applyToOrder, setApplyToOrder] = useState(orderEditable && !!order?.isFlagged);
   const fill = boxFill(picked, box.catalogue, box.minFillPercent);
   const { subscription: sub } = box;
-  const canSave = fill.status === 'OK' && reason.trim().length >= MIN_REASON && !update.isPending;
+  // A curated box has no fill rule or slot limit (the API applies none): an
+  // override, e.g. for an allergy, only has to hold something deliverable.
+  const curated = sub.planKind === 'CURATED';
+  // A basket's price follows its contents, so only the subscriber can change it (the API refuses).
+  const basket = sub.planKind === 'BASKET';
+  const boxOk = curated ? Object.keys(picked).length > 0 : fill.status === 'OK';
+  const canSave = !basket && boxOk && reason.trim().length >= MIN_REASON && !update.isPending;
 
   const save = async () => {
     try {
@@ -103,6 +109,19 @@ export function EditBoxDialog({ box, order, onClose }: { box: AdminSubscriptionB
             audit log. Items available in {sub.recipientState}.
           </DialogDescription>
         </DialogHeader>
+        {basket && (
+          <p className="rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-900">
+            This is a basket: its price is built from what is in it, so the subscriber changes it from
+            their account and confirms the new price. Ask them to, or contact them for any change.
+          </p>
+        )}
+        {curated && (
+          <p className="rounded-md bg-blue-50 border border-blue-200 px-3 py-2 text-xs text-blue-900">
+            {sub.boxOverriddenAt
+              ? 'This subscriber already has a box of their own: changes to the plan\'s box do not reach it.'
+              : 'This is a curated plan. Saving gives this subscriber a box of their own, and later changes to the plan\'s box will no longer reach them.'}
+          </p>
+        )}
         {(sub.dietaryFlags.length > 0 || sub.dietaryNotes) && (
           <div className="rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-900 flex gap-2">
             <ShieldAlert className="h-4 w-4 shrink-0 mt-0.5" />
@@ -113,7 +132,7 @@ export function EditBoxDialog({ box, order, onClose }: { box: AdminSubscriptionB
             </div>
           </div>
         )}
-        <BoxPicker items={box.catalogue} picked={picked} onChange={setPicked} slotCount={sub.slotCount} minFill={box.minFillPercent} whose="the" />
+        <BoxPicker items={box.catalogue} picked={picked} onChange={setPicked} slotCount={curated ? 50 : sub.slotCount} minFill={box.minFillPercent} whose="the" />
         <div className="space-y-1.5">
           <Label htmlFor="box-reason">Reason (sent to the subscriber)</Label>
           <Textarea id="box-reason" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. You asked us by phone to swap the beans for more rice." />
