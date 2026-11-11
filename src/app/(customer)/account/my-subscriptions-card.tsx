@@ -36,11 +36,10 @@ import {
 } from '@/hooks/use-subscriptions';
 import { DietaryEditor } from './dietary-editor';
 import { BoxEditor } from './box-editor';
-import { longDate } from '@/lib/subscription-start';
-import { formatPoints } from '@/lib/points';
-import { cycleWord } from '@/lib/cadence';
+import { longDate, formatMoney } from '@luvngift/shared';
+import { formatPoints } from '@luvngift/shared';
+import { cycleWord } from '@luvngift/shared';
 
-const SYMBOLS: Record<string, string> = { CAD: 'CA$', USD: '$', GBP: '£', NGN: '₦' };
 
 const STATUS_STYLES: Record<SubscriptionStatus, string> = {
   ACTIVE: 'bg-green-100 text-green-800',
@@ -65,7 +64,8 @@ function formatDate(value?: string | null) {
   });
 }
 
-const money = (cents: number, currency: string) => `${SYMBOLS[currency] ?? currency}${(cents / 100).toFixed(2)}`;
+// Every price is written one way, everywhere (formatMoney in @luvngift/shared).
+const money = formatMoney;
 
 /** The refund, line by line, before anyone confirms (Refund Policy § 6). */
 function annualCancelMessage(q: CancelQuote): string {
@@ -164,7 +164,7 @@ The ${formatPoints(earned)} points you earned on it will be removed when it ends
             For {sub.address.recipientName} — {sub.address.city}, {sub.address.state}
           </p>
           <p className="text-xs text-muted-foreground mt-1">
-            {price ? `${SYMBOLS[price.currency] ?? price.currency}${(price.amount / 100).toFixed(2)} ` : ''}
+            {price ? `${formatMoney(price.amount, price.currency)} ` : ''}
             {cadence}
             {sub.cancelAtPeriodEnd && !ended && ' · ends after this cycle'}
           </p>

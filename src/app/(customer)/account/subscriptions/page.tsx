@@ -7,7 +7,7 @@ import { ArrowLeft, CheckCircle2 } from 'lucide-react';
 import { MySubscriptionsCard } from '../my-subscriptions-card';
 import { PointsCard } from '../points-card';
 import { hasNotStarted, useMySubscriptions } from '@/hooks/use-subscriptions';
-import { longDate } from '@/lib/subscription-start';
+import { longDate } from '@luvngift/shared';
 
 /**
  * A subscriber's recurring gifts, on a page of their own. They used to be the

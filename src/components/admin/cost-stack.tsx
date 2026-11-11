@@ -13,10 +13,10 @@ import { Label } from '@/components/ui/label';
 import type { PricedCurrency, StackQuote, StackSplit } from '@/hooks/use-admin';
 import { useFulfilmentRules } from '@/hooks/use-partners';
 import type { BundlePricingFormValues } from '@/lib/admin-schemas';
+import { formatMoney } from '@luvngift/shared';
 
-const SYMBOLS: Record<string, string> = { CAD: 'CA$', USD: 'US$', GBP: '£' };
-export const money = (cents: number, currency: string) =>
-  `${cents < 0 ? '−' : ''}${SYMBOLS[currency] ?? currency}${(Math.abs(cents) / 100).toFixed(2)}`;
+/** Every price is written one way, everywhere (formatMoney in @luvngift/shared). */
+export const money = formatMoney;
 export const pct = (bps: number) => `${(bps / 100).toFixed(2).replace(/\.?0+$/, '')}%`;
 const naira = (kobo: number) => `₦${(kobo / 100).toLocaleString('en-NG')}`;
 

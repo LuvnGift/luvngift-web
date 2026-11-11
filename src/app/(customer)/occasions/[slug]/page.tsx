@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import { ArrowLeft, Wand2, Check } from 'lucide-react';
 import { BundleCard } from '@/components/bundles/bundle-card';
 import { fetchResourceOrNull } from '@/lib/api-fetch';
-import { CACHE_TAGS, CACHE_FALLBACK_SECONDS } from '@/lib/cache-tags';
+import { CACHE_TAGS, CACHE_FALLBACK_SECONDS } from '@luvngift/shared';
 import { Button } from '@/components/ui/button';
 import { FaqSection } from '@/components/seo/faq-section';
 import type { FAQ } from '@/content/faqs';

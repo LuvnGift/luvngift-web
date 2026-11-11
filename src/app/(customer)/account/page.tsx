@@ -20,7 +20,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { SavedCardsCard } from './saved-cards-card';
 import Link from 'next/link';
 import { DeleteAccountCard } from './delete-account-card';
-import { latestAdultDateOfBirth } from '@/lib/age';
+import { latestAdultDateOfBirth } from '@luvngift/shared';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Spinner } from '@/components/ui/spinner';
 import { MapPin, Repeat, ChevronRight } from 'lucide-react';

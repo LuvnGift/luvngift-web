@@ -11,10 +11,11 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import { useRefundOrder, useRefundRequest } from '@/hooks/use-admin';
+import { formatMoney, OPEN_REFUND_STATUSES, REFUND_TARGET_BUSINESS_DAYS } from '@luvngift/shared';
 
-/** Stripe statuses where money is moving or has moved back (mirrors the API). */
-const OPEN = ['pending', 'requires_action', 'succeeded'];
-const TARGET_BUSINESS_DAYS = 5;
+/** Stripe statuses where money is moving or has moved back, and the policy target (from @luvngift/shared). */
+const OPEN: readonly string[] = OPEN_REFUND_STATUSES;
+const TARGET_BUSINESS_DAYS = REFUND_TARGET_BUSINESS_DAYS;
 
 interface RefundRow {
   id: string;
@@ -25,7 +26,8 @@ interface RefundRow {
   createdAt: string;
 }
 
-const money = (cents: number, currency: string) => `${(cents / 100).toFixed(2)} ${currency}`;
+// Every price is written one way, everywhere (formatMoney in @luvngift/shared).
+const money = formatMoney;
 
 const statusClass: Record<string, string> = {
   succeeded: 'text-green-700',

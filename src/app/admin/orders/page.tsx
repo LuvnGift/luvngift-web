@@ -31,12 +31,15 @@ import {
 import { VendorLinkSection } from './vendor-link-section';
 import { PartnersSection } from './partners-section';
 import { RefundSection } from './refund-section';
-import { CustomOrderSection, customOrderStatusBlock, customOrderVendorBlock } from './custom-order-section';
-import { isVendorAssignable, vendorAssignmentBlock } from '@/lib/vendor-assignment';
+import { CustomOrderSection, customOrderStatusBlock } from './custom-order-section';
+import { customOrderVendorBlock, isVendorAssignable, vendorAssignmentBlock } from '@luvngift/shared';
 
 /** The custom-order gate first (its wording is more specific), then the general one. */
-const assignBlock = (order: any): string | null => customOrderVendorBlock(order) ?? vendorAssignmentBlock(order);
-import { ADMIN_STAGE, type QuoteStatus } from '@/lib/custom-orders';
+const assignBlock = (order: any): string | null =>
+  customOrderVendorBlock({ quoteStatus: order.quoteStatus, paymentStatus: order.payment?.status ?? null }) ??
+  vendorAssignmentBlock({ status: order.status, subscriptionId: order.subscriptionId, paymentStatus: order.payment?.status ?? null });
+import { ADMIN_STAGE } from '@/lib/custom-orders';
+import { type QuoteStatus } from '@luvngift/shared';
 import { VendorPayBasis } from './vendor-pay-basis';
 
 const ORDER_STATUSES = ['PENDING', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'REFUNDED'];

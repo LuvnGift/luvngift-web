@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { LegalPage } from '@/components/legal/legal-page';
-import { BUSINESS } from '@/lib/business';
+import { BUSINESS } from '@luvngift/shared';
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.luvngift.com';
 

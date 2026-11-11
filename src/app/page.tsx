@@ -10,7 +10,7 @@ import { ChatWidget } from '@/components/chat/chat-widget';
 import { AddressBanner } from '@/components/layout/address-banner';
 import { FaqSection } from '@/components/seo/faq-section';
 import { BundleCard } from '@/components/bundles/bundle-card';
-import { CACHE_TAGS, CACHE_FALLBACK_SECONDS } from '@/lib/cache-tags';
+import { CACHE_TAGS, CACHE_FALLBACK_SECONDS } from '@luvngift/shared';
 import { OccasionCard } from '@/components/occasions/occasion-card';
 import { GENERAL_FAQS } from '@/content/faqs';
 import type { Bundle, Occasion } from '@luvngift/shared';

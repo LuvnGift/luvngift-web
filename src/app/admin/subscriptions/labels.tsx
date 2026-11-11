@@ -1,5 +1,5 @@
 import type { SubscriptionStatus } from '@/hooks/use-admin';
-import { cadenceTitle } from '@/lib/cadence';
+import { cadenceTitle } from '@luvngift/shared';
 
 export const STATUS_LABEL: Record<SubscriptionStatus, string> = {
   ACTIVE: 'Active',

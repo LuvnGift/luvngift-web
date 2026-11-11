@@ -4,10 +4,10 @@ import { Navbar } from '@/components/layout/navbar';
 import { Footer } from '@/components/layout/footer';
 import { Check, Repeat, Camera, PauseCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { CACHE_TAGS, CACHE_FALLBACK_SECONDS } from '@/lib/cache-tags';
+import { CACHE_TAGS, CACHE_FALLBACK_SECONDS } from '@luvngift/shared';
 import { PlanPrice } from '@/components/subscriptions/plan-price';
 import { fetchList } from '@/lib/api-fetch';
-import type { Interval } from '@/lib/cadence';
+import type { SubscriptionPlan } from '@luvngift/shared';
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.luvngift.com';
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? '';
@@ -26,27 +26,8 @@ export const metadata: Metadata = {
   },
 };
 
-interface Price {
-  interval: Interval;
-  currency: string;
-  amount: number;
-  billing?: 'PER_DELIVERY' | 'ANNUAL';
-}
-
-interface Plan {
-  id: string;
-  name: string;
-  slug: string;
-  description: string;
-  slotCount: number;
-  image: string | null;
-  prices: Price[];
-  /** CURATED: a set box. ALLOWANCE: the subscriber fills it. */
-  kind?: 'ALLOWANCE' | 'CURATED' | 'BASKET';
-  /** What paying for the year saves; null when the plan is not sold by the year. */
-  annualDiscountPercent?: number | null;
-  contents?: { quantity: number; customItem: { id: string; name: string } }[];
-}
+/** The public plans payload, as the API sends it (types in @luvngift/shared). */
+type Plan = SubscriptionPlan;
 
 /** Throws on an outage instead of returning [] — see fetchList. */
 function fetchPlans(): Promise<Plan[]> {

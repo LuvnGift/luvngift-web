@@ -10,11 +10,13 @@ import {
   quoteFormSchema,
   toMinorUnits,
 } from './admin-schemas';
+import { bundlePricingSchema, createItemSchema, planPricingSchema, sendQuoteSchema } from '@luvngift/shared';
 
 /**
- * These schemas mirror the API's admin schemas by hand (see the note in
- * admin-schemas.ts). The cases below pin the boundaries that matter, so a drift
- * between the two shows up here rather than as an opaque 400 at save time.
+ * The admin forms parse what admin types; the API validates with the wire
+ * schemas in @luvngift/shared. The cases below pin the form boundaries, and
+ * the last block checks a valid form converts into a payload the API's own
+ * schema accepts, so a gap between the two fails here, not as a 400 at save.
  */
 
 const validItem = {
@@ -141,7 +143,7 @@ describe('planPricingFormSchema', () => {
     expect(planPricingFormSchema.safeParse({ ...valid, sourcingMajor: '100000000.01' }).success).toBe(false);
   });
 
-  // Mirrors percentSchema(60) in the API's cost-stack.validation.
+  // percentSchema(PLATFORM_PERCENT_MAX) in @luvngift/shared.
   it.each([[''], ['-1'], ['abc'], ['25.555'], ['61']])('rejects platform share %s', (platformPercent) => {
     expect(planPricingFormSchema.safeParse({ ...valid, platformPercent }).success).toBe(false);
   });
@@ -194,7 +196,7 @@ describe('quoteFormSchema', () => {
   });
 });
 
-// Mirrors bundlePricingSchema in luvngift-api bundle-pricing.validation.
+// bundlePricingSchema in @luvngift/shared.
 describe('bundlePricingFormSchema', () => {
   const valid = { sourcingMajor: '85000.50', agentFeeMajor: '5000', deliveryFeeMajor: '4000', platformPercent: '25' };
 
@@ -223,5 +225,40 @@ describe('bundlePricingFormSchema', () => {
   it('refuses a missing goods cost or a share with three decimals', () => {
     expect(bundlePricingFormSchema.safeParse({ ...valid, sourcingMajor: '' }).success).toBe(false);
     expect(bundlePricingFormSchema.safeParse({ ...valid, platformPercent: '25.125' }).success).toBe(false);
+  });
+});
+
+describe('a valid form is a valid API payload', () => {
+  it('plan pricing', () => {
+    const form = planPricingFormSchema.parse({
+      sourcingMajor: '150000', agentFeeMajor: '5000', deliveryFeeMajor: '0', platformPercent: '25.5', intervals: ['MONTHLY'],
+    });
+    expect(planPricingSchema.safeParse(toPricingInput(form)).success).toBe(true);
+  });
+
+  it('bundle pricing', () => {
+    const form = bundlePricingFormSchema.parse({
+      sourcingMajor: '40000', agentFeeMajor: '5000', deliveryFeeMajor: '4000', platformPercent: '25',
+    });
+    expect(bundlePricingSchema.safeParse(toBundlePricingInput(form)).success).toBe(true);
+  });
+
+  it('a catalogue item, at the largest cost the form allows', () => {
+    const form = catalogueItemFormSchema.parse({ ...validItem, priceMajor: '1000000' });
+    const payload = {
+      name: form.name,
+      description: form.description,
+      price: toMinorUnits(form.priceMajor),
+      categoryId: form.categoryId,
+      stock: form.stock,
+      isActive: form.isActive,
+      availableStates: form.availableStates,
+    };
+    expect(createItemSchema.safeParse(payload).success).toBe(true);
+  });
+
+  it('a quote', () => {
+    const form = quoteFormSchema.parse({ priceMajor: '120.50', scope: 'Cake, flowers and a card', note: '', isFinal: false });
+    expect(sendQuoteSchema.safeParse({ subtotal: toMinorUnits(form.priceMajor), scope: form.scope, isFinal: form.isFinal }).success).toBe(true);
   });
 });

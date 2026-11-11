@@ -9,17 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { ConversationThread } from '@/components/orders/conversation-thread';
 import { Spinner } from '@/components/ui/spinner';
-import {
-  CUSTOMER_STAGE,
-  MESSAGE_MAX,
-  acceptedQuote,
-  formatMoney,
-  openQuote,
-  orderMessageSchema,
-  requestChangesSchema,
-  type CustomOrderQuote,
-  type OrderConversation,
-} from '@/lib/custom-orders';
+import { CUSTOMER_STAGE } from '@/lib/custom-orders';
+import { MESSAGE_MAX, acceptedQuote, formatMoney, openQuote, orderMessageSchema, requestChangesSchema, type CustomOrderQuote, type OrderConversation } from '@luvngift/shared';
 
 interface Props {
   order: PayableOrder & { status: string; payment?: { status: string } | null };

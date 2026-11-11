@@ -4,16 +4,10 @@ import { useMemo, useState } from 'react';
 import { Check, ChevronDown, Minus, Plus, Search, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
-import { boxFill, type BoxFill } from '@/lib/box-fill';
-import {
-  aisleIcon,
-  aisleSummary,
-  searchItems,
-  toAisles,
-  SEARCH_FROM_ITEMS,
-} from '@/lib/box-aisles';
+import { boxFill, type BoxFill, MAX_BOX_ITEM_QUANTITY } from '@luvngift/shared';
+import { aisleIcon, aisleSummary, searchItems, toAisles, SEARCH_FROM_ITEMS } from '@luvngift/shared';
 import { AISLE_ICONS } from './aisle-icons';
-import { pointsForFill } from '@/lib/points';
+import { pointsForFill } from '@luvngift/shared';
 
 /** A catalogue item as the picker needs it. `share`: % of the box one unit fills. */
 export interface PickerItem {
@@ -26,7 +20,7 @@ export interface PickerItem {
   share: number | null;
 }
 
-const MAX_QUANTITY = 20; // mirrors boxItemSchema in @luvngift/shared
+const MAX_QUANTITY = MAX_BOX_ITEM_QUANTITY;
 
 /**
  * Choosing what goes in a subscription box: sign-up, a subscriber editing

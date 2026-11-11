@@ -3,9 +3,22 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
-import type { OrderConversation } from '@/lib/custom-orders';
+import type { OrderConversation } from '@luvngift/shared';
 import type { OrderListParams, OrderTab } from '@/lib/admin-order-tabs';
-import type { Interval } from '@/lib/cadence';
+import type { SubscriptionInterval as Interval } from '@luvngift/shared';
+import type { input } from 'zod';
+import type { BundlePricingBody, CreateJobInput, CreateRoadmapItemInput, IssueRefundInput, PlanContentsInput, PlanPricingInput as SharedPlanPricingInput, UpdatePlanInput, createItemSchema, createJobSchema, createPlanSchema, createVendorSchema } from '@luvngift/shared';
+// The pricing responses are declared once, in @luvngift/shared, and the API
+// builds them from the same declarations.
+import type {
+  BundlePricingPreview,
+  PricedCurrency,
+  PricingPreview,
+  StackQuote,
+  StackSplit,
+  SubscriptionRules,
+} from '@luvngift/shared';
+export type { BundlePricingPreview, PricedCurrency, PricingPreview, StackQuote, StackSplit, SubscriptionRules };
 
 // ---------- Metrics ----------
 export const useAdminMetrics = () =>
@@ -76,12 +89,8 @@ export const useUpdateOrderStatus = () => {
   });
 };
 
-export interface RefundOrderInput {
-  id: string;
-  /** Smallest currency unit. Omit to refund everything still refundable. */
-  amount?: number;
-  reason?: string;
-}
+/** POST /admin/orders/:id/refund: the shared body plus which order. */
+export type RefundOrderInput = IssueRefundInput & { id: string };
 
 export const useRefundOrder = () => {
   const qc = useQueryClient();
@@ -455,45 +464,8 @@ export const useUpdateBundle = () => {
   });
 };
 
-/** Who gets what from one charge. Mirrors StackSplit in the API's partners/cost-stack. */
-export interface StackSplit {
-  amount: number;
-  cardFees: number;
-  goods: number;
-  agent: number;
-  delivery: number;
-  platform: number;
-  platformBps: number;
-}
-
-/** A cost stack priced at today's rate. Mirrors StackQuote in the API's partners/stack-pricing. */
-export interface StackQuote {
-  rates: { NGN: number; CAD: number; GBP: number; USD: 1 };
-  stack: { goodsNgn: number; agentFeeNgn: number; deliveryFeeNgn: number };
-  platformBps: number;
-  fxBufferPercent: number;
-  cardFeePercent: Record<PricedCurrency, number>;
-  deductionPercent: number;
-  costUsdCents: number;
-  usdCents: number;
-  amounts: Record<PricedCurrency, number>;
-  splits: Record<PricedCurrency, StackSplit>;
-  problems: string[];
-}
-
-/** Mirrors BundlePricingPreview in the API's bundle-pricing.service. */
-export interface BundlePricingPreview extends StackQuote {
-  current: number | null;
-  change: 'NEW' | 'INCREASE' | 'DECREASE' | 'SAME';
-}
-
-export interface BundlePricingInput {
-  /** All kobo. */
-  sourcingNgn: number;
-  agentFeeNgn: number;
-  deliveryFeeNgn: number;
-  platformPercent: number;
-}
+/** The API's body (bundlePricingSchema in @luvngift/shared). */
+export type BundlePricingInput = BundlePricingBody;
 
 /** A mutation rather than a query: it runs on demand as admin edits. */
 export const useBundlePricingPreview = () =>
@@ -668,16 +640,8 @@ export const useReissueVendorLink = (orderId: string) => {
 };
 
 // ---------- Vendors ----------
-export interface VendorInput {
-  name: string;
-  contactName?: string;
-  email: string;
-  phone: string;
-  address: string;
-  state: string;
-  businessType: 'RETAIL' | 'DELIVERY' | 'LOGISTICS' | 'AGENT';
-  notes?: string;
-}
+/** The API's body (createVendorSchema in @luvngift/shared). */
+export type VendorInput = input<typeof createVendorSchema>;
 
 export type VendorStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 
@@ -768,15 +732,8 @@ export const useSetVendorStatus = () => {
 // ---------- Roadmap ----------
 export type RoadmapStatus = 'PLANNED' | 'IN_PROGRESS' | 'LAUNCHED';
 
-export interface RoadmapItemInput {
-  title: string;
-  description: string;
-  category?: string;
-  status?: RoadmapStatus;
-  targetLabel?: string;
-  sortOrder?: number;
-  isActive?: boolean;
-}
+/** The API's body (createRoadmapItemSchema in @luvngift/shared). */
+export type RoadmapItemInput = CreateRoadmapItemInput;
 
 // ─── Delivery proof & substitutions ───────────────────────────────────────────
 
@@ -826,45 +783,21 @@ export const useRecordSubstitutions = () => {
 // ─── Subscription plans ───────────────────────────────────────────────────────
 
 export type PlanInterval = Interval;
-export type PricedCurrency = 'USD' | 'CAD' | 'GBP';
 
 /** How a plan is priced. Prices are derived from these, never entered. */
-/** One line of a curated box: a catalogue item and how many. */
-export interface PlanContentLine {
-  customItemId: string;
-  quantity: number;
-}
+/** One line of a curated box (planContentsSchema in @luvngift/shared). */
+export type PlanContentLine = PlanContentsInput[number];
 
-export type PlanKind = 'ALLOWANCE' | 'CURATED' | 'BASKET';
+export type { PlanKind } from '@luvngift/shared';
 
-export interface PlanPricingInput {
-  /** Goods amount per delivery (the box allowance), in kobo. Allowance plans only. */
-  boxAllowanceNgn?: number;
-  /**
-   * A curated plan not yet created: priced from these items. A saved curated
-   * plan is always priced from its stored contents, so this is ignored there.
-   */
-  contents?: PlanContentLine[];
-  /** A plan not yet created: its kind decides whether annual prices are previewed. */
-  kind?: PlanKind;
-  agentFeeNgn: number;
-  deliveryFeeNgn: number;
-  /** e.g. 25.5 = 25.5%. */
-  platformPercent: number;
-  intervals: PlanInterval[];
-}
+/** The API's body (planPricingSchema in @luvngift/shared). */
+export type PlanPricingInput = SharedPlanPricingInput;
 
-export interface PlanDetailsInput {
-  name: string;
-  description: string;
-  /** Allowance plans only: a curated plan has one slot per item. */
-  slotCount?: number;
-  image?: string;
-  sortOrder?: number;
-  isActive?: boolean;
-}
+/** A plan's details as the update endpoint takes them (updatePlanSchema in @luvngift/shared). */
+export type PlanDetailsInput = UpdatePlanInput;
 
-export type PlanInput = PlanDetailsInput & PlanPricingInput & { kind?: PlanKind };
+/** The create body (createPlanSchema in @luvngift/shared). */
+export type PlanInput = input<typeof createPlanSchema>;
 
 export interface PlanPrice {
   id: string;
@@ -879,22 +812,6 @@ export interface PlanPrice {
   /** ANNUAL: `amount` is a year of deliveries at this cadence. */
   billing?: 'PER_DELIVERY' | 'ANNUAL';
   discountBps?: number | null;
-}
-
-/** Mirrors PricingPreview in the API's plan-pricing.service. */
-export interface PricingPreview extends StackQuote {
-  lines: {
-    interval: PlanInterval;
-    currency: PricedCurrency;
-    amount: number;
-    current: number | null;
-    change: 'NEW' | 'INCREASE' | 'DECREASE' | 'SAME';
-    /** ANNUAL lines are a year of deliveries; their split is per delivery. */
-    billing?: 'PER_DELIVERY' | 'ANNUAL';
-    split: StackSplit;
-  }[];
-  /** The goods line the prices were built on, in kobo (a curated box: its catalogue cost). */
-  goodsNgn: number;
 }
 
 /** What POST /admin/subscription-plans/:id/basket-reprice reports. */
@@ -1353,17 +1270,8 @@ export const useCancelPriceChange = () => {
 
 // ─── Subscription catalogue items ─────────────────────────────────────────────
 
-export interface CatalogueItemInput {
-  name: string;
-  description?: string;
-  price: number;
-  currency?: 'CAD' | 'USD' | 'GBP' | 'NGN';
-  /** Picked from the managed category list; the API copies its name onto the item. */
-  categoryId: string;
-  stock?: number;
-  isActive?: boolean;
-  availableStates?: string[];
-}
+/** The API's body (createItemSchema in @luvngift/shared). */
+export type CatalogueItemInput = input<typeof createItemSchema>;
 
 // ─── Catalogue categories (box-picker aisles) ────────────────────────────────
 
@@ -1579,14 +1487,8 @@ export type JobEmploymentType = 'FULL_TIME' | 'PART_TIME' | 'CONTRACT' | 'REMOTE
 export type JobStatus = 'OPEN' | 'CLOSED';
 export type ApplicationStatus = 'NEW' | 'REVIEWING' | 'INTERVIEW' | 'REJECTED' | 'HIRED';
 
-export interface JobInput {
-  title: string;
-  department?: string;
-  location?: string;
-  employmentType?: JobEmploymentType;
-  description: string;
-  status?: JobStatus;
-}
+/** The API's body (createJobSchema in @luvngift/shared). */
+export type JobInput = CreateJobInput;
 
 export const useAdminJobs = (page = 1, limit = 20) =>
   useQuery({
@@ -1692,20 +1594,6 @@ export const useUpdateDeliveryWindow = () => {
       toast.error(err?.response?.data?.error?.message ?? 'Failed to update delivery window'),
   });
 };
-
-/** The numbers subscription pricing and box sizing run on (subscription-rules.service). */
-export interface SubscriptionRules {
-  minFillPercent: number;
-  vendorSharePercent: number;
-  marginTolerancePoints: number;
-  cardFeePercent: Record<PricedCurrency, number>;
-  /** Points that take 1 unit of the buyer's currency off. */
-  pointsPerCurrencyUnit: number;
-  /** Off a year paid at once; out of the platform share. */
-  annualDiscountPercent: number;
-  /** On the undelivered value when an annual plan is cancelled part-way. */
-  annualCancellationFeePercent: number;
-}
 
 export const useSubscriptionRules = () =>
   useQuery<SubscriptionRules & { defaults: SubscriptionRules }>({

@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { BoxPicker } from '@/components/subscriptions/box-picker';
-import { boxFill } from '@/lib/box-fill';
+import { boxFill, formatMoney } from '@luvngift/shared';
 import {
   useCatalogue,
   usePlans,
@@ -17,8 +17,8 @@ import {
   type Subscription,
 } from '@/hooks/use-subscriptions';
 
-const SYMBOLS: Record<string, string> = { CAD: 'CA$', USD: 'US$', GBP: '£' };
-const money = (cents: number, currency: string) => `${SYMBOLS[currency] ?? currency}${(cents / 100).toFixed(2)}`;
+// Every price is written one way, everywhere (formatMoney in @luvngift/shared).
+const money = formatMoney;
 
 /** Fallback if the plans payload has no minimum (matches the API default). */
 const DEFAULT_MIN_FILL = 80;

@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import Link from 'next/link';
-import { isAdultDateOfBirth, latestAdultDateOfBirth } from '@/lib/age';
+import { isAdultDateOfBirth, latestAdultDateOfBirth } from '@luvngift/shared';
 
 // Extend the shared schema with a client-only confirmPassword field. It is
 // validated here but stripped before the request — the API never needs it.

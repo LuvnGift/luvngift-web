@@ -1,39 +1,14 @@
 'use client';
 
 import { useUserCurrency } from '@/hooks/use-exchange-rates';
-import { OFFERED_INTERVALS, cycleWord, cadenceLabel, type Interval } from '@/lib/cadence';
+import { OFFERED_INTERVALS, cycleWord, cadenceLabel, type SubscriptionInterval as Interval, formatMoney, pickPrice, type SubscriptionPrice } from '@luvngift/shared';
 
-export type Billing = 'PER_DELIVERY' | 'ANNUAL';
+export type PlanPriceRow = Pick<SubscriptionPrice, 'interval' | 'currency' | 'amount' | 'billing'>;
 
-export interface PlanPriceRow {
-  interval: Interval;
-  currency: string;
-  amount: number;
-  /** Missing on rows from before annual billing: per delivery. */
-  billing?: Billing;
-}
+const format = (row: PlanPriceRow) => formatMoney(row.amount, row.currency);
 
-const SYMBOLS: Record<string, string> = { CAD: 'CA$', USD: 'US$', GBP: '£' };
-const format = (row: PlanPriceRow) =>
-  `${SYMBOLS[row.currency] ?? row.currency}${(row.amount / 100).toFixed(2)}`;
-
-/**
- * The price row a buyer will actually be charged: the one in their currency
- * (the API charges getUserCurrency(buyerCountry): CAD, GBP, else USD). Never
- * converted in the browser. Showing the first row regardless of currency let a
- * Canadian see a US$ figure and then be charged a different CA$ one.
- */
-export function pickPrice(
-  prices: PlanPriceRow[],
-  interval: PlanPriceRow['interval'],
-  currency: string,
-  // Explicit: an annual row has the same cadence and currency as the per-delivery one.
-  billing: Billing = 'PER_DELIVERY',
-): PlanPriceRow | undefined {
-  return prices.find(
-    (p) => p.interval === interval && p.currency === currency && (p.billing ?? 'PER_DELIVERY') === billing,
-  );
-}
+/** The row a buyer is charged (rule in @luvngift/shared). Re-exported for this file's importers. */
+export { pickPrice };
 
 /** Headline price for a plan card. A placeholder until the buyer's currency is known. */
 export function PlanPrice({ prices, annualDiscountPercent }: { prices: PlanPriceRow[]; annualDiscountPercent?: number | null }) {

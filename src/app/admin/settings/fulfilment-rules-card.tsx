@@ -4,7 +4,7 @@
  * Settings → Fulfilment: the defaults a new cost stack starts from, the FX
  * buffer every cost-stack price carries, the default split, and whether the
  * recipient's code is required before an order counts as delivered.
- * Bounds mirror `fulfilmentRulesSchema` in the API's partners.validation.
+ * Bounds come from `fulfilmentRulesSchema` in @luvngift/shared, which the API validates with.
  */
 
 import { useEffect, useState } from 'react';
@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import { useFulfilmentRules, useSetFulfilmentRules } from '@/hooks/use-partners';
+import { fulfilmentRulesSchema } from '@luvngift/shared';
 
 export function FulfilmentRulesCard() {
   const { data, isLoading } = useFulfilmentRules();
@@ -34,14 +35,17 @@ export function FulfilmentRulesCard() {
   }, [data]);
 
   const n = (k: string) => Number(form[k]);
-  const within = (k: string, min: number, max: number) => form[k] !== '' && Number.isFinite(n(k)) && n(k) >= min && n(k) <= max;
-  const valid =
-    within('agentFee', 0, 100_000_000) &&
-    within('deliveryFee', 0, 100_000_000) &&
-    within('platform', 0, 60) &&
-    within('fxBuffer', 0, 30) &&
-    within('split', 0, 100) &&
-    Number.isInteger(n('split'));
+  const blank = ['agentFee', 'deliveryFee', 'platform', 'fxBuffer', 'split'].some((k) => (form[k] ?? '') === '');
+  const payload = {
+    defaultAgentFeeNgn: Math.round(n('agentFee') * 100),
+    defaultDeliveryFeeNgn: Math.round(n('deliveryFee') * 100),
+    defaultPlatformPercent: n('platform'),
+    fxBufferPercent: n('fxBuffer'),
+    defaultSplitPercent: n('split'),
+    requireRecipientConfirmation: require,
+  };
+  // The API's own bounds (fulfilmentRulesSchema in @luvngift/shared), not a copy.
+  const valid = !blank && fulfilmentRulesSchema.safeParse(payload).success;
 
   const field = (key: string, label: string, hint: string) => (
     <div className="space-y-2">
@@ -88,14 +92,7 @@ export function FulfilmentRulesCard() {
             <Button
               disabled={save.isPending || !valid}
               onClick={() =>
-                save.mutate({
-                  defaultAgentFeeNgn: Math.round(n('agentFee') * 100),
-                  defaultDeliveryFeeNgn: Math.round(n('deliveryFee') * 100),
-                  defaultPlatformPercent: n('platform'),
-                  fxBufferPercent: n('fxBuffer'),
-                  defaultSplitPercent: n('split'),
-                  requireRecipientConfirmation: require,
-                })
+                save.mutate(payload)
               }
             >
               {save.isPending ? 'Saving...' : 'Save fulfilment settings'}

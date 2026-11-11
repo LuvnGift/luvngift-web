@@ -7,9 +7,10 @@ import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { useRepriceBaskets, type BasketRepriceReport } from '@/hooks/use-admin';
+import { formatMoney } from '@luvngift/shared';
 
-const SYMBOLS: Record<string, string> = { CAD: 'CA$', USD: 'US$', GBP: '£' };
-const money = (cents: number, currency: string) => `${SYMBOLS[currency] ?? currency}${(cents / 100).toFixed(2)}`;
+// Every price is written one way, everywhere (formatMoney in @luvngift/shared).
+const money = formatMoney;
 const day = (iso: string) => new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 
 /**

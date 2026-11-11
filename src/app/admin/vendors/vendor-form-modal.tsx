@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Spinner } from '@/components/ui/spinner';
 import { useCreateVendor, useUpdateVendor, VendorInput } from '@/hooks/use-admin';
 import type { Vendor } from '@luvngift/shared';
-import { NIGERIAN_STATES } from '@/lib/nigerian-states';
+import { NIGERIAN_STATES } from '@luvngift/shared';
 
 const BUSINESS_TYPES = [
   { value: 'RETAIL', label: 'Retail — supplies goods / products' },

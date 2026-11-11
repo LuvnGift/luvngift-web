@@ -5,13 +5,21 @@
  * the gift, the recipient's address and an advance of our money on their own,
  * so we vet them before approval: ID, a guarantor, two references.
  *
- * Mirrors the AGENT rules in the API's vendors.routes (applyVendorSchema).
+ * The rules are the API's own (applyPartnerSchema and its parts in
+ * @luvngift/shared); this only says which field is missing, as you type.
  */
 
 import { ShieldCheck } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { NIGERIAN_STATES } from '@/lib/nigerian-states';
+import {
+  NIGERIAN_STATES,
+  PARTNER_ID_DOCUMENT_MAX_BYTES,
+  PARTNER_ID_NUMBER_RE,
+  REQUIRED_REFERENCES,
+  partnerPersonSchema,
+  type PARTNER_ID_TYPES,
+} from '@luvngift/shared';
 import type { PartnerRole } from '@/hooks/use-vendor-apply';
 
 export interface Person {
@@ -21,7 +29,7 @@ export interface Person {
 }
 
 export interface AgentDetails {
-  idType: '' | 'NIN' | 'PASSPORT' | 'DRIVERS_LICENCE' | 'VOTERS_CARD';
+  idType: '' | (typeof PARTNER_ID_TYPES)[number];
   idNumber: string;
   idDocument: File | null;
   guarantor: Person;
@@ -57,20 +65,21 @@ const ROLE_OPTIONS: { value: PartnerRole; label: string }[] = [
   { value: 'DELIVERY', label: 'Deliver' },
 ];
 
-const PHONE_RE = /^\+?[\d\s\-(). ]{7,20}$/;
-const MAX_ID_BYTES = 5 * 1024 * 1024;
+const MAX_ID_BYTES = PARTNER_ID_DOCUMENT_MAX_BYTES;
 
-const personOk = (p: Person) => p.name.trim().length >= 2 && PHONE_RE.test(p.phone.trim()) && p.relationship.trim().length >= 2;
+const personOk = (p: Person) => partnerPersonSchema.safeParse(p).success;
 
 /** Field → message. Empty = ready to submit. */
 export function agentErrors(a: AgentDetails): Record<string, string> {
   const e: Record<string, string> = {};
   if (!a.idType) e.idType = 'Choose the type of ID';
-  if (!/^[A-Za-z0-9-]{6,20}$/.test(a.idNumber.trim())) e.idNumber = 'Enter the ID number as printed';
+  if (!PARTNER_ID_NUMBER_RE.test(a.idNumber.trim())) e.idNumber = 'Enter the ID number as printed';
   if (!a.idDocument) e.idDocument = 'Attach a photo or scan of your ID';
   else if (a.idDocument.size > MAX_ID_BYTES) e.idDocument = 'The file must be 5MB or smaller';
   if (!personOk(a.guarantor)) e.guarantor = 'Give your guarantor’s name, phone and how you know them';
-  if (!a.references.every(personOk)) e.references = 'Give two references, each with name, phone and how you know them';
+  if (a.references.length !== REQUIRED_REFERENCES || !a.references.every(personOk)) {
+    e.references = `Give ${REQUIRED_REFERENCES} references, each with name, phone and how you know them`;
+  }
   if (a.transport.trim().length < 2) e.transport = 'Tell us how you get around';
   if (!a.states.length || !a.roles.length) e.coverage = 'Choose at least one state and one thing you can do';
   return e;

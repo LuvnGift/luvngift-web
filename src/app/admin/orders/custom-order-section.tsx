@@ -15,15 +15,17 @@ import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
 import { fieldErrors, quoteFormSchema, toMinorUnits } from '@/lib/admin-schemas';
+import { ADMIN_STAGE } from '@/lib/custom-orders';
 import {
-  ADMIN_STAGE,
   MESSAGE_MAX,
+  QUOTABLE_STATUSES,
+  customOrderStatusBlock as sharedStatusBlock,
   formatMoney,
   taxOn,
   type CustomOrderQuote,
   type OrderConversation,
   type QuoteStatus,
-} from '@/lib/custom-orders';
+} from '@luvngift/shared';
 
 /**
  * Ops' side of a custom gift request: clarify with the customer, then quote.
@@ -46,9 +48,8 @@ interface Props {
   onChangeStatus?: (status: string) => void;
 }
 
-// Mirrors the API. DECLINED is included: a decline keeps the request open so a
-// new quote can win the customer back; cancelling is a separate admin action.
-const QUOTABLE: QuoteStatus[] = ['AWAITING_QUOTE', 'QUOTED', 'CHANGES_REQUESTED', 'DECLINED'];
+// Where a (new) quote can be sent from: the API's own list (@luvngift/shared).
+const QUOTABLE: readonly QuoteStatus[] = QUOTABLE_STATUSES;
 
 export function CustomOrderSection({ order, onChangeStatus }: Props) {
   const { data: conversation, isLoading } = useAdminOrderConversation(order.id);
@@ -132,40 +133,14 @@ function quoteFormTitle(conversation: OrderConversation, replacing: boolean): st
   return conversation.quotes.length ? 'Send a revised quote' : 'Send a quote';
 }
 
-/** Statuses that put a custom gift into fulfilment. */
-const FULFILMENT_STATUSES = new Set(['PROCESSING', 'SHIPPED', 'DELIVERED']);
-
-/**
- * Why a custom order cannot be moved to `status`, or null if it can. Mirrors
- * the API's `assertCustomOrderStatusChange`: cancel or reopen any time, but no
- * fulfilment before the quote is accepted and paid, and no refund unpaid.
- */
+/** Why a custom order cannot be moved to `status` (the rule the API enforces, from @luvngift/shared). */
 export function customOrderStatusBlock(
   order: { quoteStatus?: QuoteStatus | null; payment?: { status: string } | null },
   status: string,
 ): string | null {
-  if (!order.quoteStatus) return null;
-  if (FULFILMENT_STATUSES.has(status)) return customOrderVendorBlock(order);
-  if (status === 'REFUNDED' && !['SUCCEEDED', 'REFUNDED'].includes(order.payment?.status ?? '')) {
-    return 'Never paid, so there is nothing to refund';
-  }
-  return null;
+  return sharedStatusBlock({ quoteStatus: order.quoteStatus, paymentStatus: order.payment?.status ?? null }, status);
 }
 
-/**
- * Why a custom order cannot go to a vendor yet, or null if it can. Mirrors the
- * API's `assertCustomOrderReadyForVendor` so the button explains itself instead
- * of failing on click.
- */
-export function customOrderVendorBlock(order: {
-  quoteStatus?: QuoteStatus | null;
-  payment?: { status: string } | null;
-}): string | null {
-  if (!order.quoteStatus) return null;
-  if (order.quoteStatus !== 'ACCEPTED') return 'Waiting for the customer to accept a quote';
-  if (order.payment?.status !== 'SUCCEEDED') return 'Quote accepted — waiting for payment';
-  return null;
-}
 
 function AdminComposer({ orderId }: { orderId: string }) {
   const send = useAdminSendOrderMessage(orderId);

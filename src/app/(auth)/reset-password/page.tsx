@@ -12,9 +12,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Spinner } from '@/components/ui/spinner';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
+import { passwordSchema } from '@luvngift/shared';
 
 const schema = z.object({
-  password: z.string().min(8).max(100),
+  // The API's rule (passwordSchema in @luvngift/shared): a weaker one let a
+  // password through here that the API then refused.
+  password: passwordSchema,
   confirmPassword: z.string(),
 }).refine((d) => d.password === d.confirmPassword, {
   message: 'Passwords do not match',

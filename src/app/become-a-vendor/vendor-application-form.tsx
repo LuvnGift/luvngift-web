@@ -15,6 +15,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
 import { AgentFields, EMPTY_AGENT, agentErrors, agentPayload, type AgentDetails } from './agent-fields';
+import { applyPartnerSchema } from '@luvngift/shared';
+import { toast } from 'sonner';
 
 const NIGERIAN_STATES = [
   'Abia', 'Adamawa', 'Akwa Ibom', 'Anambra', 'Bauchi', 'Bayelsa', 'Benue', 'Borno',
@@ -95,19 +97,27 @@ export function VendorApplicationForm() {
     const errs = isAgent ? agentErrors(agent) : {};
     setAgentErrs(errs);
     if (Object.keys(errs).length) return;
+    const data = {
+      name: values.name,
+      contactName: `${values.firstName.trim()} ${values.lastName.trim()}`,
+      email: values.email,
+      phone: values.phone,
+      address: values.address,
+      state: values.state,
+      businessType: values.businessType,
+      notes: values.notes,
+      ...(isAgent ? agentPayload(agent) : {}),
+      agreedToTerms: true as const,
+    };
+    // The API validates with this exact schema: check before sending, so a gap
+    // between this form and the API is a clear message here, not an opaque 400.
+    const checked = applyPartnerSchema.safeParse(data);
+    if (!checked.success) {
+      toast.error(checked.error.errors[0]?.message ?? 'Please check the form');
+      return;
+    }
     try {
-      await mutateAsync({ idDocument: isAgent ? agent.idDocument : null, data: {
-        name: values.name,
-        contactName: `${values.firstName.trim()} ${values.lastName.trim()}`,
-        email: values.email,
-        phone: values.phone,
-        address: values.address,
-        state: values.state,
-        businessType: values.businessType,
-        notes: values.notes,
-        ...(isAgent ? agentPayload(agent) : {}),
-        agreedToTerms: true,
-      } });
+      await mutateAsync({ idDocument: isAgent ? agent.idDocument : null, data });
       setSubmitted(true);
     } catch {
       // error toast handled in the hook
