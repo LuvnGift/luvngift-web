@@ -30,6 +30,7 @@ import {
   type SubscriptionInterval,
   type BoxPlan,
   type SubstitutionPreference,
+  isCurated,
 } from '@/hooks/use-subscriptions';
 import { boxFill, type BoxFill } from '@/lib/box-fill';
 import { BoxPicker } from '@/components/subscriptions/box-picker';
@@ -162,10 +163,10 @@ export function SubscribeFlow() {
 
   const handleSubscribe = async () => {
     if (!addressId) return;
-    const items = Object.entries(picked).map(([customItemId, quantity]) => ({
-      customItemId,
-      quantity,
-    }));
+    // A curated box is the plan's own contents: the API ignores items for it.
+    const items = isCurated(plan)
+      ? []
+      : Object.entries(picked).map(([customItemId, quantity]) => ({ customItemId, quantity }));
     try {
       const result = await createSubscription({
         planId: plan.id,
@@ -275,12 +276,14 @@ export function SubscribeFlow() {
         />
 
         <Separator />
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">Box filled</span>
-          <span className={fill.status === 'OVER' ? 'text-red-600 font-medium' : ''}>
-            {fill.percent}%
-          </span>
-        </div>
+        {!isCurated(plan) && (
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Box filled</span>
+            <span className={fill.status === 'OVER' ? 'text-red-600 font-medium' : ''}>
+              {fill.percent}%
+            </span>
+          </div>
+        )}
         <div className="flex justify-between font-semibold text-base">
           <span>Total</span>
           <span>{price ? fmt(price.amount, price.currency) : '—'}</span>
@@ -601,30 +604,38 @@ function BoxStep({
   onNext: () => void;
   submitting: boolean;
 }) {
-  const { data: items, isLoading } = useCatalogue(addressId, plan.id);
+  const curated = isCurated(plan);
+  // A curated box needs no picker, so no catalogue either.
+  const { data: items, isLoading } = useCatalogue(curated ? undefined : addressId, plan.id);
 
-  if (isLoading) return <div className="flex justify-center py-10"><Spinner /></div>;
+  if (isLoading && !curated) return <div className="flex justify-center py-10"><Spinner /></div>;
 
   return (
     <div className="space-y-5">
-      <div>
-        <h2 className="font-semibold flex items-center gap-2">
-          <PackageOpen className="h-4 w-4" /> Build the box
-        </h2>
-        <p className="text-sm text-muted-foreground mt-1">
-          Each item shows how much of the box it takes up. Fill the box to at least{' '}
-          <strong>{minFill}%</strong>, using up to <strong>{plan.slotCount}</strong> different
-          items in any quantity.
-        </p>
-      </div>
+      {curated ? (
+        <CuratedContents plan={plan} />
+      ) : (
+        <>
+          <div>
+            <h2 className="font-semibold flex items-center gap-2">
+              <PackageOpen className="h-4 w-4" /> Build the box
+            </h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              Each item shows how much of the box it takes up. Fill the box to at least{' '}
+              <strong>{minFill}%</strong>, using up to <strong>{plan.slotCount}</strong> different
+              items in any quantity.
+            </p>
+          </div>
 
-      <BoxPicker
-        items={items ?? []}
-        picked={picked}
-        onChange={setPicked}
-        slotCount={plan.slotCount}
-        minFill={minFill}
-      />
+          <BoxPicker
+            items={items ?? []}
+            picked={picked}
+            onChange={setPicked}
+            slotCount={plan.slotCount}
+            minFill={minFill}
+          />
+        </>
+      )}
 
       {/* Dietary constraints — safety, so this sits above the preference picker. */}
       <div className="rounded-lg border p-4 space-y-3">
@@ -723,10 +734,32 @@ function BoxStep({
         <Button variant="outline" onClick={onBack} disabled={submitting}>
           <ArrowLeft className="h-4 w-4 mr-1" /> Back
         </Button>
-        <Button onClick={onNext} disabled={submitting || fill.status !== 'OK'} className="flex-1">
+        <Button onClick={onNext} disabled={submitting || (!curated && fill.status !== 'OK')} className="flex-1">
           {submitting ? <><Spinner size="sm" className="mr-2" />Setting up…</> : 'Continue to payment'}
         </Button>
       </div>
+    </div>
+  );
+}
+
+/** A curated box: what arrives every delivery, nothing to choose. */
+function CuratedContents({ plan }: { plan: BoxPlan }) {
+  return (
+    <div>
+      <h2 className="font-semibold flex items-center gap-2">
+        <PackageOpen className="h-4 w-4" /> What&apos;s in the box
+      </h2>
+      <p className="text-sm text-muted-foreground mt-1">
+        We put this box together, and every delivery brings all of it.
+      </p>
+      <ul className="mt-3 divide-y rounded-lg border text-sm">
+        {(plan.contents ?? []).map((c) => (
+          <li key={c.customItem.id} className="flex justify-between gap-3 px-3 py-2">
+            <span>{c.customItem.name}</span>
+            <span className="text-muted-foreground">× {c.quantity}</span>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

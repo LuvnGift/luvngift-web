@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Plus, Pencil, Archive, RotateCcw, Trash2, Users, Calculator, AlertTriangle } from 'lucide-react';
+import { Plus, Pencil, Archive, RotateCcw, Trash2, Users, Calculator, AlertTriangle, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -16,6 +16,9 @@ import {
   useDeletePlan,
   usePlanPricingPreview,
   usePublishPlanPricing,
+  useAllCatalogueItems,
+  type PlanContentLine,
+  type PlanKind,
   type PlanInterval,
   type PlanPrice,
   type SubscriberCounts,
@@ -33,6 +36,7 @@ import {
 } from '@/lib/admin-schemas';
 import { CostStackInputs, SPLIT_HEADERS, SplitCells, StackSummary } from '@/components/admin/cost-stack';
 import { PriceChangesSection } from './price-changes-section';
+import { ContentsEditor, ContentsDialog, contentsCost } from './curated-contents';
 import { OFFERED_INTERVALS, cycleWord, cadenceLabel } from '@/lib/cadence';
 
 const SYMBOLS: Record<string, string> = { CAD: 'CA$', USD: 'US$', GBP: '£' };
@@ -47,6 +51,11 @@ interface Plan {
   name: string;
   slug: string;
   description: string;
+  /** CURATED: admin sets the box. ALLOWANCE: subscribers fill one (closed to new plans). */
+  kind: PlanKind;
+  contents: { customItemId: string; quantity: number; customItem: { name: string; isActive: boolean } }[];
+  /** A curated box at TODAY's catalogue cost; differs from boxAllowanceNgn once costs move. */
+  contentsCostNgn: number | null;
   slotCount: number;
   sortOrder: number;
   isActive: boolean;
@@ -88,6 +97,19 @@ const pricingOf = (plan: Plan): PlanPricingFormValues => ({
 
 const isStack = (plan: Plan) => plan.boxAllowanceNgn !== null && plan.platformBps != null;
 
+/** A curated plan's details carry no slot count: it has one slot per item. */
+const curatedFormSchema = planFormSchema.omit({ slotCount: true });
+
+/** The pricing form with its goods line set from a curated box's catalogue cost. */
+const withGoods = (v: PlanPricingFormValues, kobo: number | null): PlanPricingFormValues => ({
+  ...v,
+  sourcingMajor: kobo ? String(kobo / 100) : '',
+});
+
+/** The box has drifted from what its prices were built on. */
+const contentsDrifted = (plan: Plan) =>
+  plan.kind === 'CURATED' && plan.contentsCostNgn !== null && plan.contentsCostNgn !== plan.boxAllowanceNgn;
+
 export default function AdminSubscriptionPlansPage() {
   const { data, isLoading } = useAdminPlans();
   const deletePlan = useDeletePlan();
@@ -95,6 +117,7 @@ export default function AdminSubscriptionPlansPage() {
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<Plan | null>(null);
   const [pricing, setPricing] = useState<Plan | null>(null);
+  const [contents, setContents] = useState<Plan | null>(null);
 
   const plans: Plan[] = data?.data ?? [];
   const rules: SubscriptionRules | undefined = data?.rules;
@@ -123,8 +146,9 @@ export default function AdminSubscriptionPlansPage() {
         <div>
           <h1 className="text-2xl font-bold">Subscription plans</h1>
           <p className="text-muted-foreground text-sm max-w-2xl">
-            Set what one delivery&apos;s goods cost in naira, what the agent and delivery partner are
-            paid, and the platform&apos;s share. The US$, CA$ and £ prices are worked out at
+            A curated plan delivers the same box every time, chosen from the catalogue. Its goods
+            cost is what those items cost in the catalogue; add what the agent and delivery partner
+            are paid and the platform&apos;s share. The US$, CA$ and £ prices are worked out at
             today&apos;s exchange rate when you publish, and stay fixed until you publish again.
             Subscribers see one all-in price.
           </p>
@@ -152,6 +176,7 @@ export default function AdminSubscriptionPlansPage() {
               rules={rules}
               onEdit={() => setEditing(plan)}
               onPricing={() => setPricing(plan)}
+              onContents={() => setContents(plan)}
               onRetire={() => handleRetire(plan)}
               onReinstate={() => handleReinstate(plan)}
               onDelete={() => handleDelete(plan)}
@@ -163,6 +188,7 @@ export default function AdminSubscriptionPlansPage() {
       {creating && <CreatePlanDialog onClose={() => setCreating(false)} />}
       {editing && <EditDetailsDialog plan={editing} onClose={() => setEditing(null)} />}
       {pricing && <PricingDialog plan={pricing} onClose={() => setPricing(null)} />}
+      {contents && <ContentsDialog plan={contents} onClose={() => setContents(null)} />}
     </div>
   );
 }
@@ -174,6 +200,7 @@ function PlanCard({
   rules,
   onEdit,
   onPricing,
+  onContents,
   onRetire,
   onReinstate,
   onDelete,
@@ -182,6 +209,7 @@ function PlanCard({
   rules?: SubscriptionRules;
   onEdit: () => void;
   onPricing: () => void;
+  onContents: () => void;
   onRetire: () => void;
   onReinstate: () => void;
   onDelete: () => void;
@@ -195,10 +223,30 @@ function PlanCard({
           <p className="font-medium flex items-center gap-2 flex-wrap">
             {plan.name}
             {!plan.isActive && <Badge tone="gray">Retired: closed to new sign-ups</Badge>}
-            <Badge tone="blue">{plan.slotCount} slot{plan.slotCount === 1 ? '' : 's'}</Badge>
+            {plan.kind === 'CURATED' ? (
+              <Badge tone="blue">Curated box</Badge>
+            ) : (
+              <Badge tone="gray">Fill-your-own · {plan.slotCount} slot{plan.slotCount === 1 ? '' : 's'}</Badge>
+            )}
             {!priced && <Badge tone="red">Not priced: hidden from subscribers</Badge>}
           </p>
           <p className="text-sm text-muted-foreground mt-1">{plan.description}</p>
+          {plan.kind === 'CURATED' && (
+            <p className="text-xs mt-2">
+              {plan.contents.map((c) => (
+                <span key={c.customItemId} className={c.customItem.isActive ? '' : 'text-red-700'}>
+                  {c.quantity} × {c.customItem.name}{c.customItem.isActive ? '' : ' (inactive)'}
+                </span>
+              )).reduce<React.ReactNode[]>((acc, el, i) => (i ? [...acc, ' · ', el] : [el]), [])}
+            </p>
+          )}
+          {contentsDrifted(plan) && (
+            <p className="mt-2 flex gap-1.5 text-xs text-amber-800">
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+              The box now costs {naira(plan.contentsCostNgn!)} in the catalogue; its prices were built on{' '}
+              {plan.boxAllowanceNgn !== null ? naira(plan.boxAllowanceNgn) : 'nothing yet'}. Republish from Pricing.
+            </p>
+          )}
           {priced && (
             <p className="text-xs text-muted-foreground mt-2">
               Goods <strong className="text-foreground">{naira(plan.boxAllowanceNgn!)}</strong> per delivery
@@ -217,6 +265,11 @@ function PlanCard({
           <SubscriberLine planId={plan.id} counts={plan.subscriberCounts} />
         </div>
         <div className="flex items-center gap-1 shrink-0">
+          {plan.kind === 'CURATED' && (
+            <Button size="sm" variant="outline" className="h-8" onClick={onContents}>
+              <Package className="h-3.5 w-3.5 mr-1" /> Box
+            </Button>
+          )}
           <Button size="sm" variant="outline" className="h-8" onClick={onPricing}>
             <Calculator className="h-3.5 w-3.5 mr-1" /> Pricing
           </Button>
@@ -330,23 +383,32 @@ function Badge({ tone, children }: { tone: 'gray' | 'blue' | 'red'; children: Re
 
 // ─── Dialogs ──────────────────────────────────────────────────────────────────
 
+/** New plans are curated: fill-your-own (allowance) plans are closed to new sign-ups. */
 function CreatePlanDialog({ onClose }: { onClose: () => void }) {
   const create = useCreatePlan();
+  const { data: catalogue = [] } = useAllCatalogueItems();
   const [details, setDetails] = useState<DetailsForm>(EMPTY_DETAILS);
+  const [contents, setContents] = useState<PlanContentLine[]>([]);
   const [pricing, setPricing] = useState<PlanPricingFormValues>(EMPTY_PRICING);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const preview = usePreviewState();
+  const preview = usePreviewState(undefined, contents);
+  const effective = withGoods(pricing, contentsCost(contents, catalogue));
 
   const handleCreate = async () => {
-    const d = planFormSchema.safeParse(details);
-    const p = planPricingFormSchema.safeParse(pricing);
-    if (!d.success || !p.success) {
-      setErrors({ ...(d.success ? {} : fieldErrors(d.error)), ...(p.success ? {} : fieldErrors(p.error)) });
+    const d = curatedFormSchema.safeParse(details);
+    const p = planPricingFormSchema.safeParse(effective);
+    const contentsError = contents.length ? null : 'Choose what the box holds';
+    if (!d.success || !p.success || contentsError) {
+      setErrors({
+        ...(d.success ? {} : fieldErrors(d.error)),
+        ...(p.success ? {} : fieldErrors(p.error)),
+        ...(contentsError ? { contents: contentsError } : {}),
+      });
       return;
     }
     setErrors({});
     try {
-      await create.mutateAsync({ ...d.data, ...toPricingInput(p.data) });
+      await create.mutateAsync({ ...d.data, kind: 'CURATED', contents, ...toPricingInput(p.data) });
       onClose();
     } catch {
       // surfaced by the hook
@@ -357,14 +419,18 @@ function CreatePlanDialog({ onClose }: { onClose: () => void }) {
     <Dialog open onOpenChange={(o) => { if (!o && !create.isPending) onClose(); }}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>New subscription plan</DialogTitle>
+          <DialogTitle>New curated plan</DialogTitle>
+          <DialogDescription>
+            The same box every delivery. Its price is built from what the items cost in the catalogue.
+          </DialogDescription>
         </DialogHeader>
         <div className="space-y-5">
-          <DetailsFields value={details} onChange={setDetails} errors={errors} />
-          <PricingFields value={pricing} onChange={setPricing} errors={errors} />
-          <PreviewBlock pricing={pricing} state={preview} setErrors={setErrors} />
+          <DetailsFields value={details} onChange={setDetails} errors={errors} curated />
+          <ContentsEditor value={contents} onChange={setContents} error={errors.contents} />
+          <PricingFields value={effective} onChange={setPricing} errors={errors} curated />
+          <PreviewBlock pricing={effective} state={preview} setErrors={setErrors} />
           <div className="flex gap-2 pt-1">
-            <Button onClick={handleCreate} disabled={create.isPending || !preview.isFresh(pricing)}>
+            <Button onClick={handleCreate} disabled={create.isPending || !preview.isFresh(effective)}>
               {create.isPending ? <><Spinner size="sm" className="mr-2" />Creating…</> : 'Create plan'}
             </Button>
             <Button variant="ghost" onClick={onClose} disabled={create.isPending}>Cancel</Button>
@@ -390,8 +456,9 @@ function EditDetailsDialog({ plan, onClose }: { plan: Plan; onClose: () => void 
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  const curated = plan.kind === 'CURATED';
   const handleSave = async () => {
-    const d = planFormSchema.safeParse(details);
+    const d = (curated ? curatedFormSchema : planFormSchema).safeParse(details);
     if (!d.success) return setErrors(fieldErrors(d.error));
     try {
       await update.mutateAsync({ id: plan.id, ...d.data });
@@ -408,7 +475,7 @@ function EditDetailsDialog({ plan, onClose }: { plan: Plan; onClose: () => void 
           <DialogTitle>Edit plan</DialogTitle>
           <DialogDescription>Prices are changed from Pricing, not here.</DialogDescription>
         </DialogHeader>
-        <DetailsFields value={details} onChange={setDetails} errors={errors} />
+        <DetailsFields value={details} onChange={setDetails} errors={errors} curated={curated} />
         <div className="flex gap-2 pt-2">
           <Button onClick={handleSave} disabled={update.isPending}>
             {update.isPending ? <><Spinner size="sm" className="mr-2" />Saving…</> : 'Save changes'}
@@ -422,7 +489,10 @@ function EditDetailsDialog({ plan, onClose }: { plan: Plan; onClose: () => void 
 
 function PricingDialog({ plan, onClose }: { plan: Plan; onClose: () => void }) {
   const publish = usePublishPlanPricing();
-  const [pricing, setPricing] = useState<PlanPricingFormValues>(pricingOf(plan));
+  const curated = plan.kind === 'CURATED';
+  const [form, setPricing] = useState<PlanPricingFormValues>(pricingOf(plan));
+  // A curated plan is always priced on its box at today's catalogue cost (the API does the same).
+  const pricing = curated ? withGoods(form, plan.contentsCostNgn) : form;
   const [errors, setErrors] = useState<Record<string, string>>({});
   const preview = usePreviewState(plan.id);
   const increases = preview.data?.lines.some((l) => l.change === 'INCREASE');
@@ -450,7 +520,12 @@ function PricingDialog({ plan, onClose }: { plan: Plan; onClose: () => void }) {
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-5">
-          <PricingFields value={pricing} onChange={setPricing} errors={errors} />
+          {curated && plan.contentsCostNgn === null && (
+            <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">
+              An item in this box is inactive or has no naira cost. Change the box before repricing.
+            </p>
+          )}
+          <PricingFields value={pricing} onChange={setPricing} errors={errors} curated={curated} />
           <PreviewBlock pricing={pricing} state={preview} setErrors={setErrors} />
           {increases && preview.isFresh(pricing) && (
             <p className="flex gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
@@ -476,10 +551,12 @@ function DetailsFields({
   value,
   onChange,
   errors,
+  curated = false,
 }: {
   value: DetailsForm;
   onChange: (v: DetailsForm) => void;
   errors: Record<string, string>;
+  curated?: boolean;
 }) {
   return (
     <div className="space-y-4">
@@ -494,13 +571,13 @@ function DetailsFields({
         <FieldError message={errors.description} />
       </div>
       <div className="grid sm:grid-cols-2 gap-3">
-        <div className="space-y-1.5">
+        {!curated && <div className="space-y-1.5">
           <Label htmlFor="slotCount">Item slots</Label>
           {/* Raw string: a cleared input must fail by name, not save as 0. */}
           <Input id="slotCount" type="number" min={1} aria-invalid={!!errors.slotCount} value={value.slotCount} onChange={(e) => onChange({ ...value, slotCount: e.target.value })} />
           <FieldError message={errors.slotCount} />
           <p className="text-xs text-muted-foreground">The most different items a box may hold.</p>
-        </div>
+        </div>}
         <div className="space-y-1.5">
           <Label htmlFor="sortOrder">Sort order</Label>
           <Input id="sortOrder" type="number" min={0} aria-invalid={!!errors.sortOrder} value={value.sortOrder} onChange={(e) => onChange({ ...value, sortOrder: e.target.value })} />
@@ -519,10 +596,12 @@ function PricingFields({
   value,
   onChange,
   errors,
+  curated = false,
 }: {
   value: PlanPricingFormValues;
   onChange: (v: PlanPricingFormValues) => void;
   errors: Record<string, string>;
+  curated?: boolean;
 }) {
   const toggleInterval = (i: PlanInterval) =>
     onChange({
@@ -536,8 +615,13 @@ function PricingFields({
         value={value}
         onChange={onChange}
         errors={errors}
-        goodsLabel="Box allowance (₦ per delivery)"
-        goodsHint="What the box's groceries cost to buy. Subscribers fill it from the catalogue."
+        goodsLabel={curated ? 'Goods (₦ per delivery)' : 'Box allowance (₦ per delivery)'}
+        goodsHint={
+          curated
+            ? "The box's catalogue cost. Change the items or their catalogue costs to change it."
+            : "What the box's groceries cost to buy. Subscribers fill it from the catalogue."
+        }
+        goodsReadOnly={curated}
         idPrefix="plan"
       />
       <div className="flex gap-4 text-sm">
@@ -567,10 +651,11 @@ function PricingFields({
  * the inputs still match what was previewed, so what admin saw is what goes
  * live (the API re-reads the rate at publish, which is the same feed).
  */
-function usePreviewState(planId?: string) {
+function usePreviewState(planId?: string, contents?: PlanContentLine[]) {
   const mutation = usePlanPricingPreview();
   const [previewedFor, setPreviewedFor] = useState<string | null>(null);
-  const keyOf = (v: PlanPricingFormValues) => JSON.stringify(v);
+  // The contents are part of what was previewed: changing the box makes it stale.
+  const keyOf = (v: PlanPricingFormValues) => JSON.stringify([v, contents ?? null]);
   return {
     data: mutation.data,
     isPending: mutation.isPending,
@@ -580,7 +665,7 @@ function usePreviewState(planId?: string) {
       previewedFor === keyOf(v) && !!mutation.data && mutation.data.problems.length === 0,
     run: (v: PlanPricingFormValues) => {
       setPreviewedFor(keyOf(v));
-      mutation.mutate({ planId, ...toPricingInput(v) });
+      mutation.mutate({ planId, ...toPricingInput(v), ...(contents ? { contents } : {}) });
     },
   };
 }
@@ -621,7 +706,7 @@ function PreviewTable({ preview }: { preview: PricingPreview }) {
     <div className="space-y-2 text-sm">
       <StackSummary quote={preview} />
       <p className="text-xs text-muted-foreground">
-        Local prices use CA${rates.CAD} and £{rates.GBP} per US$. The goods line is the box allowance:
+        Local prices use CA${rates.CAD} and £{rates.GBP} per US$. Goods {naira(preview.goodsNgn)}:
         each cycle&apos;s partner line is what that box actually costs.
       </p>
       {preview.problems.map((p) => (

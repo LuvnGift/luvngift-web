@@ -34,7 +34,25 @@ export type {
  */
 export type SubscriptionInterval = Interval;
 export type SubscriptionPrice = Omit<SharedSubscriptionPrice, 'interval'> & { interval: Interval };
-export type SubscriptionPlan = Omit<SharedSubscriptionPlan, 'prices'> & { prices: SubscriptionPrice[] };
+/** One line of a curated box, as the public may see it (no naira cost). */
+export interface PlanContent {
+  quantity: number;
+  customItem: { id: string; name: string; description?: string | null; category: string; availableStates: string[] };
+}
+
+/**
+ * `kind` and `contents` came with curated plans (2026-11-11) and are not in
+ * the shared package yet. CURATED: the box is set by us and delivered as is.
+ * ALLOWANCE (or missing, from an older API): the subscriber fills the box.
+ */
+export type SubscriptionPlan = Omit<SharedSubscriptionPlan, 'prices'> & {
+  prices: SubscriptionPrice[];
+  kind?: 'ALLOWANCE' | 'CURATED';
+  contents?: PlanContent[];
+};
+
+/** Takes any plan shape: the subscriber view's plan is still the shared type, which has no `kind`. */
+export const isCurated = (plan?: object | null) => (plan as { kind?: string } | null)?.kind === 'CURATED';
 
 /** One delivery of a subscription, as its subscriber may see it. */
 export interface SubscriptionDelivery {

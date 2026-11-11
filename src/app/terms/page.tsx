@@ -166,13 +166,18 @@ export default function TermsPage() {
           applies to your subscription. You can cancel before then if you do not want to continue.
         </li>
         <li>
-          <strong>What is in the box:</strong> you choose the items. Each item shows how much of
-          your box it fills, and a box must be filled to at least the minimum shown and no more than
-          your plan covers. You can change it at any time; a change applies from the next delivery.
+          <strong>What is in the box:</strong> most plans are curated: we choose the items, and the
+          plan page lists them before you subscribe. If we change what a curated box holds, we email
+          you what changed and why, and the change applies from your next delivery. A change to the
+          box does not change your price; if your price changes, the notice below applies. On a plan
+          where you choose the items yourself, each item shows how much of your box it fills, and a
+          box must be filled to at least the minimum shown and no more than your plan covers. You
+          can change it at any time; a change applies from the next delivery.
         </li>
         <li>
-          <strong>Points:</strong> when a delivery&apos;s box is not filled to the top, you earn
-          points as a thank-you: 10 points for every full 5% of the box left unfilled. They are a
+          <strong>Points:</strong> on a plan where you choose the items, when a delivery&apos;s box
+          is not filled to the top, you earn points as a thank-you: 10 points for every full 5% of
+          the box left unfilled. A curated box always arrives complete, so it earns none. They are a
           reward, not a refund: they are not worth what was left unfilled, and they have no cash
           value. You can use them, at least 500 at a time, off a bundle at checkout or off your next
           subscription charge; what a point is worth is shown on your subscriptions page.

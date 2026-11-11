@@ -829,9 +829,22 @@ export type PlanInterval = Interval;
 export type PricedCurrency = 'USD' | 'CAD' | 'GBP';
 
 /** How a plan is priced. Prices are derived from these, never entered. */
+/** One line of a curated box: a catalogue item and how many. */
+export interface PlanContentLine {
+  customItemId: string;
+  quantity: number;
+}
+
+export type PlanKind = 'ALLOWANCE' | 'CURATED';
+
 export interface PlanPricingInput {
-  /** Goods amount per delivery (the box allowance), in kobo. */
-  boxAllowanceNgn: number;
+  /** Goods amount per delivery (the box allowance), in kobo. Allowance plans only. */
+  boxAllowanceNgn?: number;
+  /**
+   * A curated plan not yet created: priced from these items. A saved curated
+   * plan is always priced from its stored contents, so this is ignored there.
+   */
+  contents?: PlanContentLine[];
   agentFeeNgn: number;
   deliveryFeeNgn: number;
   /** e.g. 25.5 = 25.5%. */
@@ -842,13 +855,14 @@ export interface PlanPricingInput {
 export interface PlanDetailsInput {
   name: string;
   description: string;
-  slotCount: number;
+  /** Allowance plans only: a curated plan has one slot per item. */
+  slotCount?: number;
   image?: string;
   sortOrder?: number;
   isActive?: boolean;
 }
 
-export type PlanInput = PlanDetailsInput & PlanPricingInput;
+export type PlanInput = PlanDetailsInput & PlanPricingInput & { kind?: PlanKind };
 
 export interface PlanPrice {
   id: string;
@@ -872,7 +886,40 @@ export interface PricingPreview extends StackQuote {
     change: 'NEW' | 'INCREASE' | 'DECREASE' | 'SAME';
     split: StackSplit;
   }[];
+  /** The goods line the prices were built on, in kobo (a curated box: its catalogue cost). */
+  goodsNgn: number;
 }
+
+/** What PUT /admin/subscription-plans/:id/contents reports back. */
+export interface PlanContentsResult {
+  contentsCostNgn: number;
+  publishedGoodsNgn: number | null;
+  needsRepublish: boolean;
+  applied: number;
+  overridden: string[];
+  undeliverableStates: string[];
+}
+
+/**
+ * Changes what a curated plan delivers. Every live subscriber's box changes
+ * with it and each is emailed the reason; the price does not change.
+ */
+export const useSetPlanContents = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ planId, ...body }: { planId: string; contents: PlanContentLine[]; reason: string }) =>
+      api
+        .put(`/api/v1/admin/subscription-plans/${planId}/contents`, body)
+        .then((r) => r.data.data as PlanContentsResult),
+    onSuccess: ({ applied }) => {
+      qc.invalidateQueries({ queryKey: ['admin', 'subscription-plans'] });
+      qc.invalidateQueries({ queryKey: ['subscriptions', 'plans'] });
+      toast.success(`Box updated for ${applied} subscriber${applied === 1 ? '' : 's'}; each has been emailed.`);
+    },
+    onError: (err: any) =>
+      toast.error(err?.response?.data?.error?.message ?? 'Could not change the box'),
+  });
+};
 
 export const useAdminPlans = (page = 1, limit = 50) =>
   useQuery({
@@ -1161,6 +1208,10 @@ export interface AdminSubscriptionBox {
     id: string;
     status: string;
     planName: string;
+    /** CURATED: an edit gives this subscriber a box of their own. */
+    planKind?: 'ALLOWANCE' | 'CURATED';
+    /** Set once a curated subscriber has their own box; plan changes no longer reach it. */
+    boxOverriddenAt?: string | null;
     slotCount: number;
     recipientState: string;
     dietaryFlags: string[];
@@ -1338,6 +1389,38 @@ export const useAdminCatalogueItems = (page = 1, limit = 50) =>
     queryKey: ['admin', 'catalogue-items', page, limit],
     queryFn: () =>
       api.get('/api/v1/admin/catalogue-items', { params: { page, limit } }).then((r) => r.data.data),
+  });
+
+/** A catalogue row as admin sees it, with its naira cost. */
+export interface AdminCatalogueItem {
+  id: string;
+  name: string;
+  category: string;
+  price: number;
+  currency: string;
+  isActive: boolean;
+  availableStates: string[];
+}
+
+/**
+ * Every catalogue item, for picking a curated box. The list endpoint caps a
+ * page at 100, so this walks the pages rather than silently showing only the
+ * first hundred.
+ */
+export const useAllCatalogueItems = () =>
+  useQuery<AdminCatalogueItem[]>({
+    queryKey: ['admin', 'catalogue-items', 'all'],
+    queryFn: async () => {
+      const all: AdminCatalogueItem[] = [];
+      for (let page = 1; page <= 50; page++) {
+        const { data, meta } = (
+          await api.get('/api/v1/admin/catalogue-items', { params: { page, limit: 100 } })
+        ).data.data;
+        all.push(...data);
+        if (page >= meta.totalPages) break;
+      }
+      return all;
+    },
   });
 
 export const useCreateCatalogueItem = () => {

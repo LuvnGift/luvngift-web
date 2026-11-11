@@ -29,6 +29,7 @@ import {
   type SubscriptionDelivery,
   type SubscriptionStatus,
   type SubstitutionPreference,
+  isCurated,
 } from '@/hooks/use-subscriptions';
 import { DietaryEditor } from './dietary-editor';
 import { BoxEditor } from './box-editor';
@@ -162,7 +163,9 @@ The ${formatPoints(earned)} points you earned on it will be removed when it ends
 
       {scheduled && !sub.cancelAtPeriodEnd && (
         <p className="mt-3 rounded-md bg-blue-50 border border-blue-200 px-3 py-2 text-xs text-blue-900">
-          Nothing has been charged yet. You can change the box now, or cancel at no cost before the first charge.
+          {isCurated(sub.plan)
+            ? 'Nothing has been charged yet. You can cancel at no cost before the first charge.'
+            : 'Nothing has been charged yet. You can change the box now, or cancel at no cost before the first charge.'}
           We&apos;ll email you a reminder a few days before.
         </p>
       )}
@@ -184,7 +187,8 @@ The ${formatPoints(earned)} points you earned on it will be removed when it ends
           them before your next delivery so we know what to send.
         </p>
       )}
-      {!ended && <BoxEditor sub={sub} />}
+      {/* A curated box is set by us: there is nothing for the subscriber to edit. */}
+      {!ended && !isCurated(sub.plan) && <BoxEditor sub={sub} />}
 
       <DietaryEditor sub={sub} readOnly={ended} />
 
