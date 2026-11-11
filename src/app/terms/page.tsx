@@ -83,7 +83,9 @@ export default function TermsPage() {
         </li>
         <li>
           Delivery within Nigeria is included in the price. There are no separate delivery or
-          service fees.
+          service fees. The one fee we may charge is an administration fee if you cancel a
+          subscription paid for the year part-way through, taken from your refund as our{' '}
+          <Link href="/refund-policy">Refund Policy</Link> (section 6) explains.
         </li>
         <li>
           We do not add sales tax. What you buy is delivered to your recipient in Nigeria, so
@@ -155,6 +157,19 @@ export default function TermsPage() {
               cycle is still delivered, and you will not be charged again.
             </li>
           </ul>
+        </li>
+        <li>
+          <strong>Paying for the year:</strong> on curated and basket plans you can pay for a year
+          of deliveries at once, at the annual discount shown before you subscribe. How often
+          deliveries come stays as you chose. The year renews, and is charged again, at the end of
+          it unless you cancel. A plan paid for the year cannot be paused; skipping a delivery moves
+          it one cycle later, and the year still brings the same number of deliveries. Cancelling
+          part-way ends the plan straight away and refunds the deliveries not yet made, less an
+          administration fee and the discount on the deliveries already made, as set out in our{' '}
+          <Link href="/refund-policy">Refund Policy</Link> (section 6). A price change reaches a
+          plan paid for the year at its next renewal, with the notice below. A basket paid for the
+          year can be changed during it for one costing no more than the basket last agreed; a new
+          price for it applies from the renewal.
         </li>
         <li>
           <strong>Failed payments:</strong> if a charge fails, we will tell you and retry it for up

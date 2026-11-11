@@ -100,6 +100,26 @@ export default function RefundPolicyPage() {
           still delivered, so it is not refunded.
         </li>
         <li>
+          <strong>Plans paid for the year.</strong> If you pay for a year of deliveries at once, at
+          the annual discount, and cancel part-way through, your plan ends straight away and we
+          refund the deliveries not yet made, less two amounts:
+          <ul>
+            <li>an administration fee of 10% of the value of those undelivered deliveries; and</li>
+            <li>
+              the annual discount on the deliveries already made, because you received them at the
+              discounted price on the understanding that you would take the full year.
+            </li>
+          </ul>
+          The undelivered deliveries are valued at the price you actually paid. A delivery counts as
+          made once we have started preparing it. The refund is never less than zero, and once every
+          delivery of the year has been made there is nothing to refund. For example: a plan of
+          US$100 a delivery costs US$1,080 for 12 monthly deliveries (US$90 each). Cancel after 4
+          and the 8 not made are worth US$720; less the US$72 fee and the US$40 discount on the 4
+          made, we refund US$608. You can see the exact figure in your account before you confirm.
+          A plan paid for the year cannot be paused, but you can skip a delivery, which moves it
+          one cycle later.
+        </li>
+        <li>
           If you chose a later start date, nothing is charged until the first charge date. Cancel
           before then and there is nothing to refund, because you have not paid anything.
         </li>

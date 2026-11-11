@@ -30,6 +30,7 @@ interface Price {
   interval: Interval;
   currency: string;
   amount: number;
+  billing?: 'PER_DELIVERY' | 'ANNUAL';
 }
 
 interface Plan {
@@ -42,6 +43,8 @@ interface Plan {
   prices: Price[];
   /** CURATED: a set box. ALLOWANCE: the subscriber fills it. */
   kind?: 'ALLOWANCE' | 'CURATED' | 'BASKET';
+  /** What paying for the year saves; null when the plan is not sold by the year. */
+  annualDiscountPercent?: number | null;
   contents?: { quantity: number; customItem: { id: string; name: string } }[];
 }
 
@@ -126,9 +129,16 @@ export default async function SubscriptionsPage() {
                     {/* Client-side: the buyer's currency is unknown at prerender. */}
                     <div className="mt-4">
                       {plan.kind === 'BASKET' ? (
-                        <p className="text-sm font-medium">Priced by what you pick</p>
+                        <p className="text-sm font-medium">
+                          Priced by what you pick
+                          {plan.annualDiscountPercent ? (
+                            <span className="block text-xs font-medium text-green-700 mt-0.5">
+                              Pay for the year and save {plan.annualDiscountPercent}%
+                            </span>
+                          ) : null}
+                        </p>
                       ) : (
-                        <PlanPrice prices={plan.prices} />
+                        <PlanPrice prices={plan.prices} annualDiscountPercent={plan.annualDiscountPercent} />
                       )}
                     </div>
 

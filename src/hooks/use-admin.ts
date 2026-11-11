@@ -845,6 +845,8 @@ export interface PlanPricingInput {
    * plan is always priced from its stored contents, so this is ignored there.
    */
   contents?: PlanContentLine[];
+  /** A plan not yet created: its kind decides whether annual prices are previewed. */
+  kind?: PlanKind;
   agentFeeNgn: number;
   deliveryFeeNgn: number;
   /** e.g. 25.5 = 25.5%. */
@@ -874,6 +876,9 @@ export interface PlanPrice {
   liveMarkupBps: number | null;
   /** Cost-stack plans: the platform share it earns at today's rates. */
   livePlatformBps?: number | null;
+  /** ANNUAL: `amount` is a year of deliveries at this cadence. */
+  billing?: 'PER_DELIVERY' | 'ANNUAL';
+  discountBps?: number | null;
 }
 
 /** Mirrors PricingPreview in the API's plan-pricing.service. */
@@ -884,6 +889,8 @@ export interface PricingPreview extends StackQuote {
     amount: number;
     current: number | null;
     change: 'NEW' | 'INCREASE' | 'DECREASE' | 'SAME';
+    /** ANNUAL lines are a year of deliveries; their split is per delivery. */
+    billing?: 'PER_DELIVERY' | 'ANNUAL';
     split: StackSplit;
   }[];
   /** The goods line the prices were built on, in kobo (a curated box: its catalogue cost). */
@@ -1124,6 +1131,28 @@ export interface AdminSubscriptionDetail extends Omit<AdminSubscriptionRow, 'use
     boxWarning: string | null;
     standingVendorAssignable: boolean;
   };
+  /** Per delivery, or paid a year at a time. */
+  billing?: 'PER_DELIVERY' | 'ANNUAL';
+  /** ANNUAL: the paid years, newest first. */
+  terms?: {
+    id: string;
+    deliveries: number;
+    deliveriesMade: number;
+    nextDueAt: string | null;
+    startedAt: string;
+    amountPaid: number;
+    cancelledAt: string | null;
+    refundAmount: number | null;
+  }[];
+  /** ANNUAL: what cancelling now would refund; null once the year is fully delivered. */
+  annualCancelQuote?: {
+    feePercent: number;
+    undelivered: number;
+    undeliveredValue: number;
+    fee: number;
+    clawback: number;
+    refund: number;
+  } | null;
 }
 
 export type AdminSubscriptionAction = 'SKIP' | 'UNSKIP' | 'PAUSE' | 'RESUME' | 'CANCEL' | 'UNCANCEL';
@@ -1672,6 +1701,10 @@ export interface SubscriptionRules {
   cardFeePercent: Record<PricedCurrency, number>;
   /** Points that take 1 unit of the buyer's currency off. */
   pointsPerCurrencyUnit: number;
+  /** Off a year paid at once; out of the platform share. */
+  annualDiscountPercent: number;
+  /** On the undelivered value when an annual plan is cancelled part-way. */
+  annualCancellationFeePercent: number;
 }
 
 export const useSubscriptionRules = () =>

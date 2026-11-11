@@ -87,8 +87,45 @@ function Header({ sub }: { sub: AdminSubscriptionDetail }) {
   );
 }
 
+/** A paid year: how far through it is, and what cancelling now would refund. */
+function AnnualYear({ sub }: { sub: AdminSubscriptionDetail }) {
+  const year = sub.terms?.find((t) => !t.cancelledAt) ?? sub.terms?.[0];
+  if (!year) return <p className="text-sm text-muted-foreground">Paid for the year; the first year has not been charged yet.</p>;
+  const q = sub.annualCancelQuote;
+  const money = (c: number) => `${(c / 100).toFixed(2)} ${sub.currency}`;
+  return (
+    <div className="space-y-1 text-sm">
+      <p>
+        Paid for the year: <strong>{money(year.amountPaid)}</strong> on {shortDate(year.startedAt)}.{' '}
+        <strong>{year.deliveriesMade} of {year.deliveries}</strong> deliveries made
+        {year.nextDueAt ? <>; the next is made on <strong>{shortDate(year.nextDueAt)}</strong></> : ''}.
+        {year.cancelledAt && <> Cancelled {shortDate(year.cancelledAt)}, refunded {money(year.refundAmount ?? 0)}.</>}
+      </p>
+      {q && (
+        <p className="text-xs text-muted-foreground">
+          Cancelling now refunds <strong>{money(q.refund)}</strong>: {q.undelivered} undelivered worth {money(q.undeliveredValue)},
+          less the {q.feePercent}% fee ({money(q.fee)}) and the discount on those made ({money(q.clawback)}).
+        </p>
+      )}
+    </div>
+  );
+}
+
 function NextCycleCard({ sub }: { sub: AdminSubscriptionDetail }) {
   const { nextCycle } = sub;
+  if (sub.billing === 'ANNUAL') {
+    return (
+      <Card title="This year" icon={CalendarClock}>
+        <AnnualYear sub={sub} />
+        {nextCycle.boxWarning && (
+          <p className="text-sm text-red-700 flex gap-1.5">
+            <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+            <span>The next delivery would be held back for review: {nextCycle.boxWarning}</span>
+          </p>
+        )}
+      </Card>
+    );
+  }
   return (
     <Card title="Next delivery" icon={CalendarClock}>
       {nextCycle.billsAt ? (

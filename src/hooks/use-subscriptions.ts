@@ -33,7 +33,11 @@ export type {
  * widened here until the next package publish.
  */
 export type SubscriptionInterval = Interval;
-export type SubscriptionPrice = Omit<SharedSubscriptionPrice, 'interval'> & { interval: Interval };
+export type SubscriptionPrice = Omit<SharedSubscriptionPrice, 'interval'> & {
+  interval: Interval;
+  /** Missing on rows from before annual billing: per delivery. */
+  billing?: 'PER_DELIVERY' | 'ANNUAL';
+};
 /** One line of a curated box, as the public may see it (no naira cost). */
 export interface PlanContent {
   quantity: number;
@@ -49,7 +53,37 @@ export type SubscriptionPlan = Omit<SharedSubscriptionPlan, 'prices'> & {
   prices: SubscriptionPrice[];
   kind?: 'ALLOWANCE' | 'CURATED' | 'BASKET';
   contents?: PlanContent[];
+  /** What paying for the year saves; null when the plan is not sold by the year. */
+  annualDiscountPercent?: number | null;
+  intervals?: Interval[];
 };
+
+/** The year being delivered on an annual plan. */
+export interface SubscriptionTermSummary {
+  deliveries: number;
+  deliveriesMade: number;
+  nextDueAt: string | null;
+  startedAt: string;
+  amountPaid: number;
+}
+
+/** What cancelling an annual plan now would refund (Refund Policy § 6). */
+export interface CancelQuote {
+  currency: string;
+  feePercent: number;
+  undelivered: number;
+  undeliveredValue: number;
+  fee: number;
+  clawback: number;
+  refund: number;
+  deliveriesMade: number;
+  deliveries: number;
+  amountPaid: number;
+}
+
+/** Null for a plan paid per delivery, or a year fully delivered. */
+export const fetchCancelQuote = (id: string) =>
+  api.get(`/api/v1/subscriptions/${id}/cancel-quote`).then((r) => r.data.data as CancelQuote | null);
 
 /** A basket: the subscriber picks like a cart and pays for what is in it. */
 export const isBasket = (plan?: object | null) => (plan as { kind?: string } | null)?.kind === 'BASKET';
@@ -192,6 +226,8 @@ interface CreateSubscriptionInput {
   firstDeliveryDate?: string;
   /** A basket's price as quoted and shown; the API refuses if it moved. */
   expectedAmount?: number;
+  /** Per delivery (default), or a year at a time at the annual discount. */
+  billing?: 'PER_DELIVERY' | 'ANNUAL';
 }
 
 export interface BasketQuote {
@@ -200,6 +236,8 @@ export interface BasketQuote {
   amount: number | null;
   /** How much of the plan's maximum it uses. */
   fillPercent: number;
+  /** The same basket paid for the year, per cadence. */
+  annual: { discountPercent: number; amounts: Partial<Record<Interval, number>> } | null;
 }
 
 /**

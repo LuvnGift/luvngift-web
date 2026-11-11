@@ -357,7 +357,9 @@ function StackPriceChip({ price, plan, onSale }: { price: PlanPrice; plan: Plan;
   return (
     <span className={`rounded-md border px-2 py-1 text-xs font-medium ${slipped ? 'border-red-300 bg-red-50' : ''}`}>
       {money(price.amount, price.currency)}{' '}
-      <span className="text-muted-foreground font-normal">/ {cadence(price.interval)}</span>
+      <span className="text-muted-foreground font-normal">
+        {price.billing === 'ANNUAL' ? `/ year, delivered every ${cadence(price.interval)}` : `/ ${cadence(price.interval)}`}
+      </span>
       {!onSale && <span className="text-muted-foreground font-normal"> · existing subscribers only</span>}
       {live !== null && (
         <span className={`ml-1.5 font-normal ${slipped ? 'text-red-700 font-semibold' : 'text-muted-foreground'}`}>
@@ -412,7 +414,7 @@ function CreatePlanDialog({ onClose }: { onClose: () => void }) {
   const [contents, setContents] = useState<PlanContentLine[]>([]);
   const [pricing, setPricing] = useState<PlanPricingFormValues>(EMPTY_PRICING);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const preview = usePreviewState(undefined, basket ? undefined : contents);
+  const preview = usePreviewState(undefined, basket ? undefined : contents, kind);
   // A basket's goods line is its maximum, typed; a curated box's is its catalogue cost.
   const effective = basket ? pricing : withGoods(pricing, contentsCost(contents, catalogue));
 
@@ -697,7 +699,7 @@ function PricingFields({
  * the inputs still match what was previewed, so what admin saw is what goes
  * live (the API re-reads the rate at publish, which is the same feed).
  */
-function usePreviewState(planId?: string, contents?: PlanContentLine[]) {
+function usePreviewState(planId?: string, contents?: PlanContentLine[], kind?: PlanKind) {
   const mutation = usePlanPricingPreview();
   const [previewedFor, setPreviewedFor] = useState<string | null>(null);
   // The contents are part of what was previewed: changing the box makes it stale.
@@ -711,7 +713,7 @@ function usePreviewState(planId?: string, contents?: PlanContentLine[]) {
       previewedFor === keyOf(v) && !!mutation.data && mutation.data.problems.length === 0,
     run: (v: PlanPricingFormValues) => {
       setPreviewedFor(keyOf(v));
-      mutation.mutate({ planId, ...toPricingInput(v), ...(contents ? { contents } : {}) });
+      mutation.mutate({ planId, ...toPricingInput(v), ...(contents ? { contents } : {}), ...(kind ? { kind } : {}) });
     },
   };
 }
@@ -770,7 +772,9 @@ function PreviewTable({ preview }: { preview: PricingPreview }) {
           <tbody>
             {preview.lines.map((l) => (
               <tr key={`${l.interval}-${l.currency}`} className="border-t">
-                <td className="px-2 py-1.5 font-medium whitespace-nowrap">{money(l.amount, l.currency)} / {cadence(l.interval)}</td>
+                <td className="px-2 py-1.5 font-medium whitespace-nowrap">
+                  {money(l.amount, l.currency)} / {l.billing === 'ANNUAL' ? `year (${cadence(l.interval)})` : cadence(l.interval)}
+                </td>
                 <td className="px-2 py-1.5 whitespace-nowrap">
                   {l.change === 'NEW'
                     ? 'New'
@@ -785,8 +789,9 @@ function PreviewTable({ preview }: { preview: PricingPreview }) {
         </table>
       </div>
       <p className="text-xs text-muted-foreground">
-        Card fees are estimates from Settings → Subscription pricing. No sales tax is charged: the
-        goods are delivered in Nigeria.
+        Card fees are estimates from Settings → Subscription pricing. A year&apos;s split is per
+        delivery, after the annual discount (which comes out of the platform share). No sales tax is
+        charged: the goods are delivered in Nigeria.
       </p>
     </div>
   );
