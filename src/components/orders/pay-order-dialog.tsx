@@ -6,7 +6,7 @@ import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { useCreatePaymentIntent, useVerifyPayment } from '@/hooks/use-checkout';
 import { useOrder, useOrderConversation } from '@/hooks/use-orders';
-import { acceptedQuote } from '@/lib/custom-orders';
+import { acceptedQuote, getCurrencySymbol } from '@luvngift/shared';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Spinner } from '@/components/ui/spinner';
@@ -18,7 +18,6 @@ import type { Order } from '@luvngift/shared';
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 
-const currencySymbols: Record<string, string> = { CAD: 'CA$', USD: '$', GBP: '£', NGN: '₦' };
 
 export interface PayableOrder {
   id: string;
@@ -75,7 +74,7 @@ export function PayOrderDialog({
   }, [order?.id]);
 
   if (!order) return null;
-  const symbol = currencySymbols[order.currency] ?? order.currency;
+  const symbol = getCurrencySymbol(order.currency);
 
   return (
     <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>

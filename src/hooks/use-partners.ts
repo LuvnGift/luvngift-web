@@ -3,25 +3,20 @@
 /**
  * Admin hooks for fulfilment partners: an order's partner lines and payouts,
  * the payouts ledger, partner profiles (coverage, vetting, pay terms) and
- * Settings → Fulfilment. Mirrors luvngift-api/src/modules/partners.
+ * Settings → Fulfilment. Enums from @luvngift/shared; the API is luvngift-api/src/modules/partners.
  */
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
 
-export type FulfilmentRole = 'SOURCING' | 'AGENT' | 'DELIVERY';
-export type PayoutMode = 'ADVANCE' | 'REIMBURSE' | 'SPLIT';
-export type PayTerms = 'REVENUE_SHARE' | 'FIXED_NAIRA';
-export type VettingKind =
-  | 'ID_VERIFIED'
-  | 'GUARANTOR_CONFIRMED'
-  | 'REFERENCES_CHECKED'
-  | 'ADDRESS_VERIFIED'
-  | 'INTERVIEWED'
-  | 'TRAINED';
+import { FULFILMENT_ROLES, type FulfilmentRole, type PartnerPayTerms, type PayoutMode, type VettingKind } from '@luvngift/shared';
 
-export const ROLES: FulfilmentRole[] = ['SOURCING', 'AGENT', 'DELIVERY'];
+// The enums are the API's own (@luvngift/shared); only the labels are this app's.
+export type { FulfilmentRole, PayoutMode, VettingKind };
+export type PayTerms = PartnerPayTerms;
+
+export const ROLES: FulfilmentRole[] = [...FULFILMENT_ROLES];
 export const ROLE_LABELS: Record<FulfilmentRole, string> = {
   SOURCING: 'Goods',
   AGENT: 'Agent',

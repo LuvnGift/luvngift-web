@@ -12,9 +12,10 @@ import {
   type AdminSubscriptionDetail,
 } from '@/hooks/use-admin';
 import { shortDate } from '../labels';
+import { ADMIN_REASON_MIN } from '@luvngift/shared';
 
-/** Mirrors adminSubscriptionActionSchema in the API. */
-export const MIN_REASON = 10;
+/** The shortest reason the API accepts (adminSubscriptionActionSchema in @luvngift/shared). */
+export const MIN_REASON = ADMIN_REASON_MIN;
 
 export const ACTION_COPY: Record<AdminSubscriptionAction, { label: string; effect: (s: AdminSubscriptionDetail) => string }> = {
   SKIP: {

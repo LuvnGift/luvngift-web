@@ -16,6 +16,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Spinner } from '@/components/ui/spinner';
 import { FulfilmentRulesCard } from './fulfilment-rules-card';
+import { subscriptionRulesSchema } from '@luvngift/shared';
 
 export default function AdminSettingsPage() {
   const { data, isLoading } = useAdminExchangeRates();
@@ -203,18 +204,17 @@ function SubscriptionRulesCard() {
   }, [data]);
 
   const n = (k: string) => Number(form[k]);
-  const within = (k: string, min: number, max: number) =>
-    form[k] !== '' && Number.isFinite(n(k)) && n(k) >= min && n(k) <= max;
-  const valid =
-    within('vendorSharePercent', 50, 90) &&
-    within('marginTolerancePoints', 1, 50) &&
-    within('minFillPercent', 50, 100) &&
-    Number.isInteger(n('minFillPercent')) &&
-    within('pointsPerCurrencyUnit', 10, 10_000) &&
-    Number.isInteger(n('pointsPerCurrencyUnit')) &&
-    within('annualDiscountPercent', 0, 30) &&
-    within('annualCancellationFeePercent', 0, 25) &&
-    ['USD', 'CAD', 'GBP'].every((c) => within(c, 0, 20));
+  const rulesPayload = {
+    vendorSharePercent: n('vendorSharePercent'),
+    marginTolerancePoints: n('marginTolerancePoints'),
+    minFillPercent: n('minFillPercent'),
+    pointsPerCurrencyUnit: n('pointsPerCurrencyUnit'),
+    annualDiscountPercent: n('annualDiscountPercent'),
+    annualCancellationFeePercent: n('annualCancellationFeePercent'),
+    cardFeePercent: { USD: n('USD'), CAD: n('CAD'), GBP: n('GBP') },
+  };
+  // The API's own bounds (subscriptionRulesSchema in @luvngift/shared), not a copy.
+  const valid = Object.values(form).every((v) => v !== '') && subscriptionRulesSchema.safeParse(rulesPayload).success;
 
   const field = (key: string, label: string, hint: string) => (
     <div className="space-y-2">
@@ -276,15 +276,7 @@ function SubscriptionRulesCard() {
             <Button
               disabled={update.isPending || !valid}
               onClick={() =>
-                update.mutate({
-                  vendorSharePercent: n('vendorSharePercent'),
-                  marginTolerancePoints: n('marginTolerancePoints'),
-                  minFillPercent: n('minFillPercent'),
-                  pointsPerCurrencyUnit: n('pointsPerCurrencyUnit'),
-                  annualDiscountPercent: n('annualDiscountPercent'),
-                  annualCancellationFeePercent: n('annualCancellationFeePercent'),
-                  cardFeePercent: { USD: n('USD'), CAD: n('CAD'), GBP: n('GBP') },
-                })
+                update.mutate(rulesPayload)
               }
             >
               {update.isPending ? 'Saving...' : 'Save pricing settings'}

@@ -11,6 +11,8 @@ import {
   writeGuestChat,
   type GuestChatSession,
 } from '@/lib/guest-chat';
+import type { input } from 'zod';
+import type { escalateChatSchema } from '@luvngift/shared';
 
 /**
  * Chat works without an account.
@@ -125,13 +127,8 @@ export const useResumeGuestChat = () =>
     },
   });
 
-export interface EscalateInput {
-  sessionId: string;
-  guestKey?: string | null;
-  /** Required for guests — the API rejects the request without them. */
-  name?: string;
-  email?: string;
-}
+/** The shared escalation body, plus which session and the guest's key (sent as a header). */
+export type EscalateInput = input<typeof escalateChatSchema> & { sessionId: string; guestKey?: string | null };
 
 export const useEscalateChat = () =>
   useMutation<void, Error, EscalateInput>({

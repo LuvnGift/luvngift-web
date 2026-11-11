@@ -3,9 +3,10 @@
 import { CalendarClock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useCancelPriceChange, usePlanPriceChanges } from '@/hooks/use-admin';
-import { cycleWord } from '@/lib/cadence';
+import { cycleWord, formatMoney } from '@luvngift/shared';
 
-const money = (cents: number, currency: string) => `${(cents / 100).toFixed(2)} ${currency}`;
+// Every price is written one way, everywhere (formatMoney in @luvngift/shared).
+const money = formatMoney;
 const cycle = (interval: string) => cycleWord(interval);
 
 /**

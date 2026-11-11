@@ -6,8 +6,8 @@ import { ArrowLeft, Clock, Check } from 'lucide-react';
 import { PurchasePanel } from './purchase-panel';
 import { FaqSection } from '@/components/seo/faq-section';
 import { fetchResourceOrNull } from '@/lib/api-fetch';
-import { formatDeliveryRange } from '@/lib/delivery';
-import { CACHE_TAGS, CACHE_FALLBACK_SECONDS } from '@/lib/cache-tags';
+import { formatDeliveryRange } from '@luvngift/shared';
+import { CACHE_TAGS, CACHE_FALLBACK_SECONDS } from '@luvngift/shared';
 import type { FAQ } from '@/content/faqs';
 import type { Bundle } from '@luvngift/shared';
 

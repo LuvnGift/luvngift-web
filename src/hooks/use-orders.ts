@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import type { Order, PaginatedResponse, CreateOrderInput, CustomOrderInput } from '@luvngift/shared';
 import { toast } from 'sonner';
-import type { OrderConversation, QuoteAction } from '@/lib/custom-orders';
+import type { OrderConversation, QuoteAction } from '@luvngift/shared';
 
 export const useMyOrders = (page = 1) =>
   useQuery<PaginatedResponse<Order>>({

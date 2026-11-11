@@ -14,7 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
-import { NIGERIAN_STATES } from '@/lib/nigerian-states';
+import { NIGERIAN_STATES } from '@luvngift/shared';
 import {
   PAYOUT_MODE_LABELS,
   ROLES,

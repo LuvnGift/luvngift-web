@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { createAddressSchema } from '@luvngift/shared';
+import { createAddressSchema, formatMoney, DELIVERIES_PER_YEAR } from '@luvngift/shared';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { Check, ArrowLeft, MapPin, PackageOpen, ShieldAlert } from 'lucide-react';
@@ -18,7 +18,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { Separator } from '@/components/ui/separator';
 import { FieldError } from '@/components/ui/field-error';
 import { useAuthStore } from '@/store/auth.store';
-import { NIGERIAN_STATES } from '@/lib/nigerian-states';
+import { NIGERIAN_STATES } from '@luvngift/shared';
 import {
   usePlans,
   useAddresses,
@@ -34,15 +34,13 @@ import {
   isBasket,
   useBasketQuote,
 } from '@/hooks/use-subscriptions';
-import { boxFill, type BoxFill } from '@/lib/box-fill';
+import { boxFill, type BoxFill } from '@luvngift/shared';
 import { BoxPicker } from '@/components/subscriptions/box-picker';
 import { useUserCurrency } from '@/hooks/use-exchange-rates';
 import { pickPrice } from '@/components/subscriptions/plan-price';
-import { longDate, previewChargeDate } from '@/lib/subscription-start';
-import { OFFERED_INTERVALS, cadenceLabel, cadenceTitle, type OfferedInterval } from '@/lib/cadence';
+import { longDate, previewChargeDate } from '@luvngift/shared';
+import { OFFERED_INTERVALS, cadenceLabel, cadenceTitle, type OfferedInterval } from '@luvngift/shared';
 
-/** Deliveries a year buys at each cadence; mirrors DELIVERIES_PER_YEAR in the API's annual-terms. */
-const DELIVERIES_PER_YEAR: Record<OfferedInterval, number> = { MONTHLY: 12, BIMONTHLY: 6, QUARTERLY: 4 };
 
 /** Where a new subscriber lands: their subscriptions, with a confirmation. */
 const AFTER_SUBSCRIBE = '/account/subscriptions?subscribed=true';
@@ -74,9 +72,7 @@ const SUBSTITUTION_OPTIONS: {
   },
 ];
 
-const SYMBOLS: Record<string, string> = { CAD: 'CA$', USD: '$', GBP: '£', NGN: '₦' };
-const fmt = (cents: number, currency: string) =>
-  `${SYMBOLS[currency] ?? currency}${(cents / 100).toFixed(2)}`;
+const fmt = formatMoney;
 
 type Step = 'recipient' | 'box' | 'payment';
 

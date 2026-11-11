@@ -7,6 +7,7 @@ import { useAuthStore } from '@/store/auth.store';
 import type { UpdateProfileInput, UpdateLocationInput } from '@luvngift/shared';
 import { toast } from 'sonner';
 import { disconnectSocket } from '@/lib/socket';
+import type { DeleteAccountInput } from '@luvngift/shared';
 
 export const useUpdateProfile = () => {
   const qc = useQueryClient();
@@ -46,11 +47,7 @@ export const useSetLocation = (options?: { redirectTo?: string }) => {
   });
 };
 
-export interface DeleteAccountInput {
-  confirm: 'DELETE';
-  password?: string;
-  totpCode?: string;
-}
+export type { DeleteAccountInput } from '@luvngift/shared';
 
 /**
  * Permanently deletes the signed-in account. On success the API has already

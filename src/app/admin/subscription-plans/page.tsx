@@ -38,11 +38,10 @@ import { CostStackInputs, SPLIT_HEADERS, SplitCells, StackSummary } from '@/comp
 import { PriceChangesSection } from './price-changes-section';
 import { ContentsEditor, ContentsDialog, contentsCost } from './curated-contents';
 import { RepriceBasketsDialog } from './basket-reprice';
-import { OFFERED_INTERVALS, cycleWord, cadenceLabel } from '@/lib/cadence';
+import { OFFERED_INTERVALS, cycleWord, cadenceLabel, formatMoney } from '@luvngift/shared';
 
-const SYMBOLS: Record<string, string> = { CAD: 'CA$', USD: 'US$', GBP: '£' };
-const money = (cents: number, currency: string) =>
-  `${cents < 0 ? '−' : ''}${SYMBOLS[currency] ?? currency}${(Math.abs(cents) / 100).toFixed(2)}`;
+// Every price is written one way, everywhere (formatMoney in @luvngift/shared).
+const money = formatMoney;
 const naira = (kobo: number) => `₦${(kobo / 100).toLocaleString('en-NG')}`;
 const pct = (bps: number) => `${(bps / 100).toFixed(2).replace(/\.?0+$/, '')}%`;
 const cadence = (i: PlanInterval) => cycleWord(i);

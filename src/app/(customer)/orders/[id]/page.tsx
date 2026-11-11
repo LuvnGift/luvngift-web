@@ -6,7 +6,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { ArrowLeft, Download, MapPin, Phone, MessageSquare } from 'lucide-react';
 import { useOrder } from '@/hooks/use-orders';
 import { useDeliveryWindow } from '@/hooks/use-subscriptions';
-import { formatDeliveryDates } from '@/lib/delivery';
+import { formatDeliveryDates, getCurrencySymbol } from '@luvngift/shared';
 import { OrderStatusBadge } from '@/components/orders/order-status-badge';
 import { OrderTimeline } from '@/components/orders/order-timeline';
 import { Button } from '@/components/ui/button';
@@ -17,9 +17,8 @@ import { toast } from 'sonner';
 import { OrderStatus } from '@luvngift/shared';
 import { useOrderLive } from '@/hooks/use-order-live';
 import { CustomOrderConversation } from '@/components/orders/custom-order-conversation';
-import type { QuoteStatus } from '@/lib/custom-orders';
+import type { QuoteStatus } from '@luvngift/shared';
 
-const currencySymbols: Record<string, string> = { CAD: 'CA$', USD: '$', GBP: '£', NGN: '₦' };
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -59,7 +58,7 @@ export default function OrderDetailPage({ params }: Props) {
     );
   }
 
-  const symbol = currencySymbols[order.currency] ?? order.currency;
+  const symbol = getCurrencySymbol(order.currency);
   const quoteStatus = (order as { quoteStatus?: QuoteStatus | null }).quoteStatus ?? null;
   const subtotal = (order.subtotal / 100).toFixed(2);
   const tax = (order.tax / 100).toFixed(2);

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { ArrowLeft, AlertTriangle, CalendarClock, PackageOpen, ShieldAlert, Store, User } from 'lucide-react';
-import { formatCurrency, type Currency } from '@luvngift/shared';
+import { formatCurrency, type Currency, formatMoney } from '@luvngift/shared';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import {
@@ -92,7 +92,7 @@ function AnnualYear({ sub }: { sub: AdminSubscriptionDetail }) {
   const year = sub.terms?.find((t) => !t.cancelledAt) ?? sub.terms?.[0];
   if (!year) return <p className="text-sm text-muted-foreground">Paid for the year; the first year has not been charged yet.</p>;
   const q = sub.annualCancelQuote;
-  const money = (c: number) => `${(c / 100).toFixed(2)} ${sub.currency}`;
+  const money = (c: number) => formatMoney(c, sub.currency);
   return (
     <div className="space-y-1 text-sm">
       <p>

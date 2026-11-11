@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Spinner } from '@/components/ui/spinner';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { BoxPicker } from '@/components/subscriptions/box-picker';
-import { boxFill } from '@/lib/box-fill';
+import { boxFill, ADMIN_REASON_MIN } from '@luvngift/shared';
 import {
   useAdminSubscriptionBox,
   useUpdateAdminSubscriptionBox,
@@ -23,7 +23,7 @@ interface CycleOrder {
   subscription?: { id: string } | null;
 }
 
-const MIN_REASON = 10; // mirrors adminBoxEditSchema in the API
+const MIN_REASON = ADMIN_REASON_MIN;
 
 /**
  * The subscription box behind a cycle order, and admin editing of it.

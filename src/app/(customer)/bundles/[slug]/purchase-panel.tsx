@@ -10,7 +10,7 @@ import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-
 import { useCreateOrder, useUpdateOrder } from '@/hooks/use-orders';
 import { useCreatePaymentIntent, useVerifyPayment, useSetSaveCard } from '@/hooks/use-checkout';
 import { useUserCurrency } from '@/hooks/use-exchange-rates';
-import { formatCurrency } from '@luvngift/shared';
+import { formatCurrency, formatMoney, getCurrencySymbol } from '@luvngift/shared';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -26,14 +26,13 @@ import { toast } from 'sonner';
 import type { Bundle, Order as SharedOrder } from '@luvngift/shared';
 import { usePoints } from '@/hooks/use-subscriptions';
 import { useAuthStore } from '@/store/auth.store';
-import { formatPoints, pointsValue } from '@/lib/points';
+import { formatPoints, pointsValue } from '@luvngift/shared';
 
 /** Points columns the API added after the last shared-package publish. */
 type Order = SharedOrder & { pointsRedeemed?: number; pointsDiscount?: number };
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 
-const currencySymbols: Record<string, string> = { CAD: 'CA$', USD: '$', GBP: '£', NGN: '₦' };
 
 const NIGERIAN_STATES = [
   'Abia', 'Adamawa', 'Akwa Ibom', 'Anambra', 'Bauchi', 'Bayelsa', 'Benue', 'Borno',
@@ -248,7 +247,7 @@ export function PurchasePanel({ bundle }: Props) {
                   <span>
                     Use my {formatPoints(points!.balance)} points
                     <span className="block text-xs text-muted-foreground">
-                      Takes up to {currencySymbols[currency] ?? currency}
+                      Takes up to {getCurrencySymbol(currency)}
                       {(pointsValue(points!.balance, points!.pointsPerCurrencyUnit) / 100).toFixed(2)} off. Points are
                       only used once you pay.
                     </span>
@@ -275,7 +274,7 @@ export function PurchasePanel({ bundle }: Props) {
                 >
                   <StripePaymentForm
                     orderId={order.id}
-                    amountLabel={`${currencySymbols[order.currency] ?? order.currency}${(
+                    amountLabel={`${getCurrencySymbol(order.currency)}${(
                       order.total / 100
                     ).toFixed(2)}`}
                     onBack={() => setCheckoutStep('recipient')}
@@ -293,8 +292,7 @@ export function PurchasePanel({ bundle }: Props) {
 // ─── Order summary ────────────────────────────────────────────────────────────
 
 function OrderSummary({ order, bundleName }: { order: Order; bundleName: string }) {
-  const sym = currencySymbols[order.currency] ?? order.currency;
-  const fmt = (cents: number) => `${sym}${(cents / 100).toFixed(2)}`;
+  const fmt = (cents: number) => formatMoney(cents, order.currency);
 
   return (
     <div className="space-y-4 text-sm">

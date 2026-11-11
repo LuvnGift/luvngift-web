@@ -1,38 +1,45 @@
 import { z } from 'zod';
-import { OFFERED_INTERVALS } from './cadence';
+import {
+  CATALOGUE_ITEM_COST_MAX,
+  CATALOGUE_ITEM_DESCRIPTION_MAX,
+  CATALOGUE_ITEM_NAME_MAX,
+  CATALOGUE_ITEM_STATES_MAX,
+  KOBO_MAX,
+  MESSAGE_MAX,
+  OFFERED_INTERVALS,
+  type OfferedInterval,
+  PLAN_DESCRIPTION_MAX,
+  PLAN_DESCRIPTION_MIN,
+  PLAN_NAME_MAX,
+  PLAN_NAME_MIN,
+  PLAN_SLOTS_MAX,
+  PLATFORM_PERCENT_MAX,
+  QUOTE_SUBTOTAL_MAX,
+  SCOPE_MAX,
+  SCOPE_MIN,
+} from '@luvngift/shared';
 
 /**
- * Client-side mirrors of the admin schemas in
- * `luvngift-api/src/modules/subscriptions/subscriptions.validation.ts`.
- *
- * They are duplicated rather than shared on purpose: mobile never manages plans
- * or the catalogue, so putting them in `@luvngift/shared` would ship dead weight
- * in the app bundle (the same reasoning recorded in that file).
- *
- * > **The cost of that choice is this file.** If you change a rule in the API's
- * > admin schemas, change it here too, or the admin UI will start accepting
- * > values the server rejects — the error surfaces as an opaque 400 at save
- * > time instead of inline on the field.
- *
- * The server remains the authority; this exists so an admin sees which field is
- * wrong before submitting, not to replace server validation.
+ * The admin forms. Admin types text (naira and dollars in major units,
+ * percentages), so these parse the inputs and say which field is wrong as
+ * the admin types. The wire schemas and every limit are in @luvngift/shared,
+ * which the API validates with: no number here is typed by hand, and
+ * admin-schemas.test checks a valid form converts to a payload the shared
+ * wire schema accepts.
  */
 
 /** Money is entered in major units and sent in the smallest unit. */
-const majorAmount = (label: string) =>
+const majorAmount = (label: string, maxMinor: number) =>
   z
     .string()
     .trim()
     .min(1, `${label} is required`)
     .refine((v) => Number.isFinite(Number(v)), `${label} must be a number`)
     .refine((v) => Number(v) > 0, `${label} must be greater than zero`)
-    // Cap mirrors the API's max, applied before the /100 conversion.
-    .refine((v) => Math.round(Number(v) * 100) <= 1_000_000_00, `${label} is implausibly large`);
+    // The API's cap, applied to the converted value.
+    .refine((v) => Math.round(Number(v) * 100) <= maxMinor, `${label} is implausibly large`);
 
-/**
- * Naira entered in major units. A plan's box allowance has a higher ceiling
- * than an item cost (the API caps it at 100_000_000_00 kobo).
- */
+/** Naira entered in major units, up to the API's KOBO_MAX. */
 const nairaAmount = (label: string) =>
   z
     .string()
@@ -40,7 +47,7 @@ const nairaAmount = (label: string) =>
     .min(1, `${label} is required`)
     .refine((v) => Number.isFinite(Number(v)), `${label} must be a number`)
     .refine((v) => Number(v) > 0, `${label} must be greater than zero`)
-    .refine((v) => Math.round(Number(v) * 100) <= 100_000_000_00, `${label} is implausibly large`);
+    .refine((v) => Math.round(Number(v) * 100) <= KOBO_MAX, `${label} is implausibly large`);
 
 /**
  * A cleared `<input type="number">` yields '' and `Number('')` is 0, while
@@ -59,15 +66,19 @@ const optionalCount = (label: string, max: number) =>
 // ─── Catalogue items ──────────────────────────────────────────────────────────
 
 export const catalogueItemFormSchema = z.object({
-  name: z.string().trim().min(2, 'Name must be at least 2 characters').max(120),
-  description: z.string().trim().max(500, 'Description must be at most 500 characters').optional(),
+  name: z.string().trim().min(2, 'Name must be at least 2 characters').max(CATALOGUE_ITEM_NAME_MAX),
+  description: z
+    .string()
+    .trim()
+    .max(CATALOGUE_ITEM_DESCRIPTION_MAX, `Description must be at most ${CATALOGUE_ITEM_DESCRIPTION_MAX} characters`)
+    .optional(),
   /** Sourcing cost in naira. Always NGN: boxes are measured against a naira allowance. */
-  priceMajor: majorAmount('Cost'),
+  priceMajor: majorAmount('Cost', CATALOGUE_ITEM_COST_MAX),
   /** Chosen from the managed list (Admin -> Catalogue -> Categories). */
   categoryId: z.string().min(1, 'Choose a category'),
   stock: optionalCount('Stock', 1_000_000),
   isActive: z.boolean(),
-  availableStates: z.array(z.string()).max(40, 'Select at most 40 states'),
+  availableStates: z.array(z.string()).max(CATALOGUE_ITEM_STATES_MAX, `Select at most ${CATALOGUE_ITEM_STATES_MAX} states`),
 });
 
 export type CatalogueItemFormValues = z.infer<typeof catalogueItemFormSchema>;
@@ -76,13 +87,13 @@ export type CatalogueItemFormValues = z.infer<typeof catalogueItemFormSchema>;
 
 /** A plan's details. Pricing is separate: it is derived, previewed and published. */
 export const planFormSchema = z.object({
-  name: z.string().trim().min(2, 'Name must be at least 2 characters').max(100),
+  name: z.string().trim().min(PLAN_NAME_MIN, `Name must be at least ${PLAN_NAME_MIN} characters`).max(PLAN_NAME_MAX),
   description: z
     .string()
     .trim()
-    .min(10, 'Description must be at least 10 characters')
-    .max(1000, 'Description must be at most 1000 characters'),
-  slotCount: optionalCount('Item slots', 100).refine((v) => v >= 1, 'A plan needs at least 1 slot'),
+    .min(PLAN_DESCRIPTION_MIN, `Description must be at least ${PLAN_DESCRIPTION_MIN} characters`)
+    .max(PLAN_DESCRIPTION_MAX, `Description must be at most ${PLAN_DESCRIPTION_MAX} characters`),
+  slotCount: optionalCount('Item slots', PLAN_SLOTS_MAX).refine((v) => v >= 1, 'A plan needs at least 1 slot'),
   sortOrder: optionalCount('Sort order', 10_000),
   isActive: z.boolean(),
 });
@@ -97,10 +108,10 @@ const nairaFee = (label: string) =>
     .min(1, `${label} is required (0 if none)`)
     .refine((v) => Number.isFinite(Number(v)), `${label} must be a number`)
     .refine((v) => Number(v) >= 0, `${label} cannot be negative`)
-    .refine((v) => Math.round(Number(v) * 100) <= 100_000_000_00, `${label} is implausibly large`);
+    .refine((v) => Math.round(Number(v) * 100) <= KOBO_MAX, `${label} is implausibly large`);
 
 /**
- * Mirrors `costStackSchema` in the API's partners/cost-stack.validation.ts:
+ * The cost stack as typed (costStackSchema in @luvngift/shared):
  * the partners' naira fees and the platform's share. The goods amount is
  * named per caller (sourcing for a bundle, the box allowance for a plan).
  */
@@ -114,12 +125,12 @@ const costStackFields = {
     .trim()
     .min(1, 'Platform share is required')
     .refine((v) => Number.isFinite(Number(v)), 'Platform share must be a number')
-    .refine((v) => Number(v) >= 0 && Number(v) <= 60, 'Platform share must be between 0% and 60%')
+    .refine((v) => Number(v) >= 0 && Number(v) <= PLATFORM_PERCENT_MAX, `Platform share must be between 0% and ${PLATFORM_PERCENT_MAX}%`)
     .refine((v) => /^\d+(\.\d{1,2})?$/.test(v), 'At most two decimal places'),
 };
 
 /**
- * Mirrors `planPricingSchema` in the API's subscriptions.validation.ts. Prices
+ * A plan's pricing as typed (planPricingSchema in @luvngift/shared). Prices
  * are never entered: the API derives them from the cost stack at today's rate.
  */
 export const planPricingFormSchema = z.object({
@@ -141,11 +152,12 @@ export const toPricingInput = (v: PlanPricingFormValues) => ({
   agentFeeNgn: toKobo(v.agentFeeMajor),
   deliveryFeeNgn: toKobo(v.deliveryFeeMajor),
   platformPercent: Number(v.platformPercent),
-  intervals: v.intervals,
+  // The schema already refuses the retired cadence; this narrows the type to match.
+  intervals: v.intervals.filter((i): i is OfferedInterval => i !== 'BIWEEKLY'),
 });
 
 /**
- * Mirrors `bundlePricingSchema` in the API's bundle-pricing.validation: the
+ * A bundle's pricing as typed (bundlePricingSchema in @luvngift/shared): the
  * same cost stack without cadences — a bundle is bought once.
  */
 export const bundlePricingFormSchema = z.object(costStackFields);
@@ -173,18 +185,17 @@ export const stackFormValues = (row: {
 });
 
 /**
- * Mirrors `sendQuoteSchema` in
- * `luvngift-api/src/modules/custom-orders/custom-orders.validation.ts`.
+ * A quote as typed (sendQuoteSchema in @luvngift/shared).
  * The price is entered in major units of the ORDER's currency (the buyer's).
  */
 export const quoteFormSchema = z.object({
-  priceMajor: majorAmount('Price'),
+  priceMajor: majorAmount('Price', QUOTE_SUBTOTAL_MAX),
   scope: z
     .string()
     .trim()
-    .min(10, 'Describe what will be delivered — the vendor works from this')
-    .max(4000),
-  note: z.string().trim().max(2000),
+    .min(SCOPE_MIN, 'Describe what will be delivered — the vendor works from this')
+    .max(SCOPE_MAX),
+  note: z.string().trim().max(MESSAGE_MAX),
   isFinal: z.boolean(),
 });
 

@@ -3,25 +3,19 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Building2, CheckCircle, Mail, MessageSquare, Phone } from 'lucide-react';
-import { BUSINESS, businessPhoneHref } from '@/lib/business';
+import { BUSINESS, businessPhoneHref, contactSchema, type ContactInput } from '@luvngift/shared';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
 
-const contactSchema = z.object({
-  firstName: z.string().min(1, 'First name is required').max(50),
-  lastName: z.string().min(1, 'Last name is required').max(50),
-  email: z.string().email('Enter a valid email address'),
-  comment: z.string().min(10, 'Message must be at least 10 characters').max(2000),
-});
+// The API validates with the same schema (@luvngift/shared).
 
-type ContactForm = z.infer<typeof contactSchema>;
+type ContactForm = ContactInput;
 
 export function ContactClient() {
   const [submitted, setSubmitted] = useState(false);

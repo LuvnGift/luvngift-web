@@ -12,3 +12,5 @@ allowBuilds:
   esbuild: true
   sharp: true
   unrs-resolver: true
+minimumReleaseAgeExclude:
+  - '@luvngift/shared@2.0.1'

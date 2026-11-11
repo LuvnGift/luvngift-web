@@ -11,9 +11,10 @@ import { PayOrderDialog } from '@/components/orders/pay-order-dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Spinner } from '@/components/ui/spinner';
-import { OrderStatus } from '@luvngift/shared';
+import { OrderStatus, getCurrencySymbol } from '@luvngift/shared';
 import type { Order } from '@luvngift/shared';
-import { CUSTOMER_STAGE, type QuoteStatus } from '@/lib/custom-orders';
+import { CUSTOMER_STAGE } from '@/lib/custom-orders';
+import { type QuoteStatus } from '@luvngift/shared';
 
 type ListedOrder = Order & { quoteStatus?: QuoteStatus | null };
 
@@ -32,7 +33,6 @@ function awaitsCustomer(order: ListedOrder): boolean {
   return order.status === 'PENDING' && order.quoteStatus === 'QUOTED';
 }
 
-const currencySymbols: Record<string, string> = { CAD: 'CA$', USD: '$', GBP: '£', NGN: '₦' };
 
 export default function OrdersPage() {
   const router = useRouter();
@@ -82,7 +82,7 @@ export default function OrdersPage() {
         <>
           <div className="space-y-3">
             {(data.data as ListedOrder[]).map((order) => {
-              const symbol = currencySymbols[order.currency] ?? order.currency;
+              const symbol = getCurrencySymbol(order.currency);
               const total = (order.total / 100).toFixed(2);
               const payable = needsPayment(order);
               const highlighted = payable || awaitsCustomer(order);
