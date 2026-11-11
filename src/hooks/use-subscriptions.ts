@@ -47,9 +47,12 @@ export interface PlanContent {
  */
 export type SubscriptionPlan = Omit<SharedSubscriptionPlan, 'prices'> & {
   prices: SubscriptionPrice[];
-  kind?: 'ALLOWANCE' | 'CURATED';
+  kind?: 'ALLOWANCE' | 'CURATED' | 'BASKET';
   contents?: PlanContent[];
 };
+
+/** A basket: the subscriber picks like a cart and pays for what is in it. */
+export const isBasket = (plan?: object | null) => (plan as { kind?: string } | null)?.kind === 'BASKET';
 
 /** Takes any plan shape: the subscriber view's plan is still the shared type, which has no `kind`. */
 export const isCurated = (plan?: object | null) => (plan as { kind?: string } | null)?.kind === 'CURATED';
@@ -187,14 +190,53 @@ interface CreateSubscriptionInput {
   dietaryNotes?: string;
   /** YYYY-MM-DD. Omitted = start now. */
   firstDeliveryDate?: string;
+  /** A basket's price as quoted and shown; the API refuses if it moved. */
+  expectedAmount?: number;
 }
 
-export const useCreateSubscription = () =>
-  useMutation<CreateSubscriptionResult, Error, CreateSubscriptionInput>({
-    mutationFn: (data) => api.post('/api/v1/subscriptions', data).then((r) => r.data.data),
-    onError: (err: any) =>
-      toast.error(err?.response?.data?.error?.message ?? "Couldn't start your subscription."),
+export interface BasketQuote {
+  currency: string;
+  /** Per delivery, smallest unit; null for an empty basket. */
+  amount: number | null;
+  /** How much of the plan's maximum it uses. */
+  fillPercent: number;
+}
+
+/**
+ * A basket's all-in price per delivery as it is built. Keyed on the exact
+ * contents so the shown price always belongs to the basket on screen;
+ * `placeholderData` keeps the last figure while the next one loads.
+ */
+export const useBasketQuote = (
+  planId: string | undefined,
+  addressId: string | undefined,
+  picked: Record<string, number>,
+  enabled: boolean,
+) => {
+  const items = Object.entries(picked)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([customItemId, quantity]) => ({ customItemId, quantity }));
+  return useQuery<BasketQuote>({
+    queryKey: ['subscriptions', 'basket-quote', planId, addressId, items],
+    queryFn: () =>
+      api.post('/api/v1/subscriptions/basket-quote', { planId, addressId, items }).then((r) => r.data.data),
+    enabled: enabled && Boolean(planId && addressId),
+    placeholderData: (previous) => previous,
+    retry: false,
   });
+};
+
+export const useCreateSubscription = () => {
+  const qc = useQueryClient();
+  return useMutation<CreateSubscriptionResult, Error, CreateSubscriptionInput>({
+    mutationFn: (data) => api.post('/api/v1/subscriptions', data).then((r) => r.data.data),
+    onError: (err: any) => {
+      // A basket price that moved since it was shown: fetch the new one.
+      qc.invalidateQueries({ queryKey: ['subscriptions', 'basket-quote'] });
+      toast.error(err?.response?.data?.error?.message ?? "Couldn't start your subscription.");
+    },
+  });
+};
 
 // ─── Manage ───────────────────────────────────────────────────────────────────
 
@@ -280,16 +322,19 @@ export const useUpdateSubscriptionItems = () => {
   return useMutation<
     Subscription,
     Error,
-    { id: string; items: { customItemId: string; quantity: number }[] }
+    { id: string; items: { customItemId: string; quantity: number }[]; expectedAmount?: number }
   >({
-    mutationFn: ({ id, items }) =>
-      api.put(`/api/v1/subscriptions/${id}/items`, { items }).then((r) => r.data.data),
+    mutationFn: ({ id, items, expectedAmount }) =>
+      api.put(`/api/v1/subscriptions/${id}/items`, { items, expectedAmount }).then((r) => r.data.data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: MINE_KEY });
       toast.success('Box updated');
     },
-    onError: (err: any) =>
-      toast.error(err?.response?.data?.error?.message ?? "Couldn't update your box."),
+    onError: (err: any) => {
+      // A basket price that moved: refresh the quote so the new one is on screen.
+      qc.invalidateQueries({ queryKey: ['subscriptions', 'basket-quote'] });
+      toast.error(err?.response?.data?.error?.message ?? "Couldn't update your box.");
+    },
   });
 };
 

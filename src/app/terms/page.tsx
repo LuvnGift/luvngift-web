@@ -169,7 +169,12 @@ export default function TermsPage() {
           <strong>What is in the box:</strong> most plans are curated: we choose the items, and the
           plan page lists them before you subscribe. If we change what a curated box holds, we email
           you what changed and why, and the change applies from your next delivery. A change to the
-          box does not change your price; if your price changes, the notice below applies. On a plan
+          box does not change your price; if your price changes, the notice below applies. On a
+          basket plan you fill a basket from our catalogue, up to the most one delivery can hold,
+          and pay one all-in price for what is in it, shown before you subscribe. That price is
+          fixed: it changes only when you change your basket, which you confirm at the new price
+          and which applies from your next delivery, or when what is in it costs us more or less to
+          buy and deliver, in which case the notice below applies. On a plan
           where you choose the items yourself, each item shows how much of your box it fills, and a
           box must be filled to at least the minimum shown and no more than your plan covers. You
           can change it at any time; a change applies from the next delivery.
@@ -177,7 +182,7 @@ export default function TermsPage() {
         <li>
           <strong>Points:</strong> on a plan where you choose the items, when a delivery&apos;s box
           is not filled to the top, you earn points as a thank-you: 10 points for every full 5% of
-          the box left unfilled. A curated box always arrives complete, so it earns none. They are a
+          the box left unfilled. A curated box always arrives complete and a basket is priced on what is in it, so neither earns any. They are a
           reward, not a refund: they are not worth what was left unfilled, and they have no cash
           value. You can use them, at least 500 at a time, off a bundle at checkout or off your next
           subscription charge; what a point is worth is shown on your subscriptions page.

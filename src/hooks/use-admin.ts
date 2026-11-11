@@ -835,7 +835,7 @@ export interface PlanContentLine {
   quantity: number;
 }
 
-export type PlanKind = 'ALLOWANCE' | 'CURATED';
+export type PlanKind = 'ALLOWANCE' | 'CURATED' | 'BASKET';
 
 export interface PlanPricingInput {
   /** Goods amount per delivery (the box allowance), in kobo. Allowance plans only. */
@@ -889,6 +889,38 @@ export interface PricingPreview extends StackQuote {
   /** The goods line the prices were built on, in kobo (a curated box: its catalogue cost). */
   goodsNgn: number;
 }
+
+/** What POST /admin/subscription-plans/:id/basket-reprice reports. */
+export interface BasketRepriceReport {
+  dryRun: boolean;
+  checked: number;
+  unchanged: number;
+  alreadyScheduled: number;
+  /** Baskets holding an item that can no longer be costed. */
+  needsAttention: string[];
+  changes: { subscriptionId: string; currency: string; oldAmount: number; newAmount: number; effectiveAt: string }[];
+}
+
+/**
+ * Reprices every basket on a plan at today's catalogue cost and rate. Run with
+ * `dryRun` first to show what would change; the real run schedules each change
+ * (an increase after the notice period) and emails each subscriber.
+ */
+export const useRepriceBaskets = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ planId, dryRun }: { planId: string; dryRun: boolean }) =>
+      api
+        .post(`/api/v1/admin/subscription-plans/${planId}/basket-reprice`, { dryRun })
+        .then((r) => r.data.data as BasketRepriceReport),
+    onSuccess: (report) => {
+      if (report.dryRun) return;
+      qc.invalidateQueries({ queryKey: ['admin', 'subscription-plans'] });
+      toast.success(`${report.changes.length} basket price change${report.changes.length === 1 ? '' : 's'} scheduled; each subscriber emailed.`);
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.error?.message ?? 'Could not reprice baskets'),
+  });
+};
 
 /** What PUT /admin/subscription-plans/:id/contents reports back. */
 export interface PlanContentsResult {
@@ -1209,7 +1241,7 @@ export interface AdminSubscriptionBox {
     status: string;
     planName: string;
     /** CURATED: an edit gives this subscriber a box of their own. */
-    planKind?: 'ALLOWANCE' | 'CURATED';
+    planKind?: 'ALLOWANCE' | 'CURATED' | 'BASKET';
     /** Set once a curated subscriber has their own box; plan changes no longer reach it. */
     boxOverriddenAt?: string | null;
     slotCount: number;

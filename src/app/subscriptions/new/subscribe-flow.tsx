@@ -31,6 +31,8 @@ import {
   type BoxPlan,
   type SubstitutionPreference,
   isCurated,
+  isBasket,
+  useBasketQuote,
 } from '@/hooks/use-subscriptions';
 import { boxFill, type BoxFill } from '@/lib/box-fill';
 import { BoxPicker } from '@/components/subscriptions/box-picker';
@@ -121,11 +123,20 @@ export function SubscribeFlow() {
     () => plans?.find((p) => p.slug === planSlug) ?? plans?.[0],
     [plans, planSlug],
   );
-  const minFill = plan?.boxMinFillPercent ?? DEFAULT_MIN_FILL;
+  const basket = isBasket(plan);
+  // A basket has no minimum: it is a cart, priced on what is in it.
+  const minFill = basket ? 0 : plan?.boxMinFillPercent ?? DEFAULT_MIN_FILL;
   // Same query the box step runs, so this is served from cache: the summary
   // needs the fill too.
   const { data: catalogue } = useCatalogue(addressId ?? undefined, plan?.id);
   const fill = boxFill(picked, catalogue ?? [], minFill);
+  const hasItems = Object.keys(picked).length > 0;
+  const { data: quote, isFetching: quoting, isError: quoteFailed } = useBasketQuote(
+    plan?.id, addressId ?? undefined, picked, basket && hasItems && fill.status !== 'OVER',
+  );
+  // The price shown must be the price of the basket on screen before it can be confirmed.
+  const basketPrice = basket && hasItems && !quoting && !quoteFailed ? quote?.amount ?? null : null;
+  const boxReady = isCurated(plan) || (fill.status === 'OK' && (!basket || basketPrice !== null));
 
   const { mutateAsync: createSubscription, isPending: subscribing } = useCreateSubscription();
   const { currency: buyerCurrency } = useUserCurrency();
@@ -177,6 +188,7 @@ export function SubscribeFlow() {
         dietaryFlags,
         dietaryNotes: dietaryNotes.trim() || undefined,
         ...(startChoice === 'date' && firstDeliveryDate ? { firstDeliveryDate } : {}),
+        ...(basket && basketPrice !== null ? { expectedAmount: basketPrice } : {}),
       });
       setIntentType(result.intentType ?? 'payment');
       setStartsAt(result.startsAt ?? null);
@@ -223,6 +235,7 @@ export function SubscribeFlow() {
             setDietaryNotes={setDietaryNotes}
             fill={fill}
             minFill={minFill}
+            ready={boxReady}
             onBack={() => setStep('recipient')}
             onNext={handleSubscribe}
             submitting={subscribing || (startChoice === 'date' && !firstDeliveryDate)}
@@ -246,7 +259,10 @@ export function SubscribeFlow() {
           <p className="text-xs uppercase tracking-wide text-muted-foreground mb-2">Frequency</p>
           <div className="grid grid-cols-3 gap-2">
             {OFFERED_INTERVALS.map((opt) => {
-              const available = plan.prices.some((p) => p.interval === opt);
+              // A basket has no fixed prices: its cadences are the plan's own list.
+              const available = basket
+                ? ((plan as { intervals?: string[] }).intervals ?? ['MONTHLY']).includes(opt)
+                : plan.prices.some((p) => p.interval === opt);
               if (!available) return null;
               return (
                 <button
@@ -276,7 +292,7 @@ export function SubscribeFlow() {
         />
 
         <Separator />
-        {!isCurated(plan) && (
+        {!isCurated(plan) && !basket && (
           <div className="flex justify-between">
             <span className="text-muted-foreground">Box filled</span>
             <span className={fill.status === 'OVER' ? 'text-red-600 font-medium' : ''}>
@@ -286,8 +302,18 @@ export function SubscribeFlow() {
         )}
         <div className="flex justify-between font-semibold text-base">
           <span>Total</span>
-          <span>{price ? fmt(price.amount, price.currency) : '—'}</span>
+          <span>
+            {basket
+              ? basketPrice !== null && quote ? fmt(basketPrice, quote.currency) : quoting ? '…' : '—'
+              : price ? fmt(price.amount, price.currency) : '—'}
+          </span>
         </div>
+        {basket && (
+          <p className="text-xs text-muted-foreground">
+            One all-in price per delivery for what is in the basket. It is fixed once you subscribe,
+            and changes only if you change the basket or we give you notice.
+          </p>
+        )}
         <p className="text-xs text-muted-foreground">
           <ChargeSummary
             cadence={cadenceLabel(interval)}
@@ -584,6 +610,7 @@ function BoxStep({
   setDietaryNotes,
   fill,
   minFill,
+  ready,
   onBack,
   onNext,
   submitting,
@@ -600,11 +627,14 @@ function BoxStep({
   setDietaryNotes: (v: string) => void;
   fill: BoxFill;
   minFill: number;
+  /** Everything the API will check is in place (and a basket's price is on screen). */
+  ready: boolean;
   onBack: () => void;
   onNext: () => void;
   submitting: boolean;
 }) {
   const curated = isCurated(plan);
+  const basket = isBasket(plan);
   // A curated box needs no picker, so no catalogue either.
   const { data: items, isLoading } = useCatalogue(curated ? undefined : addressId, plan.id);
 
@@ -618,21 +648,29 @@ function BoxStep({
         <>
           <div>
             <h2 className="font-semibold flex items-center gap-2">
-              <PackageOpen className="h-4 w-4" /> Build the box
+              <PackageOpen className="h-4 w-4" /> {basket ? 'Fill the basket' : 'Build the box'}
             </h2>
-            <p className="text-sm text-muted-foreground mt-1">
-              Each item shows how much of the box it takes up. Fill the box to at least{' '}
-              <strong>{minFill}%</strong>, using up to <strong>{plan.slotCount}</strong> different
-              items in any quantity.
-            </p>
+            {basket ? (
+              <p className="text-sm text-muted-foreground mt-1">
+                Add what they need, in any quantity, up to the most one delivery can hold. You pay
+                for what is in it, and the price updates as you go.
+              </p>
+            ) : (
+              <p className="text-sm text-muted-foreground mt-1">
+                Each item shows how much of the box it takes up. Fill the box to at least{' '}
+                <strong>{minFill}%</strong>, using up to <strong>{plan.slotCount}</strong> different
+                items in any quantity.
+              </p>
+            )}
           </div>
 
           <BoxPicker
             items={items ?? []}
             picked={picked}
             onChange={setPicked}
-            slotCount={plan.slotCount}
+            slotCount={basket ? 50 : plan.slotCount}
             minFill={minFill}
+            basket={basket}
           />
         </>
       )}
@@ -734,7 +772,7 @@ function BoxStep({
         <Button variant="outline" onClick={onBack} disabled={submitting}>
           <ArrowLeft className="h-4 w-4 mr-1" /> Back
         </Button>
-        <Button onClick={onNext} disabled={submitting || (!curated && fill.status !== 'OK')} className="flex-1">
+        <Button onClick={onNext} disabled={submitting || !ready} className="flex-1">
           {submitting ? <><Spinner size="sm" className="mr-2" />Setting up…</> : 'Continue to payment'}
         </Button>
       </div>

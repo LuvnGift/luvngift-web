@@ -45,6 +45,7 @@ export function BoxPicker({
   slotCount,
   minFill,
   whose = 'your',
+  basket = false,
 }: {
   items: PickerItem[];
   picked: Record<string, number>;
@@ -53,6 +54,8 @@ export function BoxPicker({
   minFill: number;
   /** "your box" for the subscriber, "the box" for admin. */
   whose?: 'your' | 'the';
+  /** A basket: a cart up to the plan's maximum, priced on what is in it, with no minimum. */
+  basket?: boolean;
 }) {
   const fill = boxFill(picked, items, minFill);
   const full = Object.keys(picked).length >= slotCount;
@@ -109,7 +112,7 @@ export function BoxPicker({
   return (
     <div className="space-y-4">
       <div className="sticky top-16 z-10 space-y-2 rounded-lg border bg-background p-3">
-        <BoxMeter fill={fill} minFill={minFill} whose={whose} bare />
+        <BoxMeter fill={fill} minFill={minFill} whose={whose} basket={basket} bare />
         <BoxTray items={items} picked={picked} whose={whose} onShow={showAisle} onRemove={(id) => setQty(id, 0)} />
       </div>
 
@@ -319,10 +322,12 @@ export function BoxMeter({
   minFill,
   whose = 'your',
   bare = false,
+  basket = false,
 }: {
   fill: BoxFill;
   minFill: number;
   whose?: 'your' | 'the';
+  basket?: boolean;
   /** Inside another container (the picker's sticky header): no border or stickiness of its own. */
   bare?: boolean;
 }) {
@@ -339,6 +344,13 @@ export function BoxMeter({
         : `${Box} is ${fill.percent}% full. Ready to go.`,
     OVER: `${Box} is ${fill.percent}% full. Remove or reduce something to bring it to 100%.`,
   }[fill.status];
+  // A basket has no minimum and earns no points: the meter is only the ceiling.
+  const basketMessage = {
+    EMPTY: `${whose === 'your' ? 'Your' : 'The'} basket is empty. Add what they need.`,
+    UNDER: '',
+    OK: `${whose === 'your' ? 'Your' : 'The'} basket is ${fill.percent}% of the most one delivery can hold.`,
+    OVER: `${whose === 'your' ? 'Your' : 'The'} basket is ${fill.percent}% of the most one delivery can hold. Remove or reduce something.`,
+  }[fill.status];
 
   return (
     <div className={bare ? 'space-y-2' : 'sticky top-16 z-10 space-y-2 rounded-lg border bg-background p-3'}>
@@ -351,11 +363,11 @@ export function BoxMeter({
         aria-label={`How full ${whose} box is`}
       >
         <div className={`h-full ${tone} transition-all`} style={{ width: `${width}%` }} />
-        {/* The minimum: the bar must reach this line. */}
-        <div className="absolute inset-y-0 w-0.5 bg-foreground/50" style={{ left: `${minFill}%` }} />
+        {/* The minimum: the bar must reach this line. A basket has none. */}
+        {!basket && <div className="absolute inset-y-0 w-0.5 bg-foreground/50" style={{ left: `${minFill}%` }} />}
       </div>
       <p className={`text-sm ${fill.status === 'OVER' ? 'font-medium text-red-700' : 'text-muted-foreground'}`} aria-live="polite">
-        {message}
+        {basket ? basketMessage : message}
       </p>
     </div>
   );

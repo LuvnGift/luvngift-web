@@ -80,8 +80,10 @@ export function EditBoxDialog({ box, order, onClose }: { box: AdminSubscriptionB
   // A curated box has no fill rule or slot limit (the API applies none): an
   // override, e.g. for an allergy, only has to hold something deliverable.
   const curated = sub.planKind === 'CURATED';
+  // A basket's price follows its contents, so only the subscriber can change it (the API refuses).
+  const basket = sub.planKind === 'BASKET';
   const boxOk = curated ? Object.keys(picked).length > 0 : fill.status === 'OK';
-  const canSave = boxOk && reason.trim().length >= MIN_REASON && !update.isPending;
+  const canSave = !basket && boxOk && reason.trim().length >= MIN_REASON && !update.isPending;
 
   const save = async () => {
     try {
@@ -107,6 +109,12 @@ export function EditBoxDialog({ box, order, onClose }: { box: AdminSubscriptionB
             audit log. Items available in {sub.recipientState}.
           </DialogDescription>
         </DialogHeader>
+        {basket && (
+          <p className="rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-900">
+            This is a basket: its price is built from what is in it, so the subscriber changes it from
+            their account and confirms the new price. Ask them to, or contact them for any change.
+          </p>
+        )}
         {curated && (
           <p className="rounded-md bg-blue-50 border border-blue-200 px-3 py-2 text-xs text-blue-900">
             {sub.boxOverriddenAt

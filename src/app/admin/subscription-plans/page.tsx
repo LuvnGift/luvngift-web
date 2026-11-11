@@ -37,6 +37,7 @@ import {
 import { CostStackInputs, SPLIT_HEADERS, SplitCells, StackSummary } from '@/components/admin/cost-stack';
 import { PriceChangesSection } from './price-changes-section';
 import { ContentsEditor, ContentsDialog, contentsCost } from './curated-contents';
+import { RepriceBasketsDialog } from './basket-reprice';
 import { OFFERED_INTERVALS, cycleWord, cadenceLabel } from '@/lib/cadence';
 
 const SYMBOLS: Record<string, string> = { CAD: 'CA$', USD: 'US$', GBP: '£' };
@@ -118,6 +119,7 @@ export default function AdminSubscriptionPlansPage() {
   const [editing, setEditing] = useState<Plan | null>(null);
   const [pricing, setPricing] = useState<Plan | null>(null);
   const [contents, setContents] = useState<Plan | null>(null);
+  const [repricing, setRepricing] = useState<Plan | null>(null);
 
   const plans: Plan[] = data?.data ?? [];
   const rules: SubscriptionRules | undefined = data?.rules;
@@ -177,6 +179,7 @@ export default function AdminSubscriptionPlansPage() {
               onEdit={() => setEditing(plan)}
               onPricing={() => setPricing(plan)}
               onContents={() => setContents(plan)}
+              onReprice={() => setRepricing(plan)}
               onRetire={() => handleRetire(plan)}
               onReinstate={() => handleReinstate(plan)}
               onDelete={() => handleDelete(plan)}
@@ -189,6 +192,7 @@ export default function AdminSubscriptionPlansPage() {
       {editing && <EditDetailsDialog plan={editing} onClose={() => setEditing(null)} />}
       {pricing && <PricingDialog plan={pricing} onClose={() => setPricing(null)} />}
       {contents && <ContentsDialog plan={contents} onClose={() => setContents(null)} />}
+      {repricing && <RepriceBasketsDialog plan={repricing} onClose={() => setRepricing(null)} />}
     </div>
   );
 }
@@ -201,6 +205,7 @@ function PlanCard({
   onEdit,
   onPricing,
   onContents,
+  onReprice,
   onRetire,
   onReinstate,
   onDelete,
@@ -210,6 +215,7 @@ function PlanCard({
   onEdit: () => void;
   onPricing: () => void;
   onContents: () => void;
+  onReprice: () => void;
   onRetire: () => void;
   onReinstate: () => void;
   onDelete: () => void;
@@ -225,6 +231,8 @@ function PlanCard({
             {!plan.isActive && <Badge tone="gray">Retired: closed to new sign-ups</Badge>}
             {plan.kind === 'CURATED' ? (
               <Badge tone="blue">Curated box</Badge>
+            ) : plan.kind === 'BASKET' ? (
+              <Badge tone="blue">Basket{plan.boxAllowanceNgn ? ` · up to ${naira(plan.boxAllowanceNgn)}` : ''}</Badge>
             ) : (
               <Badge tone="gray">Fill-your-own · {plan.slotCount} slot{plan.slotCount === 1 ? '' : 's'}</Badge>
             )}
@@ -265,6 +273,11 @@ function PlanCard({
           <SubscriberLine planId={plan.id} counts={plan.subscriberCounts} />
         </div>
         <div className="flex items-center gap-1 shrink-0">
+          {plan.kind === 'BASKET' && (
+            <Button size="sm" variant="outline" className="h-8" onClick={onReprice}>
+              <RotateCcw className="h-3.5 w-3.5 mr-1" /> Reprice baskets
+            </Button>
+          )}
           {plan.kind === 'CURATED' && (
             <Button size="sm" variant="outline" className="h-8" onClick={onContents}>
               <Package className="h-3.5 w-3.5 mr-1" /> Box
@@ -295,6 +308,12 @@ function PlanCard({
         </div>
       </div>
 
+      {plan.kind === 'BASKET' && (
+        <p className="mt-3 text-xs text-muted-foreground">
+          Each subscriber pays for their own basket on this stack, at the rate on the day they
+          subscribed. Changing the stack applies to new baskets; use Reprice baskets to move existing ones.
+        </p>
+      )}
       <div className="mt-3 flex flex-wrap gap-2">
         {plan.prices.map((price) => (
           <PriceChip key={price.id} price={price} plan={plan} rules={rules} />
@@ -388,16 +407,19 @@ function CreatePlanDialog({ onClose }: { onClose: () => void }) {
   const create = useCreatePlan();
   const { data: catalogue = [] } = useAllCatalogueItems();
   const [details, setDetails] = useState<DetailsForm>(EMPTY_DETAILS);
+  const [kind, setKind] = useState<'CURATED' | 'BASKET'>('CURATED');
+  const basket = kind === 'BASKET';
   const [contents, setContents] = useState<PlanContentLine[]>([]);
   const [pricing, setPricing] = useState<PlanPricingFormValues>(EMPTY_PRICING);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const preview = usePreviewState(undefined, contents);
-  const effective = withGoods(pricing, contentsCost(contents, catalogue));
+  const preview = usePreviewState(undefined, basket ? undefined : contents);
+  // A basket's goods line is its maximum, typed; a curated box's is its catalogue cost.
+  const effective = basket ? pricing : withGoods(pricing, contentsCost(contents, catalogue));
 
   const handleCreate = async () => {
     const d = curatedFormSchema.safeParse(details);
     const p = planPricingFormSchema.safeParse(effective);
-    const contentsError = contents.length ? null : 'Choose what the box holds';
+    const contentsError = basket || contents.length ? null : 'Choose what the box holds';
     if (!d.success || !p.success || contentsError) {
       setErrors({
         ...(d.success ? {} : fieldErrors(d.error)),
@@ -408,7 +430,7 @@ function CreatePlanDialog({ onClose }: { onClose: () => void }) {
     }
     setErrors({});
     try {
-      await create.mutateAsync({ ...d.data, kind: 'CURATED', contents, ...toPricingInput(p.data) });
+      await create.mutateAsync({ ...d.data, kind, ...(basket ? {} : { contents }), ...toPricingInput(p.data) });
       onClose();
     } catch {
       // surfaced by the hook
@@ -419,15 +441,35 @@ function CreatePlanDialog({ onClose }: { onClose: () => void }) {
     <Dialog open onOpenChange={(o) => { if (!o && !create.isPending) onClose(); }}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>New curated plan</DialogTitle>
+          <DialogTitle>New subscription plan</DialogTitle>
           <DialogDescription>
-            The same box every delivery. Its price is built from what the items cost in the catalogue.
+            {basket
+              ? 'Subscribers fill a basket from the catalogue, up to a maximum, and each pays for what is in theirs.'
+              : 'The same box every delivery. Its price is built from what the items cost in the catalogue.'}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-5">
+          <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Plan type">
+            {([
+              ['CURATED', 'Curated box', 'We choose the items'],
+              ['BASKET', 'Basket', 'They pick, up to a maximum'],
+            ] as const).map(([value, label, hint]) => (
+              <button
+                key={value}
+                type="button"
+                role="radio"
+                aria-checked={kind === value}
+                onClick={() => setKind(value)}
+                className={`rounded-md border p-3 text-left text-sm ${kind === value ? 'border-foreground bg-muted' : 'hover:bg-muted/50'}`}
+              >
+                <span className="font-medium">{label}</span>
+                <span className="block text-xs text-muted-foreground">{hint}</span>
+              </button>
+            ))}
+          </div>
           <DetailsFields value={details} onChange={setDetails} errors={errors} curated />
-          <ContentsEditor value={contents} onChange={setContents} error={errors.contents} />
-          <PricingFields value={effective} onChange={setPricing} errors={errors} curated />
+          {!basket && <ContentsEditor value={contents} onChange={setContents} error={errors.contents} />}
+          <PricingFields value={effective} onChange={setPricing} errors={errors} curated={!basket} basket={basket} />
           <PreviewBlock pricing={effective} state={preview} setErrors={setErrors} />
           <div className="flex gap-2 pt-1">
             <Button onClick={handleCreate} disabled={create.isPending || !preview.isFresh(effective)}>
@@ -525,7 +567,7 @@ function PricingDialog({ plan, onClose }: { plan: Plan; onClose: () => void }) {
               An item in this box is inactive or has no naira cost. Change the box before repricing.
             </p>
           )}
-          <PricingFields value={pricing} onChange={setPricing} errors={errors} curated={curated} />
+          <PricingFields value={pricing} onChange={setPricing} errors={errors} curated={curated} basket={plan.kind === 'BASKET'} />
           <PreviewBlock pricing={pricing} state={preview} setErrors={setErrors} />
           {increases && preview.isFresh(pricing) && (
             <p className="flex gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
@@ -597,11 +639,13 @@ function PricingFields({
   onChange,
   errors,
   curated = false,
+  basket = false,
 }: {
   value: PlanPricingFormValues;
   onChange: (v: PlanPricingFormValues) => void;
   errors: Record<string, string>;
   curated?: boolean;
+  basket?: boolean;
 }) {
   const toggleInterval = (i: PlanInterval) =>
     onChange({
@@ -615,11 +659,13 @@ function PricingFields({
         value={value}
         onChange={onChange}
         errors={errors}
-        goodsLabel={curated ? 'Goods (₦ per delivery)' : 'Box allowance (₦ per delivery)'}
+        goodsLabel={basket ? 'Basket maximum (₦ per delivery)' : curated ? 'Goods (₦ per delivery)' : 'Box allowance (₦ per delivery)'}
         goodsHint={
-          curated
-            ? "The box's catalogue cost. Change the items or their catalogue costs to change it."
-            : "What the box's groceries cost to buy. Subscribers fill it from the catalogue."
+          basket
+            ? 'The most one basket may cost to buy. The preview shows the price of a full basket.'
+            : curated
+              ? "The box's catalogue cost. Change the items or their catalogue costs to change it."
+              : "What the box's groceries cost to buy. Subscribers fill it from the catalogue."
         }
         goodsReadOnly={curated}
         idPrefix="plan"
