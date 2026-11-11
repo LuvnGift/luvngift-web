@@ -52,3 +52,56 @@ describe('fetchList', () => {
     await expect(fetchList(URL)).rejects.toThrow(/not a list/);
   });
 });
+
+describe('the trusted-server header and rate limits', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
+    vi.useRealTimers();
+    vi.resetModules();
+  });
+
+  it('identifies this server to the API when the shared secret is set', async () => {
+    vi.stubEnv('REVALIDATE_SECRET', 'a-shared-secret-of-length');
+    const fetch = respond(200, { success: true, data: [] });
+    vi.stubGlobal('fetch', fetch);
+    await fetchList(URL);
+    const headers = (fetch.mock.calls[0] as unknown as [string, RequestInit])[1].headers as Record<string, string>;
+    expect(headers['x-luvngift-server']).toBe('a-shared-secret-of-length');
+  });
+
+  it('sends nothing when the secret is not set', async () => {
+    vi.stubEnv('REVALIDATE_SECRET', '');
+    const fetch = respond(200, { success: true, data: [] });
+    vi.stubGlobal('fetch', fetch);
+    await fetchList(URL);
+    const headers = (fetch.mock.calls[0] as unknown as [string, RequestInit])[1].headers as Record<string, string>;
+    expect(headers).not.toHaveProperty('x-luvngift-server');
+  });
+
+  it('at build, waits out a 429 and tries again instead of failing the deploy', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.stubEnv('NEXT_PHASE', 'phase-production-build');
+    vi.resetModules();
+    const { fetchList: buildFetchList } = await import('./api-fetch');
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(null, { status: 429, headers: { 'retry-after': '1' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: [{ slug: 'birthday' }] }), { status: 200 }));
+    vi.stubGlobal('fetch', fetch);
+    vi.useFakeTimers();
+    const result = buildFetchList(URL);
+    await vi.runAllTimersAsync();
+    await expect(result).resolves.toEqual([{ slug: 'birthday' }]);
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('at runtime, does not keep a visitor waiting on a 429', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const fetch = respond(429);
+    vi.stubGlobal('fetch', fetch);
+    await expect(fetchList(URL)).rejects.toBeInstanceOf(ApiUnavailableError);
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+});

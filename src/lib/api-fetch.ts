@@ -40,7 +40,28 @@
  * So the build waits up to ~40s per page before giving up. That is cheap
  * compared to re-running the whole pipeline.
  */
+import { TRUSTED_SERVER_HEADER } from '@luvngift/shared';
+
 const IS_BUILD = process.env.NEXT_PHASE === 'phase-production-build';
+
+/**
+ * Identifies this server to the API, which then skips its per-IP global rate
+ * limit for us (the per-endpoint limits still apply). One Vercel build
+ * prerenders every bundle and occasion from one machine, which exceeds that
+ * limit by itself: a deploy failed with "HTTP 429" on /bundles/[slug].
+ * The secret is REVALIDATE_SECRET, server-only on both sides; this module only
+ * ever runs on the server. Without it, nothing is sent and nothing breaks.
+ */
+export function serverApiHeaders(): Record<string, string> {
+  const secret = process.env.REVALIDATE_SECRET;
+  return secret ? { [TRUSTED_SERVER_HEADER]: secret } : {};
+}
+
+/** How long a 429 asks us to wait, from Retry-After (seconds), capped. */
+function retryAfterMs(res: Response, fallback: number): number {
+  const seconds = Number(res.headers.get('retry-after'));
+  return Number.isFinite(seconds) && seconds > 0 ? Math.min(seconds * 1000, 30_000) : fallback;
+}
 
 const TIMEOUT_MS = IS_BUILD ? 20_000 : 10_000;
 
@@ -75,7 +96,7 @@ async function attempt(url: string, init?: RequestInit): Promise<Response> {
   const res = await fetch(url, {
     signal: AbortSignal.timeout(TIMEOUT_MS),
     ...init,
-    headers: { ...(init?.headers ?? {}), 'x-request-id': requestId },
+    headers: { ...(init?.headers ?? {}), ...serverApiHeaders(), 'x-request-id': requestId },
   });
 
   // A failed render is the thing we could not see before. Log it where it
@@ -98,8 +119,10 @@ export async function fetchResourceOrNull<T>(
   let lastCause = 'unknown';
   const attempts = RETRY_DELAYS_MS.length + 1;
 
+  let waitMs = 0;
   for (let i = 0; i < attempts; i++) {
-    if (i > 0) await sleep(RETRY_DELAYS_MS[i - 1]);
+    if (i > 0) await sleep(Math.max(waitMs, RETRY_DELAYS_MS[i - 1]));
+    waitMs = 0;
 
     let res: Response;
     try {
@@ -117,7 +140,12 @@ export async function fetchResourceOrNull<T>(
     }
 
     lastCause = `HTTP ${res.status}`;
-    if (res.status < 500) break; // 4xx won't fix itself; don't retry
+    // A rate limit passes with time: at build, wait as asked and try again.
+    if (res.status === 429 && IS_BUILD) {
+      waitMs = retryAfterMs(res, RETRY_DELAYS_MS[i] ?? 0);
+      continue;
+    }
+    if (res.status < 500) break; // other 4xx won't fix itself; don't retry
   }
 
   throw new ApiUnavailableError(url, lastCause);

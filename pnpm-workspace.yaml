@@ -13,4 +13,4 @@ allowBuilds:
   sharp: true
   unrs-resolver: true
 minimumReleaseAgeExclude:
-  - '@luvngift/shared@2.0.1'
+  - '@luvngift/shared@2.0.1 || 2.0.2'

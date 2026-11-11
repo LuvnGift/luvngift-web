@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ArrowLeft, Wand2, Check } from 'lucide-react';
 import { BundleCard } from '@/components/bundles/bundle-card';
-import { fetchResourceOrNull } from '@/lib/api-fetch';
+import { fetchResourceOrNull, serverApiHeaders } from '@/lib/api-fetch';
 import { CACHE_TAGS, CACHE_FALLBACK_SECONDS } from '@luvngift/shared';
 import { Button } from '@/components/ui/button';
 import { FaqSection } from '@/components/seo/faq-section';
@@ -44,7 +44,7 @@ async function fetchOccasion(slug: string): Promise<Occasion | null> {
 
 export async function generateStaticParams() {
   try {
-    const res = await fetch(`${API_URL}/api/v1/occasions?limit=100`);
+    const res = await fetch(`${API_URL}/api/v1/occasions?limit=100`, { headers: serverApiHeaders() });
     if (!res.ok) return [];
     const json = await res.json();
     const occasions: { slug: string }[] = json.data ?? [];

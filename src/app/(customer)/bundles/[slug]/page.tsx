@@ -5,7 +5,7 @@ import { notFound } from 'next/navigation';
 import { ArrowLeft, Clock, Check } from 'lucide-react';
 import { PurchasePanel } from './purchase-panel';
 import { FaqSection } from '@/components/seo/faq-section';
-import { fetchResourceOrNull } from '@/lib/api-fetch';
+import { fetchResourceOrNull, serverApiHeaders } from '@/lib/api-fetch';
 import { formatDeliveryRange } from '@luvngift/shared';
 import { CACHE_TAGS, CACHE_FALLBACK_SECONDS } from '@luvngift/shared';
 import type { FAQ } from '@/content/faqs';
@@ -39,7 +39,7 @@ async function fetchBundle(slug: string): Promise<BundleWithSeo | null> {
 
 export async function generateStaticParams() {
   try {
-    const res = await fetch(`${API_URL}/api/v1/bundles?limit=200&isActive=true`);
+    const res = await fetch(`${API_URL}/api/v1/bundles?limit=200&isActive=true`, { headers: serverApiHeaders() });
     if (!res.ok) return [];
     const json = await res.json();
     const bundles: { slug: string }[] = json.data?.bundles ?? json.data ?? [];
