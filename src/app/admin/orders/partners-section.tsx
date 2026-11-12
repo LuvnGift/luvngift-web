@@ -16,13 +16,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
 import { BAND_LABELS } from '@luvngift/shared';
+import { PayoutActionDialog, type PayoutActionTarget } from '@/components/admin/payout-action-dialog';
 import {
   ROLE_LABELS,
   nairaLabel,
   payoutModeLabel,
-  useCancelPayout,
   useConfirmRecipient,
-  useMarkPayoutPaid,
   useOrderFulfilment,
   useRatePartner,
   useReviewReceipt,
@@ -130,40 +129,41 @@ function LineRow({ line }: { line: PartnerLine }) {
       </div>
       {live.length > 0 && (
         <ul className="space-y-1.5">
-          {live.map((p) => <PayoutRow key={p.id} payout={p} />)}
+          {live.map((p) => <PayoutRow key={p.id} payout={p} line={line} />)}
         </ul>
       )}
     </div>
   );
 }
 
-function PayoutRow({ payout }: { payout: PartnerLine['payouts'][number] }) {
-  const markPaid = useMarkPayoutPaid();
-  const cancel = useCancelPayout();
-  const [reference, setReference] = useState('');
+function PayoutRow({ payout, line }: { payout: PartnerLine['payouts'][number]; line: PartnerLine }) {
+  const [mode, setMode] = useState<'pay' | 'cancel' | null>(null);
   const label = `${payout.kind.charAt(0)}${payout.kind.slice(1).toLowerCase()} ${nairaLabel(payout.amountNgn)}`;
   if (payout.status === 'PAID') {
-    return <li className="text-xs text-green-700 flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> {label} paid · ref {payout.reference}</li>;
+    return (
+      <li className="text-xs text-green-700 flex items-center gap-1">
+        <CheckCircle2 className="h-3 w-3" /> {label} paid · ref {payout.reference}
+        {payout.proofUrl && (
+          <a href={payout.proofUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline">
+            receipt <ExternalLink className="h-3 w-3" />
+          </a>
+        )}
+      </li>
+    );
   }
+  // The bank account is checked by the API on submit; this panel does not load it.
+  const target: PayoutActionTarget = {
+    id: payout.id,
+    amountNgn: payout.amountNgn,
+    vendorId: payout.vendorId,
+    partnerName: line.vendor?.name ?? 'the partner',
+  };
   return (
     <li className="flex flex-wrap items-center gap-2 text-xs">
       <span className="font-medium text-amber-800">{label} due</span>
-      <Input className="h-7 w-40 text-xs" placeholder="Transfer reference" value={reference} onChange={(e) => setReference(e.target.value)} />
-      <Button size="sm" className="h-7 text-xs" disabled={reference.trim().length < 3 || markPaid.isPending} onClick={() => markPaid.mutate({ id: payout.id, reference: reference.trim() })}>
-        Mark paid
-      </Button>
-      <Button
-        size="sm"
-        variant="ghost"
-        className="h-7 text-xs text-muted-foreground"
-        disabled={cancel.isPending}
-        onClick={() => {
-          const reason = prompt('Why is this payout cancelled? (at least 5 characters)');
-          if (reason && reason.trim().length >= 5) cancel.mutate({ id: payout.id, reason: reason.trim() });
-        }}
-      >
-        Cancel
-      </Button>
+      <Button size="sm" className="h-7 text-xs" onClick={() => setMode('pay')}>Record payment</Button>
+      <Button size="sm" variant="ghost" className="h-7 text-xs text-muted-foreground" onClick={() => setMode('cancel')}>Cancel</Button>
+      <PayoutActionDialog target={mode ? target : null} mode={mode ?? 'pay'} onClose={() => setMode(null)} />
     </li>
   );
 }

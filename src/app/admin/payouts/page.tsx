@@ -8,11 +8,11 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { CheckCircle2 } from 'lucide-react';
+import { CheckCircle2, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
-import { ROLE_LABELS, nairaLabel, useMarkPayoutPaid, usePayouts, type PayoutRow } from '@/hooks/use-partners';
+import { PayoutActionDialog, type PayoutActionTarget } from '@/components/admin/payout-action-dialog';
+import { ROLE_LABELS, nairaLabel, usePayouts, type PayoutRow } from '@/hooks/use-partners';
 
 const STATUSES = [
   { value: 'DUE', label: 'Due' },
@@ -28,14 +28,18 @@ export default function AdminPayoutsPage() {
   const [status, setStatus] = useState('DUE');
   const [page, setPage] = useState(1);
   const { data, isLoading } = usePayouts({ status: status || undefined, page });
+  const [action, setAction] = useState<{ target: PayoutActionTarget; mode: 'pay' | 'cancel' } | null>(null);
+  const open = (mode: 'pay' | 'cancel') => (target: PayoutActionTarget) => setAction({ target, mode });
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Partner payouts</h1>
         <p className="text-muted-foreground text-sm max-w-2xl">
-          Advances fall due when a partner is assigned, reimbursements when you approve their receipts,
-          and the rest once the order is delivered. Pay by bank transfer, then record the reference here.
+          Advances fall due when a split-schedule partner is assigned (pay these the same day), and the rest once the
+          order is delivered (pay these in the Friday run). Send the bank transfer first, then record it here with the
+          reference and the bank&apos;s receipt. Recording or cancelling needs your 2FA code, and a partner can only be
+          paid once their bank details are verified on their profile.
         </p>
       </div>
 
@@ -69,10 +73,12 @@ export default function AdminPayoutsPage() {
                 {['Partner', 'Order', 'For', 'Amount', 'Since', 'Payment'].map((h) => <th key={h} className="px-3 py-2 font-medium">{h}</th>)}
               </tr>
             </thead>
-            <tbody>{data.data.map((p) => <Row key={p.id} payout={p} />)}</tbody>
+            <tbody>{data.data.map((p) => <Row key={p.id} payout={p} onPay={open('pay')} onCancel={open('cancel')} />)}</tbody>
           </table>
         </div>
       )}
+
+      <PayoutActionDialog target={action?.target ?? null} mode={action?.mode ?? 'pay'} onClose={() => setAction(null)} />
 
       {data && data.meta.totalPages > 1 && (
         <div className="flex items-center gap-2">
@@ -85,14 +91,35 @@ export default function AdminPayoutsPage() {
   );
 }
 
-function Row({ payout }: { payout: PayoutRow }) {
-  const markPaid = useMarkPayoutPaid();
-  const [reference, setReference] = useState('');
+function Row({
+  payout,
+  onPay,
+  onCancel,
+}: {
+  payout: PayoutRow;
+  onPay: (t: PayoutActionTarget) => void;
+  onCancel: (t: PayoutActionTarget) => void;
+}) {
+  const account = payout.vendor.bankAccounts[0] ?? null;
+  const target: PayoutActionTarget = {
+    id: payout.id,
+    amountNgn: payout.amountNgn,
+    vendorId: payout.vendor.id,
+    partnerName: payout.vendor.name,
+    account,
+  };
   return (
     <tr className="border-t align-top">
       <td className="px-3 py-2">
         <Link href={`/admin/vendors/${payout.vendor.id}`} className="font-medium hover:underline">{payout.vendor.name}</Link>
         <p className="text-xs text-muted-foreground">{payout.vendor.phone}</p>
+        {payout.status === 'DUE' && (
+          <p className={`text-xs ${account?.status === 'VERIFIED' ? 'text-muted-foreground' : 'text-amber-700'}`}>
+            {account
+              ? `${account.bankName} ••••${account.accountLast4}${account.status === 'VERIFIED' ? '' : ' (not verified)'}`
+              : 'No bank details'}
+          </p>
+        )}
       </td>
       <td className="px-3 py-2 font-mono text-xs">{ref(payout.line.orderId)}</td>
       <td className="px-3 py-2 text-xs">{ROLE_LABELS[payout.line.role]} · {KIND_LABELS[payout.kind]}</td>
@@ -100,15 +127,23 @@ function Row({ payout }: { payout: PayoutRow }) {
       <td className="px-3 py-2 text-xs text-muted-foreground">{new Date(payout.createdAt).toLocaleDateString()}</td>
       <td className="px-3 py-2">
         {payout.status === 'PAID' && (
-          <span className="text-xs text-green-700 inline-flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> {payout.reference}</span>
+          <div className="text-xs space-y-0.5">
+            <span className="text-green-700 inline-flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> {payout.reference}</span>
+            {payout.bankAccount && (
+              <p className="text-muted-foreground">to {payout.bankAccount.bankName} ••••{payout.bankAccount.accountLast4}</p>
+            )}
+            {payout.proofUrl && (
+              <a href={payout.proofUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline">
+                Receipt <ExternalLink className="h-3 w-3" />
+              </a>
+            )}
+          </div>
         )}
         {payout.status === 'CANCELLED' && <span className="text-xs text-muted-foreground">Cancelled: {payout.cancelledReason}</span>}
         {payout.status === 'DUE' && (
           <div className="flex gap-1.5">
-            <Input className="h-8 w-36 text-xs" placeholder="Transfer reference" value={reference} onChange={(e) => setReference(e.target.value)} />
-            <Button size="sm" className="h-8" disabled={reference.trim().length < 3 || markPaid.isPending} onClick={() => markPaid.mutate({ id: payout.id, reference: reference.trim() })}>
-              Paid
-            </Button>
+            <Button size="sm" className="h-8" onClick={() => onPay(target)}>Record payment</Button>
+            <Button size="sm" variant="ghost" className="h-8 text-muted-foreground" onClick={() => onCancel(target)}>Cancel</Button>
           </div>
         )}
       </td>

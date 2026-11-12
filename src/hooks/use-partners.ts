@@ -14,8 +14,14 @@ import {
   PAYOUT_MODE_LABELS,
   type FulfilmentBand,
   type FulfilmentRulesInput,
+  type PartnerBankAccountInput,
+  type PartnerBankAccountStatus,
+  type PartnerBankAccountView,
   type PartnerPayTerms,
+  type PayoutCancelInput,
+  type PayoutEventView,
   type PayoutMode,
+  type VerifyPartnerBankAccountInput,
   type VettingKind,
 } from '@luvngift/shared';
 
@@ -52,6 +58,8 @@ export interface Payout {
   reference: string | null;
   paidAt: string | null;
   cancelledReason: string | null;
+  /** The transfer receipt uploaded when the payment was recorded. */
+  proofUrl?: string | null;
   createdAt: string;
 }
 
@@ -160,9 +168,20 @@ export const useReviewReceipt = (orderId: string) =>
 
 // ─── Payouts ledger ───────────────────────────────────────────────────────────
 
+/** A partner's current bank account as the payouts list carries it (never the full number). */
+export interface PayableAccount {
+  id: string;
+  status: PartnerBankAccountStatus;
+  bankName: string;
+  accountLast4: string;
+  accountName: string;
+}
+
 export interface PayoutRow extends Payout {
-  vendor: { id: string; name: string; phone: string };
+  vendor: { id: string; name: string; phone: string; bankAccounts: PayableAccount[] };
   line: { orderId: string; role: LineRole };
+  /** The account a PAID payout went to. */
+  bankAccount: { id: string; bankName: string; accountLast4: string } | null;
 }
 
 export const usePayouts = (filters: { status?: string; vendorId?: string; page: number }) =>
@@ -185,16 +204,82 @@ function usePayoutWrite<T>(request: (input: T) => Promise<unknown>, success: str
   });
 }
 
+/**
+ * Recording a transfer: multipart, because it carries the bank's receipt as
+ * `proof`. A fresh 2FA code is required for this and for a cancellation.
+ */
 export const useMarkPayoutPaid = () =>
-  usePayoutWrite<{ id: string; reference: string; note?: string }>(
-    ({ id, ...body }) => api.post(`/api/v1/admin/partner-payouts/${id}/paid`, body),
+  usePayoutWrite<{ id: string; reference: string; note?: string; totpCode: string; proof: File }>(
+    ({ id, reference, note, totpCode, proof }) => {
+      const body = new FormData();
+      body.append('reference', reference);
+      if (note) body.append('note', note);
+      body.append('totpCode', totpCode);
+      body.append('proof', proof);
+      return api.post(`/api/v1/admin/partner-payouts/${id}/paid`, body);
+    },
     'Payment recorded',
   );
 
 export const useCancelPayout = () =>
-  usePayoutWrite<{ id: string; reason: string }>(
-    ({ id, reason }) => api.post(`/api/v1/admin/partner-payouts/${id}/cancel`, { reason }),
+  usePayoutWrite<{ id: string } & PayoutCancelInput>(
+    ({ id, ...body }) => api.post(`/api/v1/admin/partner-payouts/${id}/cancel`, body),
     'Payout cancelled',
+  );
+
+// ─── Bank details and the money trail ────────────────────────────────────────
+
+export interface PartnerBankAccounts {
+  /** Pending or verified; carries the full account number. */
+  current: (PartnerBankAccountView & { accountNumber: string }) | null;
+  /** Earlier accounts, masked. */
+  history: PartnerBankAccountView[];
+}
+
+const bankKey = (id: string) => ['admin', 'partner', id, 'bank-account'];
+const trailKey = (id: string) => ['admin', 'partner', id, 'payout-events'];
+
+export const usePartnerBankAccount = (id: string) =>
+  useQuery<PartnerBankAccounts>({
+    queryKey: bankKey(id),
+    queryFn: () => api.get(`/api/v1/admin/partners/${id}/bank-account`).then((r) => r.data.data),
+    enabled: !!id,
+  });
+
+export const usePartnerPayoutEvents = (id: string, page: number) =>
+  useQuery<{ data: PayoutEventView[]; meta: { total: number; page: number; totalPages: number } }>({
+    queryKey: [...trailKey(id), page],
+    queryFn: () =>
+      api.get(`/api/v1/admin/partners/${id}/payout-events`, { params: { page, limit: 10 } }).then((r) => r.data.data),
+    enabled: !!id,
+  });
+
+function useBankWrite<T>(id: string, request: (input: T) => Promise<unknown>, success: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: request,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: bankKey(id) });
+      qc.invalidateQueries({ queryKey: trailKey(id) });
+      qc.invalidateQueries({ queryKey: ['admin', 'payouts'] });
+      toast.success(success);
+    },
+    onError: (err: any) => toast.error(errorMessage(err, 'Could not save the bank details')),
+  });
+}
+
+export const useSavePartnerBankAccount = (id: string) =>
+  useBankWrite<PartnerBankAccountInput>(
+    id,
+    (body) => api.put(`/api/v1/admin/partners/${id}/bank-account`, body),
+    'Bank details saved. Verify them before paying.',
+  );
+
+export const useVerifyPartnerBankAccount = (id: string) =>
+  useBankWrite<VerifyPartnerBankAccountInput>(
+    id,
+    (body) => api.post(`/api/v1/admin/partners/${id}/bank-account/verify`, body),
+    'Bank details verified',
   );
 
 // ─── Partner profile ──────────────────────────────────────────────────────────
