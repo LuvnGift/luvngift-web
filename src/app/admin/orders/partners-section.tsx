@@ -15,7 +15,7 @@ import { CheckCircle2, ExternalLink, Pencil, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
-import { BAND_LABELS } from '@luvngift/shared';
+import { BAND_LABELS, formatMoney } from '@luvngift/shared';
 import { PayoutActionDialog, type PayoutActionTarget } from '@/components/admin/payout-action-dialog';
 import {
   ROLE_LABELS,
@@ -26,6 +26,7 @@ import {
   useRatePartner,
   useReviewReceipt,
   useSetPartnerAmount,
+  useOrderMoney,
   type OrderFulfilment,
   type PartnerLine,
 } from '@/hooks/use-partners';
@@ -66,6 +67,7 @@ export function PartnersSection({ orderId }: { orderId: string }) {
       <Confirmation data={data} />
       <Timeline data={data} />
       {data.order.status === 'DELIVERED' && <Ratings data={data} />}
+      <OrderMoney orderId={orderId} />
     </div>
   );
 }
@@ -281,6 +283,45 @@ function RatingForm({ orderId, vendorId, name, existing }: { orderId: string; ve
       <Button size="sm" className="h-7 text-xs gap-1" disabled={!ready || rate.isPending} onClick={() => rate.mutate({ vendorId, ...scores })}>
         <Star className="h-3 w-3" /> {existing ? 'Update' : 'Rate'}
       </Button>
+    </div>
+  );
+}
+
+/**
+ * Money in (what the buyer paid, less refunds) and out (what the partner is
+ * owed). The margin is an estimate in CA$ at the latest CAD funding rate and
+ * leaves out card fees, which are not recorded: a guide, not accounts.
+ */
+function OrderMoney({ orderId }: { orderId: string }) {
+  const { data } = useOrderMoney(orderId);
+  if (!data) return null;
+  const { moneyIn, moneyOut, estimate } = data;
+  const signed = (kobo: number) => `${kobo < 0 ? '−' : ''}${nairaLabel(Math.abs(kobo))}`;
+  return (
+    <div className="space-y-1.5 text-xs">
+      <p className={heading}>Money in and out</p>
+      <p>
+        In: {formatMoney(moneyIn.totalMinor, moneyIn.currency)}
+        {moneyIn.refundedMinor > 0 && ` less ${formatMoney(moneyIn.refundedMinor, moneyIn.currency)} refunded`}
+        {moneyIn.paymentStatus ? ` · payment ${moneyIn.paymentStatus.toLowerCase()}` : ' · no payment'}
+      </p>
+      <p>
+        Out: partner owed {nairaLabel(moneyOut.owedNgn)} · paid {nairaLabel(moneyOut.paidNgn)}
+        {moneyOut.batchedNgn > 0 && ` · in a batch ${nairaLabel(moneyOut.batchedNgn)}`}
+        {moneyOut.dueNgn > 0 && ` · due ${nairaLabel(moneyOut.dueNgn)}`}
+        {moneyOut.adjustmentsNgn !== 0 && ` · adjustments ${signed(moneyOut.adjustmentsNgn)}`}
+      </p>
+      {estimate ? (
+        <p>
+          Estimated margin <strong className={estimate.marginCadCents < 0 ? 'text-red-700' : ''}>{formatMoney(estimate.marginCadCents, 'CAD')}</strong>{' '}
+          <span className="text-muted-foreground">
+            ({formatMoney(estimate.netInCadCents, 'CAD')} in, {formatMoney(estimate.partnerCostCadCents, 'CAD')} partner cost at ₦
+            {estimate.fundingRate.toFixed(2)}/CA$ from {estimate.fundingDate}; card fees not included)
+          </span>
+        </p>
+      ) : (
+        <p className="text-muted-foreground">No margin estimate: it needs a paid order and a CAD funding record (Payouts → Reports).</p>
+      )}
     </div>
   );
 }

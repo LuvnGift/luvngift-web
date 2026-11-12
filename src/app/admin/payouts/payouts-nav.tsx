@@ -7,6 +7,7 @@ const TABS = [
   { href: '/admin/payouts', label: 'Owed' },
   { href: '/admin/payouts/batches', label: 'Batches' },
   { href: '/admin/payouts/adjustments', label: 'Adjustments' },
+  { href: '/admin/payouts/reports', label: 'Reports' },
 ];
 
 /** Tabs across the partner payouts pages. */

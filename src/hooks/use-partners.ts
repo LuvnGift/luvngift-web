@@ -19,6 +19,12 @@ import {
   type PartnerBankAccountView,
   type PartnerPayTerms,
   type BatchPreviewPartner,
+  type MonthlyPayoutReport,
+  type OrderMoneyView,
+  type PartnerPayoutSummary,
+  type PayoutFundingInput,
+  type PayoutFundingView,
+  type PayoutReconciliationInput,
   type CreatePayoutBatchInput,
   type PartnerAdjustmentInput,
   type PartnerAdjustmentView,
@@ -494,3 +500,73 @@ export const useCancelAdjustment = () =>
     ({ id, ...body }) => api.post(`/api/v1/admin/partner-adjustments/${id}/cancel`, body),
     'Adjustment cancelled',
   );
+
+// ─── Reporting (phase 3) ─────────────────────────────────────────────────────
+
+const reportsKey = ['admin', 'payout-reports'];
+const fundingsKey = ['admin', 'payout-fundings'];
+
+export const useMonthReport = (month: string) =>
+  useQuery<MonthlyPayoutReport>({
+    queryKey: [...reportsKey, month],
+    queryFn: () => api.get('/api/v1/admin/payout-reports/month', { params: { month } }).then((r) => r.data.data),
+    enabled: /^\d{4}-\d{2}$/.test(month),
+  });
+
+function useReportWrite<T>(request: (input: T) => Promise<unknown>, success: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: request,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: reportsKey });
+      qc.invalidateQueries({ queryKey: fundingsKey });
+      qc.invalidateQueries({ queryKey: ['admin', 'order-money'] });
+      toast.success(success);
+    },
+    onError: async (err: any) => toast.error(await blobErrorMessage(err, 'Could not save')),
+  });
+}
+
+/** The month's payments as CSV, for the accountant (last four digits only). */
+export const useDownloadMonthCsv = () =>
+  useReportWrite<{ month: string }>(async ({ month }) => {
+    const res = await api.get('/api/v1/admin/payout-reports/month/export', { params: { month }, responseType: 'blob' });
+    const url = URL.createObjectURL(res.data as Blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `luvngift-partner-payments-${month}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, 'Downloaded');
+
+export const useReconcileMonth = () =>
+  useReportWrite<PayoutReconciliationInput>((body) => api.post('/api/v1/admin/payout-reports/reconciliations', body), 'Month reconciled');
+
+export const usePayoutFundings = (page: number) =>
+  useQuery<{ data: PayoutFundingView[]; meta: { total: number; page: number; totalPages: number } }>({
+    queryKey: [...fundingsKey, page],
+    queryFn: () => api.get('/api/v1/admin/payout-fundings', { params: { page, limit: 10 } }).then((r) => r.data.data),
+  });
+
+export const useAddFunding = () =>
+  useReportWrite<PayoutFundingInput>((body) => api.post('/api/v1/admin/payout-fundings', body), 'Funding recorded');
+
+export const useVoidFunding = () =>
+  useReportWrite<{ id: string; reason: string }>(
+    ({ id, reason }) => api.post(`/api/v1/admin/payout-fundings/${id}/void`, { reason }),
+    'Funding record voided',
+  );
+
+export const usePartnerPayoutSummary = (vendorId: string) =>
+  useQuery<PartnerPayoutSummary>({
+    queryKey: ['admin', 'partner', vendorId, 'payout-summary'],
+    queryFn: () => api.get(`/api/v1/admin/partners/${vendorId}/payout-summary`).then((r) => r.data.data),
+    enabled: !!vendorId,
+  });
+
+export const useOrderMoney = (orderId: string) =>
+  useQuery<OrderMoneyView>({
+    queryKey: ['admin', 'order-money', orderId],
+    queryFn: () => api.get(`/api/v1/admin/orders/${orderId}/money`).then((r) => r.data.data),
+    enabled: !!orderId,
+  });

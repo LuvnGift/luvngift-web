@@ -33,6 +33,7 @@ import {
   useSavePartnerBankAccount,
   useVerifyPartnerBankAccount,
   useCreateAdjustment,
+  usePartnerPayoutSummary,
 } from '@/hooks/use-partners';
 
 const SELECT = 'h-9 rounded-md border border-input bg-background px-2 text-sm';
@@ -195,13 +196,32 @@ function VerifyForm({ vendorId }: { vendorId: string }) {
 export function PaymentHistoryCard({ vendorId }: { vendorId: string }) {
   const [page, setPage] = useState(1);
   const { data, isLoading } = usePartnerPayoutEvents(vendorId, page);
+  const { data: summary } = usePartnerPayoutSummary(vendorId);
+  const signed = (kobo: number) => `${kobo < 0 ? '−' : ''}${nairaLabel(Math.abs(kobo))}`;
 
   return (
     <Card>
       <CardHeader><CardTitle className="text-base">Payment history</CardTitle></CardHeader>
       <CardContent className="space-y-3 text-sm">
+        {summary && (
+          <dl className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+            {[
+              ['Due now', nairaLabel(summary.dueNgn)],
+              ['In a batch', nairaLabel(summary.batchedNgn)],
+              ['Open adjustments', signed(summary.adjustmentsNetNgn)],
+              ['Paid this month', signed(summary.paidThisMonthNgn)],
+              ['Paid all time', signed(summary.paidAllTimeNgn)],
+            ].map(([label, value]) => (
+              <div key={label} className="rounded-md border p-2">
+                <dt className="text-xs text-muted-foreground">{label}</dt>
+                <dd className="font-semibold">{value}</dd>
+              </div>
+            ))}
+          </dl>
+        )}
         <p className="text-xs text-muted-foreground">
           Every payout and bank-detail change for this partner, recorded as it happened. Entries cannot be edited or deleted.
+          {summary?.lastPaidAt && ` Last paid ${new Date(summary.lastPaidAt).toLocaleDateString()}.`}
         </p>
         {isLoading ? (
           <Spinner />
