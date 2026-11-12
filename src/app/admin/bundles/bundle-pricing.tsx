@@ -22,21 +22,19 @@ import { CostStackInputs, SPLIT_HEADERS, SplitCells, StackSummary, money } from 
 
 export const EMPTY_BUNDLE_PRICING: BundlePricingFormValues = {
   sourcingMajor: '',
-  agentFeeMajor: '',
-  deliveryFeeMajor: '',
+  packagingMajor: '',
   platformPercent: '',
 };
 
 type PricedBundle = {
   sourcingNgn?: number | null;
-  agentFeeNgn?: number | null;
-  deliveryFeeNgn?: number | null;
+  packagingNgn?: number | null;
   platformBps?: number | null;
 };
 
 /** A cost-stack bundle's current inputs; a legacy bundle keeps only its goods cost. */
 export const pricingOf = (b: PricedBundle): BundlePricingFormValues =>
-  stackFormValues({ goodsNgn: b.sourcingNgn, agentFeeNgn: b.agentFeeNgn, deliveryFeeNgn: b.deliveryFeeNgn, platformBps: b.platformBps });
+  stackFormValues({ goodsNgn: b.sourcingNgn, packagingNgn: b.packagingNgn, platformBps: b.platformBps });
 
 /**
  * The cost stack, with the price it makes at today's rate. The preview re-runs
@@ -71,7 +69,7 @@ export function BundlePricingFields({
     }, 400);
     return () => clearTimeout(timer);
     // Re-run only when the inputs change, not on every render of `preview`.
-  }, [value.sourcingMajor, value.agentFeeMajor, value.deliveryFeeMajor, value.platformPercent, bundleId]);
+  }, [value.sourcingMajor, value.packagingMajor, value.platformPercent, bundleId]);
 
   return (
     <div className="space-y-3 rounded-md border p-3">

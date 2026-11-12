@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 
 export default function VendorAgreementPage() {
   return (
-    <LegalPage title="Vendor Agreement" updated="November 6, 2026">
+    <LegalPage title="Vendor Agreement" updated="November 11, 2026">
       <h2>1. Parties</h2>
       <p>
         This Vendor Agreement is between DOCH FX INC (operating as Luvngift) and the approved vendor
@@ -28,8 +28,8 @@ export default function VendorAgreementPage() {
 
       <h2>3. Products and services</h2>
       <p>
-        Vendors provide goods, digital items, or experiences as approved by Luvngift. Vendors do not control
-        platform pricing or customer interface.
+        Vendors are hamper and gift businesses that source, pack and deliver Luvngift orders in the states
+        they cover, as approved by Luvngift. Vendors do not control platform pricing or customer interface.
       </p>
 
       <h2>4. Pricing control</h2>
@@ -45,36 +45,31 @@ export default function VendorAgreementPage() {
 
       <h2>6. Pay and payouts</h2>
       <p>
-        An order can have up to three parts: buying the goods, managing the order (the agent&apos;s
-        part), and delivery. You may be given one part or all of them. For each part you are given,
-        Luvngift tells you in naira, on the order, what you are paid for it. That amount is fixed
-        when the order is placed: it does not change with exchange rates, with what the customer
-        paid, or if the customer uses reward points, and Luvngift pays payment-processing fees from
-        its own share. For buying the goods, the amount is what the goods cost; for a subscription
-        delivery, it is what the box the customer ordered costs, so a substitution you make under
-        our substitution policy does not reduce it.
+        Each order is given to one Vendor, who sources the goods, packs them in Luvngift packaging and
+        delivers them. Luvngift tells you in naira, on the order, what you are paid for it: the cost of
+        the goods plus a fulfilment fee for packing and delivering it. The fee depends on the band
+        (High, Medium or Low) that the recipient&apos;s state is in. The amount is fixed when the order
+        is placed: it does not change with exchange rates, with what the customer paid, if the customer
+        uses reward points, or if Luvngift later changes its fees, and Luvngift pays payment-processing
+        fees from its own share. For a subscription delivery, the goods amount is what the box the
+        customer ordered costs, so a substitution you make under our substitution policy does not reduce it.
       </p>
       <p>
-        When you are paid depends on your payout schedule, set out in your approval email (which
-        forms part of this agreement) and shown on each order:
+        When you are paid is agreed with you, set out in your approval email (which forms part of this
+        agreement) and shown on each order:
       </p>
       <ul>
-        <li><strong>Advance:</strong> the goods money is paid to you before you buy; the rest once
-          the order is delivered.</li>
-        <li><strong>Reimburse:</strong> the goods money is paid once Luvngift approves the receipts
-          you upload for the order, up to the amount for the goods; the rest once the order is
-          delivered.</li>
-        <li><strong>Split:</strong> the stated percentage of each amount is paid when you are
+        <li><strong>On delivery:</strong> the whole amount is paid once the order is delivered.</li>
+        <li><strong>Part upfront:</strong> the stated percentage of the amount is paid when you are
           assigned the order, and the rest once it is delivered.</li>
       </ul>
       <p>
         An order is delivered when the delivery photo is uploaded and, where Luvngift asks for it,
-        the recipient has confirmed receiving it with the code we text them. Luvngift may set a
-        different schedule for a particular order, and tells you on the order if it does. If an
-        order is cancelled or moved to another partner, nothing more falls due to you on it, and you
-        must return any advance you have not spent on it (with receipts for what you have spent).
-        The schedule may be changed with at least 30 days&apos; notice by email, and a change never
-        applies to an order already assigned to you.
+        the recipient has confirmed receiving it with the code we text them. If an order is cancelled
+        or moved to another Vendor, nothing more falls due to you on it, and you must return any
+        upfront payment you have not spent on it (with receipts for what you have spent). Your schedule
+        may be changed with at least 30 days&apos; notice by email, and a change never applies to an
+        order already assigned to you. Payments are made by bank transfer.
       </p>
       <p>
         If you were approved before November 10, 2026 and are paid a share of the price, that share
@@ -84,13 +79,26 @@ export default function VendorAgreementPage() {
 
       <h2>6A. Vetting, receipts and ratings</h2>
       <p>
-        Before approving an individual fulfilment agent, Luvngift checks their identity, guarantor
-        and references, may visit their address, interviews them and trains them. Shops and
-        delivery companies are visited and interviewed. Receipts you upload must be genuine and for
-        the order they are uploaded to. Luvngift rates the work done on each delivered order
-        (punctuality, quality and communication) and uses these ratings, with on-time delivery and
-        recipient confirmation, when deciding who is offered orders.
+        Before approving a Vendor, Luvngift verifies the business address, interviews the Vendor and
+        asks them to make a sample hamper in Luvngift packaging, and checks the business&apos;s CAC
+        registration where it has one. Receipts you upload must be genuine and for the order they are
+        uploaded to; they are a record of what was bought and do not change what you are paid.
+        Luvngift rates the work done on each delivered order (punctuality, quality, communication and
+        use of Luvngift packaging) and uses these ratings, with on-time delivery and recipient
+        confirmation, when deciding who is offered orders.
       </p>
+
+      <h2>6B. Luvngift packaging</h2>
+      <p>
+        Luvngift supplies its branded boxes and packaging to the Vendor at no charge. The packaging
+        remains Luvngift&apos;s property. The Vendor must:
+      </p>
+      <ul>
+        <li>pack every Luvngift order in Luvngift packaging, as briefed, unless Luvngift agrees otherwise for that order</li>
+        <li>use Luvngift packaging only for Luvngift orders, never for the Vendor&apos;s own sales or anyone else&apos;s</li>
+        <li>store it with reasonable care and tell Luvngift before it runs out</li>
+        <li>return or account for any unused packaging when this agreement ends</li>
+      </ul>
 
       <h2>7. Cancellations and refunds</h2>
       <p>
@@ -112,6 +120,9 @@ export default function VendorAgreementPage() {
       <ul>
         <li>use this information only to prepare and deliver that order, and never to contact the
           recipient for any other purpose or share it with anyone else</li>
+        <li>not offer the recipient, or anyone they learn is a Luvngift customer, the Vendor&apos;s own
+          products or services, or invite them to order directly instead of through Luvngift, during
+          this agreement and for 12 months after it ends</li>
         <li>keep it secure, and delete or destroy any copies once the order is delivered</li>
         <li>tell Luvngift immediately if it is lost, stolen or seen by someone who should not have it</li>
         <li>respect every dietary and religious requirement on the order</li>

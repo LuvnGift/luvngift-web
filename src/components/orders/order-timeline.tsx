@@ -10,7 +10,8 @@ import { cn } from '@/lib/utils';
 
 export interface OrderEvent {
   kind: 'PARTNER_ASSIGNED' | 'ITEMS_SOURCED' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'RECIPIENT_CONFIRMED';
-  role: 'SOURCING' | 'AGENT' | 'DELIVERY' | null;
+  /** FULFILMENT since 2026-11-11 (one partner); older orders may carry the retired split roles. */
+  role: 'FULFILMENT' | 'SOURCING' | 'AGENT' | 'DELIVERY' | null;
   createdAt: string;
 }
 

@@ -100,7 +100,7 @@ export const planFormSchema = z.object({
 
 export type PlanFormValues = z.infer<typeof planFormSchema>;
 
-/** A fee in naira that may be zero (a partner who charges nothing for that part). */
+/** A naira amount that may be zero (no branded packaging on this item). */
 const nairaFee = (label: string) =>
   z
     .string()
@@ -111,15 +111,15 @@ const nairaFee = (label: string) =>
     .refine((v) => Math.round(Number(v) * 100) <= KOBO_MAX, `${label} is implausibly large`);
 
 /**
- * The cost stack as typed (costStackSchema in @luvngift/shared):
- * the partners' naira fees and the platform's share. The goods amount is
- * named per caller (sourcing for a bundle, the box allowance for a plan).
+ * The cost stack as typed (costStackSchema in @luvngift/shared): the branded
+ * packaging and the platform's share. The goods amount is named per caller
+ * (sourcing for a bundle, the box allowance for a plan). The fulfilment fee
+ * is not typed: it is the High band fee from Settings → Fulfilment.
  */
 const costStackFields = {
   /** What one delivery's goods cost to buy, in naira. */
   sourcingMajor: nairaAmount('Goods cost'),
-  agentFeeMajor: nairaFee('Agent fee'),
-  deliveryFeeMajor: nairaFee('Delivery fee'),
+  packagingMajor: nairaFee('Packaging'),
   platformPercent: z
     .string()
     .trim()
@@ -149,8 +149,7 @@ const toKobo = (major: string) => Math.round(Number(major) * 100);
 /** Form values → the API's pricing input. */
 export const toPricingInput = (v: PlanPricingFormValues) => ({
   boxAllowanceNgn: toKobo(v.sourcingMajor),
-  agentFeeNgn: toKobo(v.agentFeeMajor),
-  deliveryFeeNgn: toKobo(v.deliveryFeeMajor),
+  packagingNgn: toKobo(v.packagingMajor),
   platformPercent: Number(v.platformPercent),
   // The schema already refuses the retired cadence; this narrows the type to match.
   intervals: v.intervals.filter((i): i is OfferedInterval => i !== 'BIWEEKLY'),
@@ -166,21 +165,18 @@ export type BundlePricingFormValues = z.infer<typeof bundlePricingFormSchema>;
 /** Form values → the API's bundle pricing input. */
 export const toBundlePricingInput = (v: BundlePricingFormValues) => ({
   sourcingNgn: toKobo(v.sourcingMajor),
-  agentFeeNgn: toKobo(v.agentFeeMajor),
-  deliveryFeeNgn: toKobo(v.deliveryFeeMajor),
+  packagingNgn: toKobo(v.packagingMajor),
   platformPercent: Number(v.platformPercent),
 });
 
 /** A stored stack (kobo / basis points) → form values; blanks for a legacy item. */
 export const stackFormValues = (row: {
   goodsNgn?: number | null;
-  agentFeeNgn?: number | null;
-  deliveryFeeNgn?: number | null;
+  packagingNgn?: number | null;
   platformBps?: number | null;
 }): BundlePricingFormValues => ({
   sourcingMajor: row.goodsNgn ? String(row.goodsNgn / 100) : '',
-  agentFeeMajor: row.agentFeeNgn != null ? String(row.agentFeeNgn / 100) : '',
-  deliveryFeeMajor: row.deliveryFeeNgn != null ? String(row.deliveryFeeNgn / 100) : '',
+  packagingMajor: row.packagingNgn != null ? String(row.packagingNgn / 100) : '',
   platformPercent: row.platformBps != null ? String(row.platformBps / 100) : '',
 });
 

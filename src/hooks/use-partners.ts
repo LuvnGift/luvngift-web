@@ -1,32 +1,39 @@
 'use client';
 
 /**
- * Admin hooks for fulfilment partners: an order's partner lines and payouts,
- * the payouts ledger, partner profiles (coverage, vetting, pay terms) and
- * Settings → Fulfilment. Enums from @luvngift/shared; the API is luvngift-api/src/modules/partners.
+ * Admin hooks for fulfilment partners: an order's partner (one per order) and
+ * payouts, the payouts ledger, partner profiles (states covered, vetting, pay
+ * terms and payout schedule) and Settings → Fulfilment (band fees). Enums from @luvngift/shared; the API is luvngift-api/src/modules/partners.
  */
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
 
-import { FULFILMENT_ROLES, type FulfilmentRole, type PartnerPayTerms, type PayoutMode, type VettingKind } from '@luvngift/shared';
+import {
+  PAYOUT_MODE_LABELS,
+  type FulfilmentBand,
+  type FulfilmentRulesInput,
+  type PartnerPayTerms,
+  type PayoutMode,
+  type VettingKind,
+} from '@luvngift/shared';
 
-// The enums are the API's own (@luvngift/shared); only the labels are this app's.
-export type { FulfilmentRole, PayoutMode, VettingKind };
+// The enums and labels are the API's own (@luvngift/shared).
+export type { PayoutMode, VettingKind };
+export { PAYOUT_MODE_LABELS };
 export type PayTerms = PartnerPayTerms;
-
-export const ROLES: FulfilmentRole[] = [...FULFILMENT_ROLES];
-export const ROLE_LABELS: Record<FulfilmentRole, string> = {
-  SOURCING: 'Goods',
-  AGENT: 'Agent',
-  DELIVERY: 'Delivery',
+/** Lines made before 2026-11-11 may carry a retired role; new ones are FULFILMENT. */
+export type LineRole = 'FULFILMENT' | 'SOURCING' | 'AGENT' | 'DELIVERY';
+export const ROLE_LABELS: Record<LineRole, string> = {
+  FULFILMENT: 'Fulfilment',
+  SOURCING: 'Goods (old split)',
+  AGENT: 'Agent (old split)',
+  DELIVERY: 'Delivery (old split)',
 };
-export const PAYOUT_MODE_LABELS: Record<PayoutMode, string> = {
-  ADVANCE: 'Advance (goods money first)',
-  REIMBURSE: 'Reimburse (on receipts)',
-  SPLIT: 'Split (part now, rest on delivery)',
-};
+/** A retired schedule on an old row reads as on delivery, as the API pays it. */
+export const payoutModeLabel = (mode: string | null) =>
+  mode === 'SPLIT' ? PAYOUT_MODE_LABELS.SPLIT : PAYOUT_MODE_LABELS.ON_DELIVERY;
 
 export interface PartnerScore {
   ratingCount: number;
@@ -50,11 +57,11 @@ export interface Payout {
 
 export interface PartnerLine {
   id: string;
-  role: FulfilmentRole;
+  role: LineRole;
   amountNgn: number;
   owedNgn: number;
   vendorId: string | null;
-  payoutMode: PayoutMode | null;
+  payoutMode: string | null;
   splitPercent: number | null;
   vendor: { id: string; name: string; businessType: string; payTerms: PayTerms; phone: string; email: string } | null;
   payouts: Payout[];
@@ -65,7 +72,7 @@ export interface Candidate {
   name: string;
   businessType: string;
   payTerms: PayTerms;
-  payoutMode: PayoutMode;
+  payoutMode: string;
   score: PartnerScore | null;
 }
 
@@ -79,12 +86,16 @@ export interface OrderFulfilment {
     recipientConfirmedVia: 'CODE' | 'ADMIN' | null;
   };
   requireRecipientConfirmation: boolean;
+  /** Today's band and fee for the recipient's state (the line keeps what was snapshotted). */
+  band: FulfilmentBand;
+  bandFeeNgn: number;
   lines: PartnerLine[];
   totalNgn: number;
   receipts: { id: string; vendorId: string; imageUrl: string; amountNgn: number; note: string | null; status: string; createdAt: string }[];
-  timeline: { id: string; kind: string; role: FulfilmentRole | null; vendorId: string | null; createdAt: string }[];
-  ratings: { vendorId: string; punctuality: number; quality: number; communication: number; note: string | null }[];
-  candidates: Record<FulfilmentRole, Candidate[]>;
+  timeline: { id: string; kind: string; role: LineRole | null; vendorId: string | null; createdAt: string }[];
+  ratings: { vendorId: string; punctuality: number; quality: number; communication: number; packaging: number | null; note: string | null }[];
+  /** Approved partners covering the recipient's state, best score first. */
+  candidates: Candidate[];
 }
 
 export const nairaLabel = (kobo: number) => `₦${(kobo / 100).toLocaleString('en-NG')}`;
@@ -114,20 +125,13 @@ function useFulfilmentWrite<T>(orderId: string, request: (input: T) => Promise<u
   });
 }
 
-export const useSetPartnerAmounts = (orderId: string) =>
-  useFulfilmentWrite<{ role: FulfilmentRole; amountNgn: number }[]>(
+/** What the partner is owed (goods + fee), for a custom gift or to correct one. */
+export const useSetPartnerAmount = (orderId: string) =>
+  useFulfilmentWrite<number>(
     orderId,
-    (lines) => api.put(`/api/v1/admin/orders/${orderId}/fulfilment/amounts`, { lines }),
-    'Partner amounts saved',
-    'Could not save the amounts',
-  );
-
-export const useAssignPartnerLine = (orderId: string) =>
-  useFulfilmentWrite<{ role: FulfilmentRole; vendorId: string; payoutMode?: PayoutMode; splitPercent?: number }>(
-    orderId,
-    ({ role, ...body }) => api.put(`/api/v1/admin/orders/${orderId}/fulfilment/lines/${role}`, body),
-    'Partner assigned',
-    'Could not assign the partner',
+    (amountNgn) => api.put(`/api/v1/admin/orders/${orderId}/fulfilment/amount`, { amountNgn }),
+    'Partner amount saved',
+    'Could not save the amount',
   );
 
 export const useConfirmRecipient = (orderId: string) =>
@@ -139,7 +143,7 @@ export const useConfirmRecipient = (orderId: string) =>
   );
 
 export const useRatePartner = (orderId: string) =>
-  useFulfilmentWrite<{ vendorId: string; punctuality: number; quality: number; communication: number; note?: string }>(
+  useFulfilmentWrite<{ vendorId: string; punctuality: number; quality: number; communication: number; packaging: number; note?: string }>(
     orderId,
     (body) => api.post(`/api/v1/admin/orders/${orderId}/partner-ratings`, body),
     'Rating saved',
@@ -158,7 +162,7 @@ export const useReviewReceipt = (orderId: string) =>
 
 export interface PayoutRow extends Payout {
   vendor: { id: string; name: string; phone: string };
-  line: { orderId: string; role: FulfilmentRole };
+  line: { orderId: string; role: LineRole };
 }
 
 export const usePayouts = (filters: { status?: string; vendorId?: string; page: number }) =>
@@ -198,21 +202,21 @@ export const useCancelPayout = () =>
 export interface PartnerProfile {
   id: string;
   name: string;
-  businessType: string;
   status: string;
   payTerms: PayTerms;
-  payoutMode: PayoutMode;
+  payoutMode: string;
   splitPercent: number | null;
-  idType: string | null;
-  idNumberLast4: string | null;
-  guarantorName: string | null;
-  guarantorPhone: string | null;
-  guarantorRelationship: string | null;
-  transport: string | null;
-  coverage: { id: string; state: string; role: FulfilmentRole }[];
-  references: { id: string; name: string; phone: string; relationship: string }[];
-  documents: { id: string; kind: string; format: string; createdAt: string }[];
-  vetting: { kind: VettingKind; label: string; status: 'PENDING' | 'PASSED' | 'FAILED'; note: string | null; checkedAt: string | null }[];
+  cacNumber: string | null;
+  portfolioUrl: string | null;
+  coverage: { id: string; state: string }[];
+  vetting: {
+    kind: VettingKind;
+    label: string;
+    required: boolean;
+    status: 'PENDING' | 'PASSED' | 'FAILED';
+    note: string | null;
+    checkedAt: string | null;
+  }[];
   missingChecks: string[];
   score: PartnerScore | null;
 }
@@ -240,9 +244,9 @@ function useProfileWrite<T>(id: string, request: (input: T) => Promise<unknown>,
 }
 
 export const useSetCoverage = (id: string) =>
-  useProfileWrite<{ state: string; role: FulfilmentRole }[]>(
+  useProfileWrite<string[]>(
     id,
-    (entries) => api.put(`/api/v1/admin/partners/${id}/coverage`, { entries }),
+    (states) => api.put(`/api/v1/admin/partners/${id}/coverage`, { states }),
     'Coverage saved',
   );
 
@@ -260,24 +264,10 @@ export const useSetPayTerms = (id: string) =>
     'Pay terms saved',
   );
 
-/** A five-minute link to a private ID document. Every view is audited. */
-export const useDocumentLink = (id: string) =>
-  useMutation({
-    mutationFn: (documentId: string) =>
-      api.get(`/api/v1/admin/partners/${id}/documents/${documentId}`).then((r) => r.data.data as { url: string }),
-    onError: (err: any) => toast.error(errorMessage(err, 'Could not open the document')),
-  });
-
 // ─── Settings → Fulfilment ───────────────────────────────────────────────────
 
-export interface FulfilmentRules {
-  defaultAgentFeeNgn: number;
-  defaultDeliveryFeeNgn: number;
-  defaultPlatformPercent: number;
-  fxBufferPercent: number;
-  defaultSplitPercent: number;
-  requireRecipientConfirmation: boolean;
-}
+/** The wire shape is the shared schema's: band fees, the state → band map and the defaults. */
+export type FulfilmentRules = FulfilmentRulesInput;
 
 export const useFulfilmentRules = () =>
   useQuery<FulfilmentRules & { defaults: FulfilmentRules }>({

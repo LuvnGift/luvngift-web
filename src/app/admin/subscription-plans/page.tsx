@@ -63,8 +63,8 @@ interface Plan {
   /** Legacy markup pricing; null once priced on the cost stack. */
   markupBps: number | null;
   /** The cost stack (kobo / basis points); null on a legacy plan. */
-  agentFeeNgn?: number | null;
-  deliveryFeeNgn?: number | null;
+  fulfilmentFeeNgn?: number | null;
+  packagingNgn?: number | null;
   platformBps?: number | null;
   intervals: PlanInterval[];
   pricedNgnPerUsd: number | null;
@@ -84,14 +84,13 @@ interface DetailsForm {
 const EMPTY_DETAILS: DetailsForm = { name: '', description: '', slotCount: 5, sortOrder: 0, isActive: true };
 const EMPTY_PRICING: PlanPricingFormValues = {
   sourcingMajor: '',
-  agentFeeMajor: '',
-  deliveryFeeMajor: '',
+  packagingMajor: '',
   platformPercent: '',
   intervals: ['MONTHLY'],
 };
 
 const pricingOf = (plan: Plan): PlanPricingFormValues => ({
-  ...stackFormValues({ goodsNgn: plan.boxAllowanceNgn, agentFeeNgn: plan.agentFeeNgn, deliveryFeeNgn: plan.deliveryFeeNgn, platformBps: plan.platformBps }),
+  ...stackFormValues({ goodsNgn: plan.boxAllowanceNgn, packagingNgn: plan.packagingNgn, platformBps: plan.platformBps }),
   intervals: plan.intervals.length ? plan.intervals : ['MONTHLY'],
 });
 
@@ -148,8 +147,8 @@ export default function AdminSubscriptionPlansPage() {
           <h1 className="text-2xl font-bold">Subscription plans</h1>
           <p className="text-muted-foreground text-sm max-w-2xl">
             A curated plan delivers the same box every time, chosen from the catalogue. Its goods
-            cost is what those items cost in the catalogue; add what the agent and delivery partner
-            are paid and the platform&apos;s share. The US$, CA$ and £ prices are worked out at
+            cost is what those items cost in the catalogue; add the branded packaging and the
+            platform&apos;s share (the fulfilment fee is the High band fee from Settings → Fulfilment). The US$, CA$ and £ prices are worked out at
             today&apos;s exchange rate when you publish, and stay fixed until you publish again.
             Subscribers see one all-in price.
           </p>
@@ -258,7 +257,7 @@ function PlanCard({
             <p className="text-xs text-muted-foreground mt-2">
               Goods <strong className="text-foreground">{naira(plan.boxAllowanceNgn!)}</strong> per delivery
               {isStack(plan) ? (
-                <> · agent {naira(plan.agentFeeNgn ?? 0)} · delivery {naira(plan.deliveryFeeNgn ?? 0)} · platform{' '}
+                <> · fulfilment fee {naira(plan.fulfilmentFeeNgn ?? 0)} (High) · packaging {naira(plan.packagingNgn ?? 0)} · platform{' '}
                   <strong className="text-foreground">{pct(plan.platformBps!)}</strong></>
               ) : (
                 <> · markup <strong className="text-foreground">{pct(plan.markupBps!)}</strong> (legacy: republish to use the cost stack)</>

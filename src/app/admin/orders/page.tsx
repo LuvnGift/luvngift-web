@@ -30,6 +30,7 @@ import {
 } from '@/lib/admin-order-tabs';
 import { VendorLinkSection } from './vendor-link-section';
 import { PartnersSection } from './partners-section';
+import { useOrderFulfilment } from '@/hooks/use-partners';
 import { RefundSection } from './refund-section';
 import { CustomOrderSection, customOrderStatusBlock } from './custom-order-section';
 import { customOrderVendorBlock, isVendorAssignable, vendorAssignmentBlock } from '@luvngift/shared';
@@ -602,9 +603,18 @@ function AssignVendorDialog({ order, onClose }: { order: any; onClose: () => voi
   // APPROVED only: without a status filter the list included pending and rejected
   // applicants. The API filters isActive only when no status is given, so filter it here.
   const { data: vendorsData, isLoading } = useVendors(1, 100, '', false, 'APPROVED');
+  // Partners covering the recipient's state, best score first (the API ranks them).
+  const { data: fulfilment } = useOrderFulfilment(order.id);
   const assign = useAssignVendor();
 
-  const vendors = (vendorsData?.vendors ?? []).filter(isVendorAssignable);
+  const covering = fulfilment?.candidates ?? [];
+  const coveringIds = new Set(covering.map((c) => c.id));
+  const scoreOf = new Map(covering.map((c) => [c.id, c.score?.score ?? null]));
+  const approved = (vendorsData?.vendors ?? []).filter(isVendorAssignable);
+  const vendors = [
+    ...covering.map((c) => approved.find((v: any) => v.id === c.id)).filter(Boolean),
+    ...approved.filter((v: any) => !coveringIds.has(v.id)),
+  ];
 
   const handleSubmit = () => {
     if (!vendorId) return;
@@ -615,7 +625,7 @@ function AssignVendorDialog({ order, onClose }: { order: any; onClose: () => voi
     <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
-          <DialogTitle>Assign Vendor</DialogTitle>
+          <DialogTitle>Assign Partner</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
@@ -649,7 +659,10 @@ function AssignVendorDialog({ order, onClose }: { order: any; onClose: () => voi
                     <SelectItem key={v.id} value={v.id}>
                       <span className="font-medium">{v.name}</span>
                       <span className="text-muted-foreground ml-2 text-xs">
-                        · {v.state} · {v.businessType}
+                        · {v.state}
+                        {coveringIds.has(v.id)
+                          ? ` · covers ${order.deliveryState}${scoreOf.get(v.id) != null ? ` · score ${scoreOf.get(v.id)}` : ' · not scored yet'}`
+                          : ` · does not list ${order.deliveryState}`}
                       </span>
                     </SelectItem>
                   ))}
@@ -659,7 +672,7 @@ function AssignVendorDialog({ order, onClose }: { order: any; onClose: () => voi
           </div>
 
           <p className="text-xs text-muted-foreground">
-            Assigning a vendor will move the order to <strong>PROCESSING</strong> and notify the vendor by email and SMS.
+            Assigning a partner moves the order to <strong>PROCESSING</strong>, gives them the order's partner line, and sends their link by email and SMS. They are paid on the schedule set on their profile.
           </p>
         </div>
 

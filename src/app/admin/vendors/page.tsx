@@ -20,12 +20,6 @@ type AdminVendor = Vendor & {
   contactName?: string | null;
 };
 
-const BUSINESS_TYPE_LABELS: Record<string, string> = {
-  RETAIL: 'Retail',
-  DELIVERY: 'Delivery',
-  LOGISTICS: 'Logistics',
-  AGENT: 'Fulfilment agent',
-};
 
 export default function AdminVendorsPage() {
   const [page, setPage] = useState(1);
@@ -164,7 +158,6 @@ export default function AdminVendorsPage() {
                     <th className="px-4 py-3 text-left font-medium">Name</th>
                     <th className="px-4 py-3 text-left font-medium">Contact</th>
                     <th className="px-4 py-3 text-left font-medium">State</th>
-                    <th className="px-4 py-3 text-left font-medium">Type</th>
                     <th className="px-4 py-3 text-left font-medium">Status</th>
                     <th className="px-4 py-3 text-right font-medium">Actions</th>
                   </tr>
@@ -172,7 +165,7 @@ export default function AdminVendorsPage() {
                 <tbody>
                   {vendors.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-4 py-12 text-center text-muted-foreground">
+                      <td colSpan={5} className="px-4 py-12 text-center text-muted-foreground">
                         {search ? `No vendors found for "${search}".` : 'No vendors yet. Add your first vendor.'}
                       </td>
                     </tr>
@@ -190,11 +183,6 @@ export default function AdminVendorsPage() {
                           <p className="text-xs text-muted-foreground">{vendor.phone}</p>
                         </td>
                         <td className="px-4 py-3 text-muted-foreground">{vendor.state}</td>
-                        <td className="px-4 py-3">
-                          <Badge variant="outline">
-                            {BUSINESS_TYPE_LABELS[vendor.businessType] ?? vendor.businessType}
-                          </Badge>
-                        </td>
                         <td className="px-4 py-3">
                           {vendor.status === 'PENDING' ? (
                             <Badge variant="outline" className="border-amber-300 text-amber-700">Pending review</Badge>

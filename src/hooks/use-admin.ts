@@ -420,8 +420,7 @@ export const useCreateBundle = () => {
       description: string;
       /** The cost stack, in kobo; the price is derived from it. */
       sourcingNgn: number;
-      agentFeeNgn: number;
-      deliveryFeeNgn: number;
+      packagingNgn: number;
       platformPercent: number;
       estimatedDeliveryDays: number;
       images: string[];
