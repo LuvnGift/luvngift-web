@@ -25,7 +25,6 @@ import {
   useSetPayTerms,
   useSetVettingCheck,
   type PartnerProfile,
-  type PayTerms,
   type PayoutMode,
 } from '@/hooks/use-partners';
 import { AdjustmentCard, BankDetailsCard, PaymentHistoryCard } from './partner-bank';
@@ -183,20 +182,15 @@ const scheduleOf = (mode: string): PayoutMode => (mode === 'SPLIT' ? 'SPLIT' : '
 
 function PayTermsCard({ profile }: { profile: PartnerProfile }) {
   const save = useSetPayTerms(profile.id);
-  const [payTerms, setPayTerms] = useState<PayTerms>(profile.payTerms);
   const [mode, setMode] = useState<PayoutMode>(scheduleOf(profile.payoutMode));
   const [split, setSplit] = useState(String(profile.splitPercent ?? ''));
-  const movingToFixed = profile.payTerms === 'REVENUE_SHARE' && payTerms === 'FIXED_NAIRA';
   const splitValid = mode !== 'SPLIT' || (Number(split) >= 1 && Number(split) <= 100);
   return (
     <Card>
       <CardHeader><CardTitle className="text-base">How they are paid</CardTitle></CardHeader>
       <CardContent className="space-y-3 text-sm">
-        <select className={`${SELECT} w-full`} value={payTerms} onChange={(e) => setPayTerms(e.target.value as PayTerms)} aria-label="Pay terms">
-          <option value="FIXED_NAIRA">Fixed naira per order (goods + fee, stated on each order)</option>
-          <option value="REVENUE_SHARE">Revenue share (legacy, paid outside this ledger)</option>
-        </select>
-        <fieldset className="space-y-1.5" disabled={payTerms !== 'FIXED_NAIRA'}>
+        <p className="text-xs text-muted-foreground">Fixed naira per order: the goods plus the delivery fee, stated on each order.</p>
+        <fieldset className="space-y-1.5">
           {PAYOUT_MODES.map((m) => (
             <label key={m} className="flex items-center gap-2 cursor-pointer">
               <input type="radio" name={`payout-${profile.id}`} className="h-4 w-4" checked={mode === m} onChange={() => setMode(m)} />
@@ -204,22 +198,17 @@ function PayTermsCard({ profile }: { profile: PartnerProfile }) {
             </label>
           ))}
         </fieldset>
-        {mode === 'SPLIT' && payTerms === 'FIXED_NAIRA' && (
+        {mode === 'SPLIT' && (
           <label className="block space-y-1">
             <span className="text-xs text-muted-foreground">Percent paid when they are assigned an order</span>
             <Input placeholder="e.g. 50" inputMode="numeric" value={split} onChange={(e) => setSplit(e.target.value)} />
           </label>
         )}
-        {movingToFixed && (
-          <p className="text-xs text-amber-700">
-            This changes their contract. Only switch once they have had the notice the Vendor Agreement requires.
-          </p>
-        )}
         <p className="text-xs text-muted-foreground">Applies to orders assigned from now on; orders already assigned keep their schedule.</p>
         <Button
           size="sm"
           disabled={save.isPending || !splitValid}
-          onClick={() => save.mutate({ payTerms, payoutMode: mode, splitPercent: mode === 'SPLIT' ? Number(split) : null })}
+          onClick={() => save.mutate({ payoutMode: mode, splitPercent: mode === 'SPLIT' ? Number(split) : null })}
         >
           Save pay terms
         </Button>

@@ -155,6 +155,18 @@ export const useSetPartnerAmount = (orderId: string) =>
     'Could not save the amount',
   );
 
+/**
+ * Gives the order's partner any line they do not hold and, on a delivered
+ * order, makes due whatever they are still owed. Safe to press twice.
+ */
+export const useRecalculatePayouts = (orderId: string) =>
+  useFulfilmentWrite<void>(
+    orderId,
+    () => api.post(`/api/v1/admin/orders/${orderId}/fulfilment/recalculate`),
+    'Payouts recalculated',
+    'Could not recalculate payouts',
+  );
+
 export const useConfirmRecipient = (orderId: string) =>
   useFulfilmentWrite<string>(
     orderId,
@@ -358,7 +370,7 @@ export const useSetVettingCheck = (id: string) =>
   );
 
 export const useSetPayTerms = (id: string) =>
-  useProfileWrite<{ payTerms: PayTerms; payoutMode: PayoutMode; splitPercent: number | null }>(
+  useProfileWrite<{ payoutMode: PayoutMode; splitPercent: number | null }>(
     id,
     (body) => api.put(`/api/v1/admin/partners/${id}/pay-terms`, body),
     'Pay terms saved',
