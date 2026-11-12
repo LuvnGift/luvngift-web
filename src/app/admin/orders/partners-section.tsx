@@ -26,6 +26,7 @@ import {
   useRatePartner,
   useReviewReceipt,
   useSetPartnerAmount,
+  useRecalculatePayouts,
   useOrderMoney,
   type OrderFulfilment,
   type PartnerLine,
@@ -63,6 +64,7 @@ export function PartnersSection({ orderId }: { orderId: string }) {
           Not assigned yet. Use Assign Vendor: it sends the partner their link and gives them this line.
         </p>
       )}
+      <RecalculatePayouts data={data} />
       <Receipts data={data} />
       <Confirmation data={data} />
       <Timeline data={data} />
@@ -117,16 +119,14 @@ function AmountEditor({ data }: { data: OrderFulfilment }) {
 
 function LineRow({ line }: { line: PartnerLine }) {
   const live = line.payouts.filter((p) => p.status !== 'CANCELLED');
-  const fixed = line.vendor?.payTerms === 'FIXED_NAIRA';
   return (
     <div className="rounded-md border p-3 space-y-2 text-sm">
       <div>
         <p className="font-medium">{ROLE_LABELS[line.role]} · {nairaLabel(line.amountNgn)}</p>
         <p className="text-xs text-muted-foreground">
           {line.vendor ? line.vendor.name : 'Unassigned'}
-          {line.vendor?.payTerms === 'REVENUE_SHARE' && ' · revenue share (paid as before, not in this ledger)'}
-          {fixed && ` · ${payoutModeLabel(line.payoutMode)}${line.payoutMode === 'SPLIT' && line.splitPercent ? ` (${line.splitPercent}% upfront)` : ''}`}
-          {fixed && ` · owed ${nairaLabel(line.owedNgn)}`}
+          {line.vendor && ` · ${payoutModeLabel(line.payoutMode)}${line.payoutMode === 'SPLIT' && line.splitPercent ? ` (${line.splitPercent}% upfront)` : ''}`}
+          {line.vendor && ` · owed ${nairaLabel(line.owedNgn)}`}
         </p>
       </div>
       {live.length > 0 && (
@@ -322,6 +322,25 @@ function OrderMoney({ orderId }: { orderId: string }) {
       ) : (
         <p className="text-muted-foreground">No margin estimate: it needs a paid order and a CAD funding record (Payouts → Reports).</p>
       )}
+    </div>
+  );
+}
+
+/**
+ * Puts the order's payouts right: gives its partner any line they do not hold
+ * and, once delivered, makes due whatever they are still owed. For an order
+ * fixed after the fact (amount set or partner changed after delivery). Safe to
+ * press twice: it only adds what is missing.
+ */
+function RecalculatePayouts({ data }: { data: OrderFulfilment }) {
+  const recalc = useRecalculatePayouts(data.order.id);
+  if (!data.lines.length || !data.order.leadVendorId || ['CANCELLED', 'REFUNDED'].includes(data.order.status)) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+      <Button size="sm" variant="outline" className="h-7 text-xs" disabled={recalc.isPending} onClick={() => recalc.mutate()}>
+        Recalculate payouts
+      </Button>
+      <span>If a delivered order shows nothing owed, this makes due what its partner is missing.</span>
     </div>
   );
 }
