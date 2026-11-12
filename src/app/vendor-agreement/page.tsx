@@ -71,12 +71,6 @@ export default function VendorAgreementPage() {
         may be changed with at least 30 days&apos; notice by email, and a change never applies to an
         order already assigned to you. Payments are made by bank transfer.
       </p>
-      <p>
-        If you were approved before November 10, 2026 and are paid a share of the price, that share
-        continues until the date given in our notice email, which is at least 30 days after we sent
-        it.
-      </p>
-
       <h2>6A. Vetting, receipts and ratings</h2>
       <p>
         Before approving a Vendor, Luvngift verifies the business address, interviews the Vendor and
