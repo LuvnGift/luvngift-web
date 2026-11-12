@@ -15,18 +15,18 @@ import { CheckCircle2, ExternalLink, Pencil, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
-import { BAND_LABELS } from '@luvngift/shared';
+import { BAND_LABELS, formatMoney } from '@luvngift/shared';
+import { PayoutActionDialog, type PayoutActionTarget } from '@/components/admin/payout-action-dialog';
 import {
   ROLE_LABELS,
   nairaLabel,
   payoutModeLabel,
-  useCancelPayout,
   useConfirmRecipient,
-  useMarkPayoutPaid,
   useOrderFulfilment,
   useRatePartner,
   useReviewReceipt,
   useSetPartnerAmount,
+  useOrderMoney,
   type OrderFulfilment,
   type PartnerLine,
 } from '@/hooks/use-partners';
@@ -67,6 +67,7 @@ export function PartnersSection({ orderId }: { orderId: string }) {
       <Confirmation data={data} />
       <Timeline data={data} />
       {data.order.status === 'DELIVERED' && <Ratings data={data} />}
+      <OrderMoney orderId={orderId} />
     </div>
   );
 }
@@ -130,40 +131,44 @@ function LineRow({ line }: { line: PartnerLine }) {
       </div>
       {live.length > 0 && (
         <ul className="space-y-1.5">
-          {live.map((p) => <PayoutRow key={p.id} payout={p} />)}
+          {live.map((p) => <PayoutRow key={p.id} payout={p} line={line} />)}
         </ul>
       )}
     </div>
   );
 }
 
-function PayoutRow({ payout }: { payout: PartnerLine['payouts'][number] }) {
-  const markPaid = useMarkPayoutPaid();
-  const cancel = useCancelPayout();
-  const [reference, setReference] = useState('');
+function PayoutRow({ payout, line }: { payout: PartnerLine['payouts'][number]; line: PartnerLine }) {
+  const [mode, setMode] = useState<'pay' | 'cancel' | null>(null);
   const label = `${payout.kind.charAt(0)}${payout.kind.slice(1).toLowerCase()} ${nairaLabel(payout.amountNgn)}`;
   if (payout.status === 'PAID') {
-    return <li className="text-xs text-green-700 flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> {label} paid · ref {payout.reference}</li>;
+    return (
+      <li className="text-xs text-green-700 flex items-center gap-1">
+        <CheckCircle2 className="h-3 w-3" /> {label} paid · ref {payout.reference}
+        {payout.proofUrl && (
+          <a href={payout.proofUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline">
+            receipt <ExternalLink className="h-3 w-3" />
+          </a>
+        )}
+      </li>
+    );
   }
+  if (payout.status === 'BATCHED') {
+    return <li className="text-xs text-muted-foreground">{label} · in a payout batch (record it from Payouts → Batches)</li>;
+  }
+  // The bank account is checked by the API on submit; this panel does not load it.
+  const target: PayoutActionTarget = {
+    id: payout.id,
+    amountNgn: payout.amountNgn,
+    vendorId: payout.vendorId,
+    partnerName: line.vendor?.name ?? 'the partner',
+  };
   return (
     <li className="flex flex-wrap items-center gap-2 text-xs">
       <span className="font-medium text-amber-800">{label} due</span>
-      <Input className="h-7 w-40 text-xs" placeholder="Transfer reference" value={reference} onChange={(e) => setReference(e.target.value)} />
-      <Button size="sm" className="h-7 text-xs" disabled={reference.trim().length < 3 || markPaid.isPending} onClick={() => markPaid.mutate({ id: payout.id, reference: reference.trim() })}>
-        Mark paid
-      </Button>
-      <Button
-        size="sm"
-        variant="ghost"
-        className="h-7 text-xs text-muted-foreground"
-        disabled={cancel.isPending}
-        onClick={() => {
-          const reason = prompt('Why is this payout cancelled? (at least 5 characters)');
-          if (reason && reason.trim().length >= 5) cancel.mutate({ id: payout.id, reason: reason.trim() });
-        }}
-      >
-        Cancel
-      </Button>
+      <Button size="sm" className="h-7 text-xs" onClick={() => setMode('pay')}>Record payment</Button>
+      <Button size="sm" variant="ghost" className="h-7 text-xs text-muted-foreground" onClick={() => setMode('cancel')}>Cancel</Button>
+      <PayoutActionDialog target={mode ? target : null} mode={mode ?? 'pay'} onClose={() => setMode(null)} />
     </li>
   );
 }
@@ -278,6 +283,45 @@ function RatingForm({ orderId, vendorId, name, existing }: { orderId: string; ve
       <Button size="sm" className="h-7 text-xs gap-1" disabled={!ready || rate.isPending} onClick={() => rate.mutate({ vendorId, ...scores })}>
         <Star className="h-3 w-3" /> {existing ? 'Update' : 'Rate'}
       </Button>
+    </div>
+  );
+}
+
+/**
+ * Money in (what the buyer paid, less refunds) and out (what the partner is
+ * owed). The margin is an estimate in CA$ at the latest CAD funding rate and
+ * leaves out card fees, which are not recorded: a guide, not accounts.
+ */
+function OrderMoney({ orderId }: { orderId: string }) {
+  const { data } = useOrderMoney(orderId);
+  if (!data) return null;
+  const { moneyIn, moneyOut, estimate } = data;
+  const signed = (kobo: number) => `${kobo < 0 ? '−' : ''}${nairaLabel(Math.abs(kobo))}`;
+  return (
+    <div className="space-y-1.5 text-xs">
+      <p className={heading}>Money in and out</p>
+      <p>
+        In: {formatMoney(moneyIn.totalMinor, moneyIn.currency)}
+        {moneyIn.refundedMinor > 0 && ` less ${formatMoney(moneyIn.refundedMinor, moneyIn.currency)} refunded`}
+        {moneyIn.paymentStatus ? ` · payment ${moneyIn.paymentStatus.toLowerCase()}` : ' · no payment'}
+      </p>
+      <p>
+        Out: partner owed {nairaLabel(moneyOut.owedNgn)} · paid {nairaLabel(moneyOut.paidNgn)}
+        {moneyOut.batchedNgn > 0 && ` · in a batch ${nairaLabel(moneyOut.batchedNgn)}`}
+        {moneyOut.dueNgn > 0 && ` · due ${nairaLabel(moneyOut.dueNgn)}`}
+        {moneyOut.adjustmentsNgn !== 0 && ` · adjustments ${signed(moneyOut.adjustmentsNgn)}`}
+      </p>
+      {estimate ? (
+        <p>
+          Estimated margin <strong className={estimate.marginCadCents < 0 ? 'text-red-700' : ''}>{formatMoney(estimate.marginCadCents, 'CAD')}</strong>{' '}
+          <span className="text-muted-foreground">
+            ({formatMoney(estimate.netInCadCents, 'CAD')} in, {formatMoney(estimate.partnerCostCadCents, 'CAD')} partner cost at ₦
+            {estimate.fundingRate.toFixed(2)}/CA$ from {estimate.fundingDate}; card fees not included)
+          </span>
+        </p>
+      ) : (
+        <p className="text-muted-foreground">No margin estimate: it needs a paid order and a CAD funding record (Payouts → Reports).</p>
+      )}
     </div>
   );
 }

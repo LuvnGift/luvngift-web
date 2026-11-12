@@ -12,8 +12,8 @@ importers:
         specifier: ^3.9.0
         version: 3.10.0(react-hook-form@7.71.2(react@18.3.1))
       '@luvngift/shared':
-        specifier: 3.0.0
-        version: 3.0.0
+        specifier: 3.1.0
+        version: 3.1.0
       '@radix-ui/react-accordion':
         specifier: ^1.2.0
         version: 1.2.12(@types/react-dom@18.3.7(@types/react@18.3.28))(@types/react@18.3.28)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -627,8 +627,8 @@ packages:
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
 
-  '@luvngift/shared@3.0.0':
-    resolution: {integrity: sha512-XXOClPhFisrR0MUvEIcm30HGhSXHEpTDGKEpa7RVGe13D6I6FJXJ2IW0I45yGaHtJx+ugdEMhtalGULOWtsQgA==, tarball: https://npm.pkg.github.com/download/@LuvnGift/shared/3.0.0/63588b64dba30082112f5f08f4cd049d9004d648}
+  '@luvngift/shared@3.1.0':
+    resolution: {integrity: sha512-hHVe74t+ckwGXU65PUNo2RT4cuo+FCMlNepeiL13kNtJuYuGZKdltJ+1bALGRARI5G80ssL55t+UU8W19S56MQ==, tarball: https://npm.pkg.github.com/download/@LuvnGift/shared/3.1.0/cecd620211a94e31f3c4ed64dedecee535748f0c}
     engines: {node: '>=20.0.0'}
 
   '@napi-rs/lzma-linux-x64-gnu@1.5.1':
@@ -4207,7 +4207,7 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
 
-  '@luvngift/shared@3.0.0':
+  '@luvngift/shared@3.1.0':
     dependencies:
       zod: 3.25.76
 
