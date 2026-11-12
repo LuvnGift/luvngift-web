@@ -18,6 +18,13 @@ import {
   type PartnerBankAccountStatus,
   type PartnerBankAccountView,
   type PartnerPayTerms,
+  type BatchPreviewPartner,
+  type CreatePayoutBatchInput,
+  type PartnerAdjustmentInput,
+  type PartnerAdjustmentView,
+  type PayoutBatchView,
+  type PayoutTransferView,
+  type TransferFailedInput,
   type PayoutCancelInput,
   type PayoutEventView,
   type PayoutMode,
@@ -54,7 +61,7 @@ export interface Payout {
   vendorId: string;
   kind: 'ADVANCE' | 'REIMBURSEMENT' | 'BALANCE';
   amountNgn: number;
-  status: 'DUE' | 'PAID' | 'CANCELLED';
+  status: 'DUE' | 'BATCHED' | 'PAID' | 'CANCELLED';
   reference: string | null;
   paidAt: string | null;
   cancelledReason: string | null;
@@ -182,6 +189,8 @@ export interface PayoutRow extends Payout {
   line: { orderId: string; role: LineRole };
   /** The account a PAID payout went to. */
   bankAccount: { id: string; bankName: string; accountLast4: string } | null;
+  /** The batch a BATCHED (or batch-paid) payout is in. */
+  transfer: { batchId: string } | null;
 }
 
 export const usePayouts = (filters: { status?: string; vendorId?: string; page: number }) =>
@@ -371,3 +380,117 @@ export const useSetFulfilmentRules = () => {
     onError: (err: any) => toast.error(errorMessage(err, 'Could not save the settings')),
   });
 };
+
+// ─── Payout batches and adjustments (phase 2) ────────────────────────────────
+
+const batchesKey = ['admin', 'payout-batches'];
+const adjustmentsKey = ['admin', 'partner-adjustments'];
+
+/** Error bodies of a blob request arrive as a Blob; read the API's message out of it. */
+async function blobErrorMessage(err: any, fallback: string): Promise<string> {
+  const data = err?.response?.data;
+  if (data instanceof Blob) {
+    try {
+      return JSON.parse(await data.text())?.error?.message ?? fallback;
+    } catch {
+      return fallback;
+    }
+  }
+  return errorMessage(err, fallback);
+}
+
+function useMoneyWrite<T, R = unknown>(request: (input: T) => Promise<R>, success: string | null) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: request,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: batchesKey });
+      qc.invalidateQueries({ queryKey: adjustmentsKey });
+      qc.invalidateQueries({ queryKey: ['admin', 'payouts'] });
+      qc.invalidateQueries({ queryKey: ['admin', 'partner'] });
+      qc.invalidateQueries({ queryKey: ['admin', 'fulfilment'] });
+      if (success) toast.success(success);
+    },
+    onError: async (err: any) => toast.error(await blobErrorMessage(err, 'Could not save')),
+  });
+}
+
+export type BatchPreview = { partners: BatchPreviewPartner[]; payableNgn: number };
+export type PayoutBatchDetail = PayoutBatchView & { reference: string; transfers: PayoutTransferView[] };
+export type PayoutBatchRow = PayoutBatchView & { reference: string };
+
+export const useBatchPreview = (enabled = true) =>
+  useQuery<BatchPreview>({
+    queryKey: [...batchesKey, 'preview'],
+    queryFn: () => api.get('/api/v1/admin/payout-batches/preview').then((r) => r.data.data),
+    enabled,
+  });
+
+export const usePayoutBatches = (filters: { status?: 'OPEN' | 'CLOSED'; page: number }) =>
+  useQuery<{ data: PayoutBatchRow[]; meta: { total: number; page: number; totalPages: number } }>({
+    queryKey: [...batchesKey, 'list', filters],
+    queryFn: () => api.get('/api/v1/admin/payout-batches', { params: { ...filters, limit: 20 } }).then((r) => r.data.data),
+  });
+
+export const usePayoutBatch = (id: string) =>
+  useQuery<PayoutBatchDetail>({
+    queryKey: [...batchesKey, id],
+    queryFn: () => api.get(`/api/v1/admin/payout-batches/${id}`).then((r) => r.data.data),
+    enabled: !!id,
+  });
+
+export const useCreatePayoutBatch = () =>
+  useMoneyWrite<CreatePayoutBatchInput, PayoutBatchDetail>(
+    (body) => api.post('/api/v1/admin/payout-batches', body).then((r) => r.data.data),
+    'Batch created',
+  );
+
+/** Downloads the bank-upload CSV (full account numbers, so it needs 2FA). */
+export const useExportPayoutBatch = (id: string) =>
+  useMoneyWrite<{ totpCode: string }>(async ({ totpCode }) => {
+    const res = await api.post(`/api/v1/admin/payout-batches/${id}/export`, { totpCode }, { responseType: 'blob' });
+    const name = /filename="([^"]+)"/.exec(res.headers['content-disposition'] ?? '')?.[1] ?? 'luvngift-payouts.csv';
+    const url = URL.createObjectURL(res.data as Blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = name;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, 'Bank file downloaded');
+
+export const useMarkTransferPaid = () =>
+  useMoneyWrite<{ id: string; reference: string; note?: string; totpCode: string; proof: File }>(
+    ({ id, reference, note, totpCode, proof }) => {
+      const body = new FormData();
+      body.append('reference', reference);
+      if (note) body.append('note', note);
+      body.append('totpCode', totpCode);
+      body.append('proof', proof);
+      return api.post(`/api/v1/admin/payout-transfers/${id}/paid`, body);
+    },
+    'Transfer recorded. The partner has been sent a statement.',
+  );
+
+export const useMarkTransferFailed = () =>
+  useMoneyWrite<{ id: string } & TransferFailedInput>(
+    ({ id, ...body }) => api.post(`/api/v1/admin/payout-transfers/${id}/failed`, body),
+    'Transfer marked as not sent. Its items are due again.',
+  );
+
+export const usePartnerAdjustments = (filters: { status?: string; vendorId?: string; page: number }) =>
+  useQuery<{ data: PartnerAdjustmentView[]; meta: { total: number; page: number; totalPages: number } }>({
+    queryKey: [...adjustmentsKey, filters],
+    queryFn: () => api.get('/api/v1/admin/partner-adjustments', { params: { ...filters, limit: 25 } }).then((r) => r.data.data),
+  });
+
+export const useCreateAdjustment = (vendorId: string) =>
+  useMoneyWrite<PartnerAdjustmentInput>(
+    (body) => api.post(`/api/v1/admin/partners/${vendorId}/adjustments`, body),
+    'Adjustment added. The next batch will net it off.',
+  );
+
+export const useCancelAdjustment = () =>
+  useMoneyWrite<{ id: string } & PayoutCancelInput>(
+    ({ id, ...body }) => api.post(`/api/v1/admin/partner-adjustments/${id}/cancel`, body),
+    'Adjustment cancelled',
+  );

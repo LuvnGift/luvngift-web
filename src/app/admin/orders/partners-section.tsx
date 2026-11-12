@@ -151,6 +151,9 @@ function PayoutRow({ payout, line }: { payout: PartnerLine['payouts'][number]; l
       </li>
     );
   }
+  if (payout.status === 'BATCHED') {
+    return <li className="text-xs text-muted-foreground">{label} · in a payout batch (record it from Payouts → Batches)</li>;
+  }
   // The bank account is checked by the API on submit; this panel does not load it.
   const target: PayoutActionTarget = {
     id: payout.id,

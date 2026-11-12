@@ -28,7 +28,7 @@ import {
   type PayTerms,
   type PayoutMode,
 } from '@/hooks/use-partners';
-import { BankDetailsCard, PaymentHistoryCard } from './partner-bank';
+import { AdjustmentCard, BankDetailsCard, PaymentHistoryCard } from './partner-bank';
 
 const SELECT = 'h-9 rounded-md border border-input bg-background px-2 text-sm';
 
@@ -43,6 +43,7 @@ export function PartnerProfilePanel({ vendorId }: { vendorId: string }) {
         <ScoreCard profile={data} />
         <PayTermsCard profile={data} />
         <BankDetailsCard vendorId={data.id} />
+        <AdjustmentCard vendorId={data.id} />
       </div>
       <CoverageCard profile={data} />
       <BusinessCard profile={data} />

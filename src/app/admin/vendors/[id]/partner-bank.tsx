@@ -16,6 +16,7 @@ import { useState } from 'react';
 import { CheckCircle2, ExternalLink, ShieldAlert } from 'lucide-react';
 import {
   BANK_VERIFICATION_METHODS,
+  partnerAdjustmentSchema,
   partnerBankAccountSchema,
   verifyPartnerBankAccountSchema,
   type BankVerificationMethod,
@@ -31,6 +32,7 @@ import {
   usePartnerPayoutEvents,
   useSavePartnerBankAccount,
   useVerifyPartnerBankAccount,
+  useCreateAdjustment,
 } from '@/hooks/use-partners';
 
 const SELECT = 'h-9 rounded-md border border-input bg-background px-2 text-sm';
@@ -47,6 +49,17 @@ const EVENT_LABELS: Record<PayoutEventKind, string> = {
   BANK_ACCOUNT_ADDED: 'Bank details added',
   BANK_ACCOUNT_VERIFIED: 'Bank details verified',
   BANK_ACCOUNT_SUPERSEDED: 'Bank details replaced',
+  PAYOUT_BATCHED: 'Added to a payout batch',
+  PAYOUT_RETURNED: 'Due again (transfer not sent)',
+  ADJUSTMENT_ADDED: 'Adjustment added',
+  ADJUSTMENT_CANCELLED: 'Adjustment cancelled',
+  ADJUSTMENT_BATCHED: 'Adjustment added to a batch',
+  ADJUSTMENT_PAID: 'Adjustment settled',
+  ADJUSTMENT_RETURNED: 'Adjustment due again (transfer not sent)',
+  TRANSFER_CREATED: 'Transfer planned',
+  TRANSFER_PAID: 'Transfer sent',
+  TRANSFER_FAILED: 'Transfer not sent',
+  BATCH_EXPORTED: 'Bank file downloaded',
 };
 
 const when = (iso: string) => new Date(iso).toLocaleString();
@@ -200,7 +213,7 @@ export function PaymentHistoryCard({ vendorId }: { vendorId: string }) {
               <li key={e.id} className="py-2 space-y-0.5">
                 <p>
                   <span className="font-medium">{EVENT_LABELS[e.kind]}</span>
-                  {e.amountNgn !== null && <> · {nairaLabel(e.amountNgn)}</>}
+                  {e.amountNgn !== null && <> · {e.amountNgn < 0 ? '−' : ''}{nairaLabel(Math.abs(e.amountNgn))}</>}
                   {e.orderId && <span className="font-mono text-xs"> · #{e.orderId.slice(-8).toUpperCase()}</span>}
                   {e.reference && <> · ref {e.reference}</>}
                 </p>
@@ -227,6 +240,58 @@ export function PaymentHistoryCard({ vendorId }: { vendorId: string }) {
             <Button size="sm" variant="outline" disabled={page >= data.meta.totalPages} onClick={() => setPage(page + 1)}>Older</Button>
           </div>
         )}
+      </CardContent>
+    </Card>
+  );
+}
+
+/**
+ * A correction to what this partner is owed, netted off in the next batch.
+ * The reason is shown to the partner on their statement.
+ */
+export function AdjustmentCard({ vendorId }: { vendorId: string }) {
+  const create = useCreateAdjustment(vendorId);
+  const [direction, setDirection] = useState<'owe-them' | 'they-owe'>('they-owe');
+  const [amount, setAmount] = useState('');
+  const [reason, setReason] = useState('');
+  const [totpCode, setTotpCode] = useState('');
+  const kobo = Math.round(Number(amount) * 100);
+  const parsed = partnerAdjustmentSchema.safeParse({
+    amountNgn: Number.isFinite(kobo) ? (direction === 'they-owe' ? -kobo : kobo) : NaN,
+    reason,
+    totpCode,
+  });
+  const firstError = parsed.success ? null : parsed.error.issues[0]?.message;
+
+  return (
+    <Card>
+      <CardHeader><CardTitle className="text-base">Adjust what they are owed</CardTitle></CardHeader>
+      <CardContent className="space-y-2 text-sm">
+        <p className="text-xs text-muted-foreground">Netted off in their next payout batch. The reason appears on their statement.</p>
+        <select className={`${SELECT} w-full`} value={direction} onChange={(e) => setDirection(e.target.value as typeof direction)} aria-label="Direction">
+          <option value="they-owe">They owe us (we overpaid, or an order was paid and then cancelled)</option>
+          <option value="owe-them">We owe them more (we underpaid)</option>
+        </select>
+        <Input placeholder="Amount in naira, e.g. 5000" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
+        <Input placeholder="Reason, in words the partner will understand" value={reason} onChange={(e) => setReason(e.target.value)} />
+        <TotpInput value={totpCode} onChange={setTotpCode} />
+        {amount && reason && totpCode.length === 6 && firstError && <p className="text-xs text-destructive">{firstError}</p>}
+        <Button
+          size="sm"
+          disabled={!parsed.success || create.isPending}
+          onClick={() =>
+            parsed.success &&
+            create.mutate(parsed.data, {
+              onSuccess: () => {
+                setAmount('');
+                setReason('');
+                setTotpCode('');
+              },
+            })
+          }
+        >
+          Add adjustment
+        </Button>
       </CardContent>
     </Card>
   );

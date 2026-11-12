@@ -13,9 +13,11 @@ import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { PayoutActionDialog, type PayoutActionTarget } from '@/components/admin/payout-action-dialog';
 import { ROLE_LABELS, nairaLabel, usePayouts, type PayoutRow } from '@/hooks/use-partners';
+import { PayoutsNav } from './payouts-nav';
 
 const STATUSES = [
   { value: 'DUE', label: 'Due' },
+  { value: 'BATCHED', label: 'In a batch' },
   { value: 'PAID', label: 'Paid' },
   { value: 'CANCELLED', label: 'Cancelled' },
   { value: '', label: 'All' },
@@ -39,9 +41,10 @@ export default function AdminPayoutsPage() {
           Advances fall due when a split-schedule partner is assigned (pay these the same day), and the rest once the
           order is delivered (pay these in the Friday run). Send the bank transfer first, then record it here with the
           reference and the bank&apos;s receipt. Recording or cancelling needs your 2FA code, and a partner can only be
-          paid once their bank details are verified on their profile.
+          paid once their bank details are verified on their profile. To pay several at once, use a batch.
         </p>
       </div>
+      <PayoutsNav />
 
       <div className="flex flex-wrap items-center gap-2">
         {STATUSES.map((s) => (
@@ -140,6 +143,9 @@ function Row({
           </div>
         )}
         {payout.status === 'CANCELLED' && <span className="text-xs text-muted-foreground">Cancelled: {payout.cancelledReason}</span>}
+        {payout.status === 'BATCHED' && payout.transfer && (
+          <Link href={`/admin/payouts/batches/${payout.transfer.batchId}`} className="text-xs text-primary hover:underline">In a payout batch</Link>
+        )}
         {payout.status === 'DUE' && (
           <div className="flex gap-1.5">
             <Button size="sm" className="h-8" onClick={() => onPay(target)}>Record payment</Button>

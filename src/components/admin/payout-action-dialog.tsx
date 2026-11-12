@@ -49,7 +49,7 @@ export function PayoutActionDialog({
   );
 }
 
-function TotpField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+export function TotpField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
     <label className="block space-y-1">
       <span className="text-sm font-medium">2FA code</span>
