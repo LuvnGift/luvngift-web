@@ -191,7 +191,6 @@ function SubscriptionRulesCard() {
   useEffect(() => {
     if (!data) return;
     setForm({
-      vendorSharePercent: String(data.vendorSharePercent),
       marginTolerancePoints: String(data.marginTolerancePoints),
       minFillPercent: String(data.minFillPercent),
       pointsPerCurrencyUnit: String(data.pointsPerCurrencyUnit),
@@ -205,7 +204,6 @@ function SubscriptionRulesCard() {
 
   const n = (k: string) => Number(form[k]);
   const rulesPayload = {
-    vendorSharePercent: n('vendorSharePercent'),
     marginTolerancePoints: n('marginTolerancePoints'),
     minFillPercent: n('minFillPercent'),
     pointsPerCurrencyUnit: n('pointsPerCurrencyUnit'),
@@ -239,7 +237,6 @@ function SubscriptionRulesCard() {
         ) : (
           <>
             <div className="grid sm:grid-cols-3 gap-4">
-              {field('vendorSharePercent', 'Legacy vendor share (%)', 'Only for vendors still on the revenue share (approved before fixed naira pay). Of the value delivered; card fees and points come from our share. 50–90.')}
               {field('marginTolerancePoints', 'Margin tolerance (points)', 'Flag a price whose live markup falls this far below its plan’s. 1–50.')}
               {field('minFillPercent', 'Minimum box fill (%)', 'How full a subscriber’s box must be. 50–100.')}
               {field('pointsPerCurrencyUnit', 'Points per US$1 / CA$1 / £1', 'How many points take 1 unit off a charge. 100 means 500 points = 5.00. 10–10,000.')}
@@ -269,7 +266,7 @@ function SubscriptionRulesCard() {
               </p>
             </div>
             <p className="text-xs text-muted-foreground">
-              Defaults: vendor {data?.defaults.vendorSharePercent}%, tolerance{' '}
+              Defaults: tolerance{' '}
               {data?.defaults.marginTolerancePoints} points, minimum fill {data?.defaults.minFillPercent}%.
               Changing these does not reprice anything: republish a plan to apply them.
             </p>

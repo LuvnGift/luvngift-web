@@ -41,7 +41,6 @@ const assignBlock = (order: any): string | null =>
   vendorAssignmentBlock({ status: order.status, subscriptionId: order.subscriptionId, paymentStatus: order.payment?.status ?? null });
 import { ADMIN_STAGE } from '@/lib/custom-orders';
 import { type QuoteStatus } from '@luvngift/shared';
-import { VendorPayBasis } from './vendor-pay-basis';
 
 const ORDER_STATUSES = ['PENDING', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'REFUNDED'];
 
@@ -298,7 +297,6 @@ function OrderDetailModal({ orderId, onClose }: { orderId: string; onClose: () =
                   <span>Total</span><span>{fmt(order.total, order.currency)}</span>
                 </div>
               </div>
-              <VendorPayBasis order={order as never} fmt={fmt} />
               {order.quoteStatus === 'AWAITING_QUOTE' && (
                 <p className="mt-2 rounded-md border border-purple-200 bg-purple-50 p-3 text-xs text-purple-900">
                   This is a custom request, so it has no price until you quote it below —
