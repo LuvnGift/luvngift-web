@@ -2,9 +2,11 @@
 
 /**
  * The cost stack an admin prices a bundle or plan with: the goods (₦), the
- * agent's and delivery partner's fees (₦) and the platform's share. The API
- * grosses these up into ONE all-in price; the parts are never shown to a
- * customer (an itemised fee would likely be taxable in Canada).
+ * branded packaging (₦) and the platform's share. The fulfilment fee is not
+ * typed here: it is the High band fee from Settings → Fulfilment, so the price
+ * covers an order to any state (the partner is paid the recipient's band).
+ * The API grosses these up into ONE all-in price; the parts are never shown
+ * to a customer (an itemised fee would likely be taxable in Canada).
  */
 
 import { useEffect } from 'react';
@@ -13,14 +15,14 @@ import { Label } from '@/components/ui/label';
 import type { PricedCurrency, StackQuote, StackSplit } from '@/hooks/use-admin';
 import { useFulfilmentRules } from '@/hooks/use-partners';
 import type { BundlePricingFormValues } from '@/lib/admin-schemas';
-import { formatMoney } from '@luvngift/shared';
+import { formatMoney, pricingFeeNgn } from '@luvngift/shared';
 
 /** Every price is written one way, everywhere (formatMoney in @luvngift/shared). */
 export const money = formatMoney;
 export const pct = (bps: number) => `${(bps / 100).toFixed(2).replace(/\.?0+$/, '')}%`;
 const naira = (kobo: number) => `₦${(kobo / 100).toLocaleString('en-NG')}`;
 
-type StackValues = Pick<BundlePricingFormValues, 'sourcingMajor' | 'agentFeeMajor' | 'deliveryFeeMajor' | 'platformPercent'>;
+type StackValues = Pick<BundlePricingFormValues, 'sourcingMajor' | 'packagingMajor' | 'platformPercent'>;
 
 function Field({
   id,
@@ -50,7 +52,7 @@ function Field({
   );
 }
 
-/** The four inputs. `goodsLabel` differs: a bundle's contents vs a plan's box allowance. */
+/** The inputs, plus the High band fee they are priced on (read-only). `goodsLabel` differs: a bundle's contents vs a plan's box allowance. */
 export function CostStackInputs<T extends StackValues>({
   value,
   onChange,
@@ -73,21 +75,21 @@ export function CostStackInputs<T extends StackValues>({
   const { data: defaults } = useFulfilmentRules();
   // A blank stack (a new item, or one priced the old way) starts from Settings → Fulfilment.
   useEffect(() => {
-    if (!defaults || value.agentFeeMajor || value.deliveryFeeMajor || value.platformPercent) return;
+    if (!defaults || value.packagingMajor || value.platformPercent) return;
     onChange({
       ...value,
-      agentFeeMajor: String(defaults.defaultAgentFeeNgn / 100),
-      deliveryFeeMajor: String(defaults.defaultDeliveryFeeNgn / 100),
+      packagingMajor: String(defaults.defaultPackagingNgn / 100),
       platformPercent: String(defaults.defaultPlatformPercent),
     });
     // Only when the defaults arrive or the stack is blanked, not on every keystroke.
-  }, [defaults, value.agentFeeMajor === '' && value.deliveryFeeMajor === '' && value.platformPercent === '']);
+  }, [defaults, value.packagingMajor === '' && value.platformPercent === '']);
+  const highFee = defaults ? String(pricingFeeNgn(defaults) / 100) : '';
   return (
     <div className="grid gap-3 sm:grid-cols-2">
       <Field id={`${idPrefix}-goods`} label={goodsLabel} hint={goodsHint} placeholder="85000" value={value.sourcingMajor} error={errors.sourcingMajor} onChange={set('sourcingMajor')} readOnly={goodsReadOnly} />
       <Field id={`${idPrefix}-platform`} label="Platform share (%)" hint="What Luvngift keeps of the price, after card fees." placeholder="25" value={value.platformPercent} error={errors.platformPercent} onChange={set('platformPercent')} />
-      <Field id={`${idPrefix}-agent`} label="Agent fee (₦)" hint="Paid to the agent who owns the order in the state." placeholder="5000" value={value.agentFeeMajor} error={errors.agentFeeMajor} onChange={set('agentFeeMajor')} />
-      <Field id={`${idPrefix}-delivery`} label="Delivery fee (₦)" hint="Paid to whoever delivers it. 0 if the agent delivers for their fee." placeholder="4000" value={value.deliveryFeeMajor} error={errors.deliveryFeeMajor} onChange={set('deliveryFeeMajor')} />
+      <Field id={`${idPrefix}-packaging`} label="Packaging (₦)" hint="The Luvngift box and wrapping we send the partner. Our cost; 0 if none." placeholder="2000" value={value.packagingMajor} error={errors.packagingMajor} onChange={set('packagingMajor')} />
+      <Field id={`${idPrefix}-fee`} label="Fulfilment fee (₦, High band)" hint="Set in Settings → Fulfilment. Every price uses the High band so it covers any state." placeholder="" value={highFee} onChange={() => undefined} readOnly />
     </div>
   );
 }
@@ -95,14 +97,14 @@ export function CostStackInputs<T extends StackValues>({
 /** How the price was built, in one sentence an admin can check by hand. */
 export function StackSummary({ quote }: { quote: StackQuote }) {
   const { stack, rates } = quote;
-  const partners = stack.goodsNgn + stack.agentFeeNgn + stack.deliveryFeeNgn;
+  const cost = stack.goodsNgn + stack.fulfilmentFeeNgn + stack.packagingNgn;
   return (
     <p className="text-xs text-muted-foreground">
-      Partners {naira(partners)} (goods {naira(stack.goodsNgn)} + agent {naira(stack.agentFeeNgn)} + delivery{' '}
-      {naira(stack.deliveryFeeNgn)}) = {money(Math.round(quote.costUsdCents), 'USD')} at ₦{rates.NGN.toLocaleString('en-NG')}/US$,
+      Costs {naira(cost)} (goods {naira(stack.goodsNgn)} + fulfilment fee {naira(stack.fulfilmentFeeNgn)} (High band) + packaging{' '}
+      {naira(stack.packagingNgn)}) = {money(Math.round(quote.costUsdCents), 'USD')} at ₦{rates.NGN.toLocaleString('en-NG')}/US$,
       divided by {100 - quote.deductionPercent}% (platform {pct(quote.platformBps)} + FX buffer {quote.fxBufferPercent}% +
       dearest card fee {Math.max(...Object.values(quote.cardFeePercent))}%) = <strong className="text-foreground">{money(quote.usdCents, 'USD')}</strong>.
-      The customer sees this one price; partners are paid their naira amounts.
+      The customer sees this one price; the partner is paid goods + the fee for the recipient's band.
     </p>
   );
 }
@@ -110,8 +112,8 @@ export function StackSummary({ quote }: { quote: StackQuote }) {
 const SPLIT_COLUMNS: { key: keyof StackSplit; label: string }[] = [
   { key: 'cardFees', label: 'Card fees' },
   { key: 'goods', label: 'Goods' },
-  { key: 'agent', label: 'Agent' },
-  { key: 'delivery', label: 'Delivery' },
+  { key: 'fulfilmentFee', label: 'Fulfilment fee' },
+  { key: 'packaging', label: 'Packaging' },
   { key: 'platform', label: 'Luvngift keeps' },
 ];
 

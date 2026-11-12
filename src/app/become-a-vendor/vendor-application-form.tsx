@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { CheckCircle2, Building2, User, FileText } from 'lucide-react';
+import { CheckCircle2, Building2, User, FileText, MapPin } from 'lucide-react';
 import { useApplyVendor } from '@/hooks/use-vendor-apply';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,24 +14,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
-import { AgentFields, EMPTY_AGENT, agentErrors, agentPayload, type AgentDetails } from './agent-fields';
-import { applyPartnerSchema } from '@luvngift/shared';
+import { NIGERIAN_STATES, applyPartnerSchema } from '@luvngift/shared';
 import { toast } from 'sonner';
-
-const NIGERIAN_STATES = [
-  'Abia', 'Adamawa', 'Akwa Ibom', 'Anambra', 'Bauchi', 'Bayelsa', 'Benue', 'Borno',
-  'Cross River', 'Delta', 'Ebonyi', 'Edo', 'Ekiti', 'Enugu', 'FCT', 'Gombe', 'Imo',
-  'Jigawa', 'Kaduna', 'Kano', 'Katsina', 'Kebbi', 'Kogi', 'Kwara', 'Lagos', 'Nasarawa',
-  'Niger', 'Ogun', 'Ondo', 'Osun', 'Oyo', 'Plateau', 'Rivers', 'Sokoto', 'Taraba',
-  'Yobe', 'Zamfara',
-];
-
-const BUSINESS_TYPES = [
-  { value: 'RETAIL', label: 'Retail — I supply goods / products' },
-  { value: 'DELIVERY', label: 'Delivery — I deliver to recipients' },
-  { value: 'LOGISTICS', label: 'Logistics — I handle sourcing & fulfilment' },
-  { value: 'AGENT', label: 'Fulfilment agent — I source, deliver and look after gifts in my state' },
-] as const;
 
 const NAME_RE = /^[a-zA-ZÀ-ÖØ-öø-ÿ'\-\s]+$/;
 
@@ -43,9 +27,9 @@ const schema = z.object({
   phone: z.string().regex(/^\d{11}$/, 'Enter a valid 11-digit phone number'),
   address: z.string().trim().min(5, 'Business address is required').max(200),
   state: z.string().min(2, 'Please select a state'),
-  businessType: z.enum(['RETAIL', 'DELIVERY', 'LOGISTICS', 'AGENT'], {
-    errorMap: () => ({ message: 'Please select a business type' }),
-  }),
+  // Format-checked by applyPartnerSchema (shared) before sending.
+  cacNumber: z.string().trim().max(20).optional(),
+  portfolioUrl: z.string().trim().max(300).optional(),
   notes: z.string().trim().max(1000).optional(),
   agreedToTerms: z.literal(true, {
     errorMap: () => ({ message: 'You must accept the Vendor Agreement' }),
@@ -76,27 +60,29 @@ function SectionHeading({ icon: Icon, children }: { icon: typeof User; children:
 
 export function VendorApplicationForm() {
   const [submitted, setSubmitted] = useState(false);
-  const [agent, setAgent] = useState<AgentDetails>(EMPTY_AGENT);
-  const [agentErrs, setAgentErrs] = useState<Record<string, string>>({});
+  const [coverage, setCoverage] = useState<string[]>([]);
+  const [coverageError, setCoverageError] = useState<string | null>(null);
   const { mutateAsync, isPending } = useApplyVendor();
 
   const {
     register,
     handleSubmit,
     control,
-    watch,
     formState: { errors },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: { companyWebsite: '' },
   });
 
-  const isAgent = watch('businessType') === 'AGENT';
+  const toggleState = (state: string) =>
+    setCoverage((c) => (c.includes(state) ? c.filter((s) => s !== state) : [...c, state]));
 
   const onSubmit = async (values: FormValues) => {
-    const errs = isAgent ? agentErrors(agent) : {};
-    setAgentErrs(errs);
-    if (Object.keys(errs).length) return;
+    if (!coverage.length) {
+      setCoverageError('Choose at least one state you deliver to');
+      return;
+    }
+    setCoverageError(null);
     const data = {
       name: values.name,
       contactName: `${values.firstName.trim()} ${values.lastName.trim()}`,
@@ -104,9 +90,10 @@ export function VendorApplicationForm() {
       phone: values.phone,
       address: values.address,
       state: values.state,
-      businessType: values.businessType,
-      notes: values.notes,
-      ...(isAgent ? agentPayload(agent) : {}),
+      cacNumber: values.cacNumber || undefined,
+      portfolioUrl: values.portfolioUrl || undefined,
+      notes: values.notes || undefined,
+      coverage,
       agreedToTerms: true as const,
     };
     // The API validates with this exact schema: check before sending, so a gap
@@ -117,7 +104,7 @@ export function VendorApplicationForm() {
       return;
     }
     try {
-      await mutateAsync({ idDocument: isAgent ? agent.idDocument : null, data });
+      await mutateAsync(checked.data);
       setSubmitted(true);
     } catch {
       // error toast handled in the hook
@@ -133,8 +120,9 @@ export function VendorApplicationForm() {
           </div>
           <h2 className="text-xl font-bold">Application received!</h2>
           <p className="max-w-md text-muted-foreground">
-            Thanks for your interest in selling with Luvngift. Our team will review your application and get
-            back to you, usually within 2–3 business days.
+            Thanks for your interest in partnering with Luvngift. Our team will review your application and get
+            back to you, usually within 2–3 business days. If it looks like a fit, we will visit, talk it through
+            with you, and ask you to make a sample hamper in our packaging.
           </p>
         </CardContent>
       </Card>
@@ -176,24 +164,9 @@ export function VendorApplicationForm() {
                 {errors.state && <p className="text-destructive text-xs">{errors.state.message}</p>}
               </div>
               <div className="space-y-1.5">
-                <Label>Business type</Label>
-                <Controller
-                  control={control}
-                  name="businessType"
-                  render={({ field }) => (
-                    <Select value={field.value} onValueChange={field.onChange}>
-                      <SelectTrigger aria-label="Business type" onBlur={field.onBlur}>
-                        <SelectValue placeholder="Select type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {BUSINESS_TYPES.map((t) => (
-                          <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-                {errors.businessType && <p className="text-destructive text-xs">{errors.businessType.message}</p>}
+                <Label htmlFor="cacNumber">CAC number <span className="font-normal text-muted-foreground">(if registered)</span></Label>
+                <Input id="cacNumber" {...register('cacNumber')} placeholder="e.g. RC123456 or BN1234567" />
+                {errors.cacNumber && <p className="text-destructive text-xs">{errors.cacNumber.message}</p>}
               </div>
             </div>
 
@@ -251,18 +224,43 @@ export function VendorApplicationForm() {
           <div className="space-y-4 border-t pt-6">
             <SectionHeading icon={FileText}>About your business</SectionHeading>
             <div className="space-y-1.5">
+              <Label htmlFor="portfolioUrl">Where can we see your hampers?</Label>
+              <Input id="portfolioUrl" inputMode="url" {...register('portfolioUrl')} placeholder="https://instagram.com/yourbusiness" />
+              <p className="text-xs text-muted-foreground">Your Instagram, website or catalogue. Optional, but it helps us review faster.</p>
+            </div>
+            <div className="space-y-1.5">
               <Label htmlFor="notes">Tell us what you offer</Label>
               <Textarea
                 id="notes"
                 {...register('notes')}
                 rows={4}
-                placeholder="What you supply or deliver, your capacity, areas you cover, website or social links, etc."
+                placeholder="The hampers and gifts you make, how many orders a week you can take, how you deliver."
               />
               {errors.notes && <p className="text-destructive text-xs">{errors.notes.message}</p>}
             </div>
           </div>
 
-          {isAgent && <AgentFields value={agent} onChange={setAgent} errors={agentErrs} />}
+          {/* Coverage */}
+          <div className="space-y-4 border-t pt-6">
+            <SectionHeading icon={MapPin}>Where you deliver</SectionHeading>
+            <p className="text-sm text-muted-foreground">
+              Choose every state you can deliver to. We send you orders for recipients in these states.
+            </p>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {NIGERIAN_STATES.map((state) => (
+                <label key={state} className="flex items-center gap-2 text-sm cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-input accent-primary"
+                    checked={coverage.includes(state)}
+                    onChange={() => toggleState(state)}
+                  />
+                  {state}
+                </label>
+              ))}
+            </div>
+            {coverageError && <p className="text-destructive text-xs">{coverageError}</p>}
+          </div>
 
           {/* Honeypot — visually hidden, not announced to screen readers. */}
           <div aria-hidden="true" className="hidden">

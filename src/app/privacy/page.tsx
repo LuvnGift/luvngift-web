@@ -22,7 +22,7 @@ export default function PrivacyPage() {
   const mail = <a href={`mailto:${BUSINESS.email}`}>{BUSINESS.email}</a>;
 
   return (
-    <LegalPage title="Privacy Policy" updated="October 19, 2026">
+    <LegalPage title="Privacy Policy" updated="November 11, 2026">
       <p>
         This policy explains how {BUSINESS.legalName}, trading as {BUSINESS.tradingName} (&quot;we&quot;,
         &quot;us&quot;), handles personal information when you use our website, our mobile app, or
@@ -103,12 +103,9 @@ export default function PrivacyPage() {
         </li>
         <li>
           <strong>Vendor and partner applicants:</strong> your business name, contact name, email
-          address, phone number, business address and state. If you apply as an individual
-          fulfilment agent, also: the type of your ID and the last four characters of its number
-          (never the full number), a photo or scan of the ID (stored privately and opened only by
-          our team), the name, phone number and relationship of a guarantor and two references, how
-          you travel, and the states and kinds of work you can cover. We use these only to vet you
-          before approval
+          address, phone number, business address and state, the states you deliver to, and if
+          you give them, your CAC registration number and a link to your work. We use these to
+          review your application and, if you are approved, to send you orders
         </li>
         <li>
           <strong>Partners at work:</strong> photos of purchase receipts you upload for an order,
@@ -150,7 +147,7 @@ export default function PrivacyPage() {
           delivery updates, quotes and replies
         </li>
         <li>To answer questions and support requests</li>
-        <li>To review job, vendor and partner applications, and vet fulfilment agents</li>
+        <li>To review job, vendor and partner applications, and vet our fulfilment partners</li>
         <li>To pay our fulfilment partners and keep a record of their work</li>
         <li>To prevent fraud, keep our services secure, and find and fix faults</li>
         <li>To keep the tax and accounting records the law requires</li>
@@ -197,11 +194,11 @@ export default function PrivacyPage() {
       <h2>4. Who we share it with</h2>
       <h3>Delivery partners in Nigeria</h3>
       <p>
-        The independent partners who prepare and deliver a gift (a fulfilment agent, a shop or a
-        delivery company) receive what they need for that delivery: the recipient&apos;s name,
+        The independent hamper and gift businesses that prepare and deliver a gift receive what
+        they need for that delivery: the recipient&apos;s name,
         phone number and address, the items, your personal message, and any dietary or religious
         requirements. They do not receive your name, contact details or payment information. On
-        the order page we tell you which kind of partner has your gift, not who they are.
+        the order page we tell you when our local partner has your gift, not who they are.
       </p>
 
       <h3>Service providers who work on our behalf</h3>
@@ -212,7 +209,7 @@ export default function PrivacyPage() {
         <li><strong>Stripe</strong>: payments and saved cards</li>
         <li><strong>Resend</strong>: sending email</li>
         <li><strong>Twilio</strong>: sending SMS</li>
-        <li><strong>Cloudinary</strong>: storing images, delivery photos, purchase receipts, invoices, CVs and (privately) partner ID documents</li>
+        <li><strong>Cloudinary</strong>: storing images, delivery photos, purchase receipts, invoices and CVs</li>
         <li><strong>Neon</strong>: database hosting</li>
         <li><strong>Railway</strong>: hosting our servers</li>
         <li><strong>Vercel</strong>: hosting our website, and analytics if you accept them</li>
@@ -262,9 +259,7 @@ export default function PrivacyPage() {
           to 12 months after that if your application is not accepted
         </li>
         <li>
-          <strong>A partner&apos;s ID document:</strong> while you work with us, and deleted 24
-          months after your partnership ends (12 months after a rejected application). Payment
-          records for work you did are kept as tax records, like orders
+          <strong>Payment records for a partner&apos;s work:</strong> kept as tax records, like orders
         </li>
         <li>
           <strong>Server logs and error reports:</strong> up to 90 days

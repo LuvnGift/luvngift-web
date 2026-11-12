@@ -47,9 +47,9 @@ type AdminBundle = Bundle & {
   sourcingNgn?: number | null;
   /** Legacy markup pricing; null once priced on the cost stack. */
   markupBps?: number | null;
-  /** The cost stack (kobo / basis points); null on a legacy bundle. */
-  agentFeeNgn?: number | null;
-  deliveryFeeNgn?: number | null;
+  /** The cost stack (kobo / basis points); null on a legacy bundle. The fee is the High band's at publish. */
+  fulfilmentFeeNgn?: number | null;
+  packagingNgn?: number | null;
   platformBps?: number | null;
   pricedNgnPerUsd?: number | null;
   pricedAt?: string | null;
@@ -481,8 +481,8 @@ export default function AdminBundlesPage() {
         <div>
           <h1 className="text-2xl font-bold">Bundles</h1>
           <p className="text-muted-foreground text-sm max-w-2xl">
-            Set what a bundle&apos;s goods cost in naira, what the agent and delivery partner are paid,
-            and the platform&apos;s share. The US$ price is worked out at today&apos;s rate when you
+            Set what a bundle&apos;s goods and branded packaging cost in naira and the platform&apos;s share;
+            the fulfilment fee is the High band fee from Settings → Fulfilment, so the price covers any state. The US$ price is worked out at today&apos;s rate when you
             publish and stays fixed until you publish again; buyers see one all-in price, converted to
             their currency at checkout.
           </p>
@@ -684,15 +684,15 @@ function PricingNote({ bundle }: { bundle: AdminBundle }) {
 }
 
 /**
- * A cost-stack bundle: the partners' naira, the target platform share, and what
- * it earns today. Red once the FX buffer is used up (the daily alert's rule).
+ * A cost-stack bundle: the naira it was priced on (goods + High band fee +
+ * packaging), the target platform share, and what it earns today. Red once the FX buffer is used up (the daily alert's rule).
  */
 function StackNote({ bundle }: { bundle: AdminBundle }) {
-  const partners = (bundle.sourcingNgn ?? 0) + (bundle.agentFeeNgn ?? 0) + (bundle.deliveryFeeNgn ?? 0);
+  const costs = (bundle.sourcingNgn ?? 0) + (bundle.fulfilmentFeeNgn ?? 0) + (bundle.packagingNgn ?? 0);
   const slipped = bundle.livePlatformBps != null && bundle.livePlatformBps < bundle.platformBps!;
   return (
     <span className={`block text-xs ${slipped ? 'text-destructive font-semibold' : 'text-muted-foreground'}`}>
-      Partners ₦{(partners / 100).toLocaleString('en-NG')} · platform {pctLabel(bundle.platformBps!)}
+      Costs ₦{(costs / 100).toLocaleString('en-NG')} · platform {pctLabel(bundle.platformBps!)}
       {bundle.livePlatformBps != null && (
         <> · keeping {pctLabel(bundle.livePlatformBps)} today{slipped ? ': republish' : ''}</>
       )}

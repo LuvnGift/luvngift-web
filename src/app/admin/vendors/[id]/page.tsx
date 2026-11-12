@@ -20,12 +20,6 @@ type AdminVendor = Vendor & {
   deactivationReason?: string | null;
 };
 
-const BUSINESS_TYPE_LABELS: Record<string, string> = {
-  RETAIL: 'Retail',
-  DELIVERY: 'Delivery',
-  LOGISTICS: 'Logistics',
-  AGENT: 'Fulfilment agent',
-};
 
 const STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'outline' | 'destructive'> = {
   DELIVERED: 'default',
@@ -95,7 +89,7 @@ export default function VendorDetailPage() {
               )}
             </div>
             <p className="text-muted-foreground text-sm">
-              {BUSINESS_TYPE_LABELS[vendor.businessType]} · Added {new Date(vendor.createdAt).toLocaleDateString()}
+              Fulfilment partner · Added {new Date(vendor.createdAt).toLocaleDateString()}
             </p>
           </div>
         </div>

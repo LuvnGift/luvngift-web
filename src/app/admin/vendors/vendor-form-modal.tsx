@@ -16,13 +16,6 @@ import { useCreateVendor, useUpdateVendor, VendorInput } from '@/hooks/use-admin
 import type { Vendor } from '@luvngift/shared';
 import { NIGERIAN_STATES } from '@luvngift/shared';
 
-const BUSINESS_TYPES = [
-  { value: 'RETAIL', label: 'Retail — supplies goods / products' },
-  { value: 'DELIVERY', label: 'Delivery — delivers to recipients' },
-  { value: 'LOGISTICS', label: 'Logistics — sourcing & fulfilment' },
-  { value: 'AGENT', label: 'Fulfilment agent — an individual (starts pending: vet before approving)' },
-] as const;
-
 const NAME_RE = /^[a-zA-ZÀ-ÖØ-öø-ÿ'\-\s]+$/;
 
 const schema = z.object({
@@ -33,7 +26,6 @@ const schema = z.object({
   phone: z.string().regex(/^\d{11}$/, 'Enter a valid 11-digit number'),
   address: z.string().trim().min(5, 'Address is required').max(200),
   state: z.string().min(2, 'Please select a state'),
-  businessType: z.enum(['RETAIL', 'DELIVERY', 'LOGISTICS', 'AGENT']),
   notes: z.string().trim().max(500).optional(),
 });
 
@@ -78,7 +70,6 @@ export default function VendorFormModal({ open, onClose, vendor }: Props) {
       phone: '',
       address: '',
       state: '',
-      businessType: 'RETAIL',
       notes: '',
     },
   });
@@ -94,7 +85,6 @@ export default function VendorFormModal({ open, onClose, vendor }: Props) {
         phone: (vendor.phone ?? '').replace(/\D/g, '').slice(0, 11),
         address: vendor.address,
         state: vendor.state,
-        businessType: vendor.businessType as FormValues['businessType'],
         notes: vendor.notes ?? '',
       });
     } else {
@@ -106,7 +96,6 @@ export default function VendorFormModal({ open, onClose, vendor }: Props) {
         phone: '',
         address: '',
         state: '',
-        businessType: 'RETAIL',
         notes: '',
       });
     }
@@ -120,7 +109,6 @@ export default function VendorFormModal({ open, onClose, vendor }: Props) {
       phone: values.phone,
       address: values.address,
       state: values.state,
-      businessType: values.businessType,
       notes: values.notes || undefined,
     };
     try {
@@ -143,7 +131,7 @@ export default function VendorFormModal({ open, onClose, vendor }: Props) {
           <p className="text-sm text-muted-foreground">
             {isEdit
               ? 'Update vendor details below.'
-              : 'Admin-created vendors are immediately approved and active.'}
+              : 'Partners added here start pending, like applicants: approve them on their page once the address, interview and sample hamper checks pass.'}
           </p>
         </DialogHeader>
 
@@ -180,26 +168,7 @@ export default function VendorFormModal({ open, onClose, vendor }: Props) {
                 {errors.state && <p className="text-destructive text-xs">{errors.state.message}</p>}
               </div>
 
-              <div className="space-y-1.5">
-                <Label>Business type</Label>
-                <Controller
-                  control={control}
-                  name="businessType"
-                  render={({ field }) => (
-                    <Select value={field.value} onValueChange={field.onChange}>
-                      <SelectTrigger aria-label="Business type">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {BUSINESS_TYPES.map((t) => (
-                          <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-                {errors.businessType && <p className="text-destructive text-xs">{errors.businessType.message}</p>}
-              </div>
+
             </div>
 
             <div className="space-y-1.5">

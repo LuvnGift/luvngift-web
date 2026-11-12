@@ -10,7 +10,7 @@ import {
   quoteFormSchema,
   toMinorUnits,
 } from './admin-schemas';
-import { bundlePricingSchema, createItemSchema, planPricingSchema, sendQuoteSchema } from '@luvngift/shared';
+import { bundlePricingSchema, createItemSchema, fulfilmentRulesSchema, planPricingSchema, sendQuoteSchema } from '@luvngift/shared';
 
 /**
  * The admin forms parse what admin types; the API validates with the wire
@@ -111,8 +111,7 @@ describe('planFormSchema', () => {
 describe('planPricingFormSchema', () => {
   const valid = {
     sourcingMajor: '150000',
-    agentFeeMajor: '5000',
-    deliveryFeeMajor: '0',
+    packagingMajor: '2000',
     platformPercent: '25.5',
     intervals: ['MONTHLY' as const],
   };
@@ -123,18 +122,22 @@ describe('planPricingFormSchema', () => {
     if (result.success) {
       expect(toPricingInput(result.data)).toEqual({
         boxAllowanceNgn: 150_000_00,
-        agentFeeNgn: 5_000_00,
-        deliveryFeeNgn: 0,
+        packagingNgn: 2_000_00,
         platformPercent: 25.5,
         intervals: ['MONTHLY'],
       });
     }
   });
 
-  it('allows a zero fee but not a negative or blank one', () => {
-    expect(planPricingFormSchema.safeParse({ ...valid, agentFeeMajor: '0' }).success).toBe(true);
-    expect(planPricingFormSchema.safeParse({ ...valid, agentFeeMajor: '-1' }).success).toBe(false);
-    expect(planPricingFormSchema.safeParse({ ...valid, deliveryFeeMajor: '' }).success).toBe(false);
+  it('allows zero packaging but not a negative or blank amount', () => {
+    expect(planPricingFormSchema.safeParse({ ...valid, packagingMajor: '0' }).success).toBe(true);
+    expect(planPricingFormSchema.safeParse({ ...valid, packagingMajor: '-1' }).success).toBe(false);
+    expect(planPricingFormSchema.safeParse({ ...valid, packagingMajor: '' }).success).toBe(false);
+  });
+
+  it('has no fee to type: the fulfilment fee is the High band fee from Settings', () => {
+    expect(Object.keys(planPricingFormSchema.shape)).not.toContain('agentFeeMajor');
+    expect(Object.keys(planPricingFormSchema.shape)).not.toContain('fulfilmentFeeMajor');
   });
 
   it('requires a sourcing amount, up to the API limit', () => {
@@ -198,7 +201,7 @@ describe('quoteFormSchema', () => {
 
 // bundlePricingSchema in @luvngift/shared.
 describe('bundlePricingFormSchema', () => {
-  const valid = { sourcingMajor: '85000.50', agentFeeMajor: '5000', deliveryFeeMajor: '4000', platformPercent: '25' };
+  const valid = { sourcingMajor: '85000.50', packagingMajor: '2000', platformPercent: '25' };
 
   it('converts naira to kobo and keeps the platform share as a percent', () => {
     const result = bundlePricingFormSchema.safeParse(valid);
@@ -206,8 +209,7 @@ describe('bundlePricingFormSchema', () => {
     if (result.success) {
       expect(toBundlePricingInput(result.data)).toEqual({
         sourcingNgn: 85_000_50,
-        agentFeeNgn: 5_000_00,
-        deliveryFeeNgn: 4_000_00,
+        packagingNgn: 2_000_00,
         platformPercent: 25,
       });
     }
@@ -216,8 +218,7 @@ describe('bundlePricingFormSchema', () => {
   it('has no cadence: a bundle is bought once', () => {
     expect(Object.keys(bundlePricingFormSchema.shape)).toEqual([
       'sourcingMajor',
-      'agentFeeMajor',
-      'deliveryFeeMajor',
+      'packagingMajor',
       'platformPercent',
     ]);
   });
@@ -231,14 +232,14 @@ describe('bundlePricingFormSchema', () => {
 describe('a valid form is a valid API payload', () => {
   it('plan pricing', () => {
     const form = planPricingFormSchema.parse({
-      sourcingMajor: '150000', agentFeeMajor: '5000', deliveryFeeMajor: '0', platformPercent: '25.5', intervals: ['MONTHLY'],
+      sourcingMajor: '150000', packagingMajor: '0', platformPercent: '25.5', intervals: ['MONTHLY'],
     });
     expect(planPricingSchema.safeParse(toPricingInput(form)).success).toBe(true);
   });
 
   it('bundle pricing', () => {
     const form = bundlePricingFormSchema.parse({
-      sourcingMajor: '40000', agentFeeMajor: '5000', deliveryFeeMajor: '4000', platformPercent: '25',
+      sourcingMajor: '40000', packagingMajor: '2000', platformPercent: '25',
     });
     expect(bundlePricingSchema.safeParse(toBundlePricingInput(form)).success).toBe(true);
   });
@@ -260,5 +261,27 @@ describe('a valid form is a valid API payload', () => {
   it('a quote', () => {
     const form = quoteFormSchema.parse({ priceMajor: '120.50', scope: 'Cake, flowers and a card', note: '', isFinal: false });
     expect(sendQuoteSchema.safeParse({ subtotal: toMinorUnits(form.priceMajor), scope: form.scope, isFinal: form.isFinal }).success).toBe(true);
+  });
+});
+
+// fulfilmentRulesSchema in @luvngift/shared: what Settings → Fulfilment sends.
+describe('fulfilment settings payload', () => {
+  const payload = {
+    bandFeesNgn: { HIGH: 8_000_00, MEDIUM: 6_000_00, LOW: 5_000_00 },
+    stateBands: { Lagos: 'HIGH' as const, FCT: 'HIGH' as const, Kebbi: 'LOW' as const },
+    defaultPackagingNgn: 2_000_00,
+    defaultPlatformPercent: 25,
+    fxBufferPercent: 5,
+    defaultSplitPercent: 50,
+    requireRecipientConfirmation: false,
+  };
+
+  it('accepts the bands and a partial state map', () => {
+    expect(fulfilmentRulesSchema.safeParse(payload).success).toBe(true);
+  });
+
+  it('refuses a band fee above High, because every price is built on High', () => {
+    const bad = { ...payload, bandFeesNgn: { HIGH: 5_000_00, MEDIUM: 6_000_00, LOW: 1 } };
+    expect(fulfilmentRulesSchema.safeParse(bad).success).toBe(false);
   });
 });
