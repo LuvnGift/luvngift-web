@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { loadStripe } from '@stripe/stripe-js';
-import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
+import { PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { useCreatePaymentIntent, useVerifyPayment } from '@/hooks/use-checkout';
+import { CheckoutElements } from '@/components/checkout/checkout-elements';
 import { useOrder, useOrderConversation } from '@/hooks/use-orders';
 import { acceptedQuote, getCurrencySymbol } from '@luvngift/shared';
 import { Button } from '@/components/ui/button';
@@ -15,8 +15,6 @@ import {
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import type { Order } from '@luvngift/shared';
-
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 
 
 export interface PayableOrder {
@@ -111,9 +109,9 @@ export function PayOrderDialog({
         )}
 
         {clientSecret ? (
-          <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme: 'stripe' } }}>
+          <CheckoutElements clientSecret={clientSecret}>
             <PaymentForm orderId={order.id} onBack={onClose} onSuccess={() => onPaid(order.id)} />
-          </Elements>
+          </CheckoutElements>
         ) : (
           <div className="flex justify-center py-8"><Spinner /></div>
         )}

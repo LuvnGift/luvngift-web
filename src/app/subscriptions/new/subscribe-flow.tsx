@@ -7,8 +7,8 @@ import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { createAddressSchema, formatMoney, DELIVERIES_PER_YEAR } from '@luvngift/shared';
-import { loadStripe } from '@stripe/stripe-js';
-import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
+import { PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
+import { CheckoutElements } from '@/components/checkout/checkout-elements';
 import { Check, ArrowLeft, MapPin, PackageOpen, ShieldAlert } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -48,7 +48,6 @@ const AFTER_SUBSCRIBE = '/account/subscriptions?subscribed=true';
 /** Fallback if a cached plans payload predates box sizing. Matches the API default. */
 const DEFAULT_MIN_FILL = 80;
 
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 
 const SUBSTITUTION_OPTIONS: {
   value: SubstitutionPreference;
@@ -252,9 +251,9 @@ export function SubscribeFlow() {
         )}
 
         {step === 'payment' && clientSecret && (
-          <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme: 'stripe' } }}>
+          <CheckoutElements clientSecret={clientSecret}>
             <PaymentStep onBack={() => setStep('box')} intentType={intentType} startsAt={startsAt} />
-          </Elements>
+          </CheckoutElements>
         )}
       </div>
 

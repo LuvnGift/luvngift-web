@@ -6,7 +6,6 @@ import { toast } from 'sonner';
 
 interface CreatePaymentIntentInput {
   orderId: string;
-  savePaymentMethod?: boolean;
 }
 
 interface PaymentIntentResult {
@@ -21,14 +20,26 @@ export const useCreatePaymentIntent = () =>
   });
 
 /**
- * Toggles card saving on an intent that already exists. `setup_future_usage` is
- * fixed at creation, so the checkbox next to the card form has to go through here.
+ * The customer session that lets the Payment Element show saved cards and its
+ * save box (see `components/checkout/checkout-elements.tsx`). One per intent,
+ * fetched once: Elements reads it only at mount, so a refetch would do nothing.
+ * Resolves to undefined on failure, so checkout falls back to a plain card form.
  */
-export const useSetSaveCard = () =>
-  useMutation<void, Error, { orderId: string; savePaymentMethod: boolean }>({
-    mutationFn: (data) => api.post('/api/v1/payments/save-card', data).then((r) => r.data),
-    onError: (err: any) =>
-      toast.error(err?.response?.data?.error?.message ?? "Couldn't update your card preference."),
+export const useCustomerSession = (clientSecret: string) =>
+  useQuery<string | undefined>({
+    queryKey: ['customer-session', clientSecret],
+    queryFn: async () => {
+      try {
+        const res = await api.post('/api/v1/payments/customer-session', {});
+        return res.data.data.customerSessionClientSecret as string;
+      } catch {
+        return undefined;
+      }
+    },
+    staleTime: Infinity,
+    gcTime: 0,
+    retry: false,
+    refetchOnWindowFocus: false,
   });
 
 export const useVerifyPayment = () =>

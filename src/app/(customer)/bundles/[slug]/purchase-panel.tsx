@@ -5,10 +5,10 @@ import { ShoppingBag } from 'lucide-react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { loadStripe } from '@stripe/stripe-js';
-import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
+import { PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { useCreateOrder, useUpdateOrder } from '@/hooks/use-orders';
-import { useCreatePaymentIntent, useVerifyPayment, useSetSaveCard } from '@/hooks/use-checkout';
+import { useCreatePaymentIntent, useVerifyPayment } from '@/hooks/use-checkout';
+import { CheckoutElements } from '@/components/checkout/checkout-elements';
 import { useUserCurrency } from '@/hooks/use-exchange-rates';
 import { formatCurrency, formatMoney, getCurrencySymbol } from '@luvngift/shared';
 import { Button } from '@/components/ui/button';
@@ -31,7 +31,6 @@ import { formatPoints, pointsValue } from '@luvngift/shared';
 /** Points columns the API added after the last shared-package publish. */
 type Order = SharedOrder & { pointsRedeemed?: number; pointsDiscount?: number };
 
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 
 
 const NIGERIAN_STATES = [
@@ -268,10 +267,7 @@ export function PurchasePanel({ bundle }: Props) {
             <div className="grid sm:grid-cols-2 gap-6">
               <OrderSummary order={order} bundleName={bundle.name} />
               <div>
-                <Elements
-                  stripe={stripePromise}
-                  options={{ clientSecret, appearance: { theme: 'stripe' } }}
-                >
+                <CheckoutElements clientSecret={clientSecret}>
                   <StripePaymentForm
                     orderId={order.id}
                     amountLabel={`${getCurrencySymbol(order.currency)}${(
@@ -279,7 +275,7 @@ export function PurchasePanel({ bundle }: Props) {
                     ).toFixed(2)}`}
                     onBack={() => setCheckoutStep('recipient')}
                   />
-                </Elements>
+                </CheckoutElements>
               </div>
             </div>
           )}
@@ -386,24 +382,7 @@ function StripePaymentForm({
   const stripe = useStripe();
   const elements = useElements();
   const { mutateAsync: verifyPayment } = useVerifyPayment();
-  const { mutateAsync: setSaveCard } = useSetSaveCard();
   const [isProcessing, setIsProcessing] = useState(false);
-  const [saveCard, setSaveCardState] = useState(false);
-  const [savingPref, setSavingPref] = useState(false);
-
-  // The preference is applied to the PaymentIntent server-side. If that call
-  // fails we revert the checkbox rather than let it silently lie.
-  const handleToggleSaveCard = async (checked: boolean) => {
-    setSaveCardState(checked);
-    setSavingPref(true);
-    try {
-      await setSaveCard({ orderId, savePaymentMethod: checked });
-    } catch {
-      setSaveCardState(!checked);
-    } finally {
-      setSavingPref(false);
-    }
-  };
 
   const handlePay = async () => {
     if (!stripe || !elements) return;
@@ -428,30 +407,16 @@ function StripePaymentForm({
 
   return (
     <div className="space-y-4">
+      {/* Saved cards and the "save this card" box are the Payment Element's own,
+          enabled by the customer session in CheckoutElements. A separate
+          checkbox here saved cards Stripe would never offer back. */}
       <PaymentElement options={{ business: { name: 'Luvngift' } }} />
-
-      <label className="flex items-start gap-2.5 rounded-md border p-3 cursor-pointer hover:bg-muted/40 transition-colors">
-        <input
-          type="checkbox"
-          checked={saveCard}
-          disabled={isProcessing || savingPref}
-          onChange={(e) => handleToggleSaveCard(e.target.checked)}
-          className="mt-0.5 h-4 w-4 shrink-0 accent-[#dd1d4a]"
-        />
-        <span className="text-sm">
-          <span className="font-medium">Save this card for future gifts</span>
-          <span className="block text-xs text-muted-foreground mt-0.5">
-            Securely stored by Stripe so you can check out faster next time. You can remove it
-            any time from your account.
-          </span>
-        </span>
-      </label>
 
       <div className="flex gap-3">
         <Button variant="outline" onClick={onBack} disabled={isProcessing} className="flex-1">
           Back
         </Button>
-        <Button onClick={handlePay} disabled={isProcessing || savingPref || !stripe} className="flex-1">
+        <Button onClick={handlePay} disabled={isProcessing || !stripe} className="flex-1">
           {isProcessing ? (
             <><Spinner size="sm" className="mr-2" />Processing...</>
           ) : (
