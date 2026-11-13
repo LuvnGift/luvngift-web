@@ -1639,7 +1639,9 @@ export type MaintenanceTask =
   | 'subscriptions:margin-check'
   | 'bundles:margin-check'
   | 'vendors:weekly-digest'
-  | 'subscriptions:first-charge-reminders';
+  | 'subscriptions:first-charge-reminders'
+  | 'points:expiry-reminders'
+  | 'subscriptions:annual-deliveries';
 
 export interface MaintenanceTaskStatus {
   task: MaintenanceTask;
