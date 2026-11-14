@@ -17,6 +17,9 @@ import {
   type PartnerBankAccountInput,
   type PartnerBankAccountStatus,
   type PartnerBankAccountView,
+  type PartnerBankLinkView,
+  type IssuePartnerBankLinkInput,
+  type CancelPartnerBankLinkInput,
   type PartnerPayTerms,
   type BatchPreviewPartner,
   type MonthlyPayoutReport,
@@ -261,6 +264,10 @@ export interface PartnerBankAccounts {
   current: (PartnerBankAccountView & { accountNumber: string }) | null;
   /** Earlier accounts, masked. */
   history: PartnerBankAccountView[];
+  /** The most recent one-time bank-details link, if one was ever sent. Never carries the URL. */
+  link: PartnerBankLinkView | null;
+  /** Set while a recent change to the partner's email or phone blocks sending a link. */
+  linkHoldUntil: string | null;
 }
 
 const bankKey = (id: string) => ['admin', 'partner', id, 'bank-account'];
@@ -307,6 +314,21 @@ export const useVerifyPartnerBankAccount = (id: string) =>
     id,
     (body) => api.post(`/api/v1/admin/partners/${id}/bank-account/verify`, body),
     'Bank details verified',
+  );
+
+/** Emails and texts the partner a one-time link to add or change their own details. */
+export const useSendPartnerBankLink = (id: string) =>
+  useBankWrite<IssuePartnerBankLinkInput>(
+    id,
+    (body) => api.post(`/api/v1/admin/partners/${id}/bank-link`, body),
+    'Link on its way to the partner by email and SMS',
+  );
+
+export const useCancelPartnerBankLink = (id: string) =>
+  useBankWrite<CancelPartnerBankLinkInput>(
+    id,
+    (body) => api.post(`/api/v1/admin/partners/${id}/bank-link/cancel`, body),
+    'Link withdrawn',
   );
 
 // ─── Partner profile ──────────────────────────────────────────────────────────

@@ -9,13 +9,21 @@
  * both need a fresh 2FA code, and when details change the partner is emailed
  * and texted on the contact details we already hold. Old accounts are kept.
  *
+ * The usual way in is a one-time link the partner opens to type their own
+ * details (sent automatically on approval, or from here after calling the
+ * partner back for a change). Typing them in here is the fallback.
+ *
  * Field rules come from @luvngift/shared, the schemas the API validates.
  */
 
 import { useState } from 'react';
-import { CheckCircle2, ExternalLink, ShieldAlert } from 'lucide-react';
+import { CheckCircle2, ExternalLink, Link2, ShieldAlert } from 'lucide-react';
 import {
+  BANK_LINK_TTL_DAYS,
   BANK_VERIFICATION_METHODS,
+  cancelPartnerBankLinkSchema,
+  issuePartnerBankLinkSchema,
+  type PartnerBankLinkView,
   partnerAdjustmentSchema,
   partnerBankAccountSchema,
   verifyPartnerBankAccountSchema,
@@ -32,6 +40,8 @@ import {
   usePartnerPayoutEvents,
   useSavePartnerBankAccount,
   useVerifyPartnerBankAccount,
+  useSendPartnerBankLink,
+  useCancelPartnerBankLink,
   useCreateAdjustment,
   usePartnerPayoutSummary,
 } from '@/hooks/use-partners';
@@ -61,6 +71,9 @@ const EVENT_LABELS: Record<PayoutEventKind, string> = {
   TRANSFER_PAID: 'Transfer sent',
   TRANSFER_FAILED: 'Transfer not sent',
   BATCH_EXPORTED: 'Bank file downloaded',
+  BANK_LINK_ISSUED: 'Bank-details link sent',
+  BANK_LINK_USED: 'Bank-details link used',
+  BANK_LINK_CANCELLED: 'Bank-details link withdrawn',
 };
 
 const when = (iso: string) => new Date(iso).toLocaleString();
@@ -106,7 +119,11 @@ export function BankDetailsCard({ vendorId }: { vendorId: string }) {
                     <ShieldAlert className="h-3 w-3" /> Not verified: they cannot be paid until you confirm the account name.
                   </p>
                 )}
-                <p className="text-xs text-muted-foreground">Added by {current.createdByEmail} on {when(current.createdAt)}</p>
+                <p className="text-xs text-muted-foreground">
+                  {current.bankLinkId
+                    ? `Submitted by the partner through their one-time link on ${when(current.createdAt)}`
+                    : `Added by ${current.createdByEmail} on ${when(current.createdAt)}`}
+                </p>
               </div>
             ) : (
               <p className="text-muted-foreground">No bank details yet. They cannot be paid until these are added and verified.</p>
@@ -114,11 +131,13 @@ export function BankDetailsCard({ vendorId }: { vendorId: string }) {
 
             {current?.status === 'PENDING_VERIFICATION' && <VerifyForm vendorId={vendorId} />}
 
+            <BankLinkSection vendorId={vendorId} link={data?.link ?? null} hasCurrent={!!current} holdUntil={data?.linkHoldUntil ?? null} />
+
             {editing ? (
               <BankForm vendorId={vendorId} hasCurrent={!!current} onDone={() => setEditing(false)} />
             ) : (
-              <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
-                {current ? 'Change bank details' : 'Add bank details'}
+              <Button size="sm" variant="ghost" onClick={() => setEditing(true)}>
+                Enter the details myself instead
               </Button>
             )}
 
@@ -138,6 +157,111 @@ export function BankDetailsCard({ vendorId }: { vendorId: string }) {
         )}
       </CardContent>
     </Card>
+  );
+}
+
+/** Where the latest link stands, in words. */
+function linkSummary(link: PartnerBankLinkView): string {
+  const kind = link.purpose === 'CHANGE' ? 'change' : 'add';
+  switch (link.status) {
+    case 'SENDING':
+      return `Link to ${kind} details created ${when(link.createdAt)} but not delivered yet. If this does not change in a few minutes, send a new one.`;
+    case 'OPEN':
+      return `Link to ${kind} details sent ${when(link.sentAt!)}, ${link.openedAt ? `opened ${when(link.openedAt)}` : 'not opened yet'}. Expires ${when(link.expiresAt)}.`;
+    case 'USED':
+      return `Link to ${kind} details used ${when(link.usedAt!)}.`;
+    case 'EXPIRED':
+      return `Link to ${kind} details expired unused on ${when(link.expiresAt)}.`;
+    case 'CANCELLED':
+      return `Link to ${kind} details withdrawn ${when(link.cancelledAt!)}${link.cancelReason ? `: ${link.cancelReason}` : ''}.`;
+  }
+}
+
+/**
+ * The partner's one-time link. Sending one needs 2FA: it lets whoever holds it
+ * set where money goes (still unpayable until verified). For a CHANGE, only
+ * send after calling the partner back on the number on file, never on the
+ * strength of a message.
+ */
+function BankLinkSection({
+  vendorId,
+  link,
+  hasCurrent,
+  holdUntil,
+}: {
+  vendorId: string;
+  link: PartnerBankLinkView | null;
+  hasCurrent: boolean;
+  holdUntil: string | null;
+}) {
+  const send = useSendPartnerBankLink(vendorId);
+  const cancel = useCancelPartnerBankLink(vendorId);
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState('');
+  const [totpCode, setTotpCode] = useState('');
+  const parsed = issuePartnerBankLinkSchema.safeParse({ reason, totpCode });
+  const live = link?.status === 'SENDING' || link?.status === 'OPEN';
+  const cancelParsed = cancelPartnerBankLinkSchema.safeParse({ reason: 'Withdrawn from the partner profile' });
+
+  const done = () => {
+    setOpen(false);
+    setReason('');
+    setTotpCode('');
+  };
+
+  return (
+    <div className="space-y-2 rounded-md border p-3">
+      <p className="text-xs font-medium inline-flex items-center gap-1"><Link2 className="h-3 w-3" /> Partner's one-time link</p>
+      <p className="text-xs text-muted-foreground">
+        {link ? linkSummary(link) : 'No link sent yet.'} A link goes to the partner&rsquo;s email and phone on file, works once and lasts {BANK_LINK_TTL_DAYS} days.
+      </p>
+      {holdUntil && (
+        <p className="text-xs text-amber-700">
+          This partner&rsquo;s email or phone changed recently, so no link can be sent until {when(holdUntil)}. Their old
+          contacts were told, so they have time to object.
+        </p>
+      )}
+      {open && !holdUntil ? (
+        <div className="space-y-2">
+          {hasCurrent && (
+            <p className="text-xs text-amber-700">
+              Only send a change link after the partner asked and you called them back on the phone number on file. Never on the
+              strength of an email or message alone.
+            </p>
+          )}
+          <Input
+            placeholder={hasCurrent ? 'How you confirmed, e.g. called back on the number on file' : 'Why, e.g. the first link expired'}
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+          />
+          <TotpInput value={totpCode} onChange={setTotpCode} />
+          <div className="flex gap-2">
+            <Button size="sm" disabled={!parsed.success || send.isPending} onClick={() => parsed.success && send.mutate(parsed.data, { onSuccess: done })}>
+              {live ? 'Send a new link (cancels the current one)' : 'Send link'}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={done}>Cancel</Button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          {!holdUntil && (
+            <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
+              {hasCurrent ? 'Send a link to change details' : 'Send a link to add details'}
+            </Button>
+          )}
+          {live && (
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={cancel.isPending || !cancelParsed.success}
+              onClick={() => cancelParsed.success && cancel.mutate(cancelParsed.data)}
+            >
+              Withdraw link
+            </Button>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 

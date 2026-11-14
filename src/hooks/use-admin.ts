@@ -692,13 +692,15 @@ export const useCreateVendor = () => {
 export const useUpdateVendor = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, ...data }: Partial<VendorInput> & { id: string }) =>
+    mutationFn: ({ id, ...data }: Partial<VendorInput> & { id: string; totpCode?: string }) =>
       api.patch(`/api/v1/vendors/${id}`, data).then((r) => r.data.data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'vendors'] });
+      qc.invalidateQueries({ queryKey: ['admin', 'partner'] });
       toast.success('Vendor updated');
     },
-    onError: () => toast.error('Failed to update vendor'),
+    // Show the API's reason: a wrong 2FA code or 2FA not set up must be readable.
+    onError: (err: any) => toast.error(err?.response?.data?.error?.message ?? 'Failed to update vendor'),
   });
 };
 

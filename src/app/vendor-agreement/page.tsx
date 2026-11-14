@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { BANK_LINK_TTL_DAYS, CONTACT_CHANGE_HOLD_HOURS } from '@luvngift/shared';
 import { LegalPage } from '@/components/legal/legal-page';
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.luvngift.com';
@@ -13,7 +14,7 @@ export const metadata: Metadata = {
 
 export default function VendorAgreementPage() {
   return (
-    <LegalPage title="Vendor Agreement" updated="November 11, 2026">
+    <LegalPage title="Vendor Agreement" updated="November 13, 2026">
       <h2>1. Parties</h2>
       <p>
         This Vendor Agreement is between DOCH FX INC (operating as Luvngift) and the approved vendor
@@ -70,6 +71,22 @@ export default function VendorAgreementPage() {
         upfront payment you have not spent on it (with receipts for what you have spent). Your schedule
         may be changed with at least 30 days&apos; notice by email, and a change never applies to an
         order already assigned to you. Payments are made by bank transfer.
+      </p>
+      <p>
+        <strong>Your bank details.</strong> Payments go only to the bank account you give us yourself.
+        When you are approved, and whenever you ask to change your account, we email and text you a
+        link, to the email address and phone number we hold for you, where you enter your bank details.
+        Each link works once and expires after {BANK_LINK_TTL_DAYS} days. To change your account, contact
+        us; we confirm the request by calling you on the phone number we hold before sending a new link.
+        We check the account name on any new account before paying into it, we tell you by email and
+        text whenever your bank details change, and we never ask for your card PIN, passwords or
+        one-time codes.
+      </p>
+      <p>
+        You must keep your email address and phone number with us up to date, because that is where
+        these links and your payment statements go. If they change, we tell you at your old email
+        address and phone number, and we do not send a bank details link for {CONTACT_CHANGE_HOLD_HOURS}{' '}
+        hours afterwards. Tell us straight away if you receive a notice about a change you did not ask for.
       </p>
       <h2>6A. Vetting, receipts and ratings</h2>
       <p>
