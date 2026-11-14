@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { shouldRefreshOn401 } from './refresh-policy';
 
 // baseURL is intentionally empty — all requests use relative paths (/api/v1/...)
 // so they go through the Next.js proxy (next.config.ts rewrites). This makes
@@ -59,11 +60,12 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    // Never try to refresh off an auth endpoint — /auth/login, /auth/refresh etc.
-    // all legitimately return 401 and should surface as normal errors to the caller.
-    const isAuthCall = originalRequest?.url?.includes('/api/v1/auth/');
+    // Login, refresh and the other pre-session auth calls return 401 for wrong
+    // credentials and must surface it; signed-in ones (2FA setup) refresh like
+    // any other request. See refresh-policy.ts.
+    const canRefresh = shouldRefreshOn401(originalRequest?.url);
 
-    if (error.response?.status === 401 && originalRequest && !originalRequest._retry && !isAuthCall) {
+    if (error.response?.status === 401 && originalRequest && !originalRequest._retry && canRefresh) {
       originalRequest._retry = true;
       try {
         await refreshSession();

@@ -26,6 +26,8 @@ import { toast } from 'sonner';
 import type { Bundle, Order as SharedOrder } from '@luvngift/shared';
 import { usePoints } from '@/hooks/use-subscriptions';
 import { useAuthStore } from '@/store/auth.store';
+import { useIsAdmin } from '@/hooks/use-is-admin';
+import { AdminShoppingBlocked } from '@/components/layout/admin-preview';
 import { formatPoints, pointsValue } from '@luvngift/shared';
 
 /** Points columns the API added after the last shared-package publish. */
@@ -66,6 +68,11 @@ interface Props {
 }
 
 export function PurchasePanel({ bundle }: Props) {
+  const isAdmin = useIsAdmin();
+  return isAdmin ? <AdminShoppingBlocked action="place orders" /> : <CheckoutPanel bundle={bundle} />;
+}
+
+function CheckoutPanel({ bundle }: Props) {
   const { currency, convert, ready } = useUserCurrency();
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [checkoutStep, setCheckoutStep] = useState<'recipient' | 'payment'>('recipient');
