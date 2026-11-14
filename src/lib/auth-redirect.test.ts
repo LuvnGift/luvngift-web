@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isInSection, safeNextPath, sessionRefreshUrl } from './auth-redirect';
+import { adminRedirectFor, isInSection, safeNextPath, sessionRefreshUrl } from './auth-redirect';
 
 /**
  * `next` / `redirect` arrive in query strings, so these guard against open
@@ -49,4 +49,29 @@ describe('isInSection', () => {
     expect(isInSection('/account-deletion', '/account')).toBe(false);
     expect(isInSection('/administrator', '/admin')).toBe(false);
   });
+});
+
+/**
+ * Admin accounts cannot shop, so customer account pages send them back into
+ * the dashboard. Segment-aware like the rest: /account-deletion is a public page
+ * and must stay reachable.
+ */
+describe('adminRedirectFor', () => {
+  it.each([
+    ['/account', '/admin/profile'],
+    ['/account/subscriptions', '/admin/subscriptions'],
+    ['/account/subscriptions/x', '/admin/subscriptions'],
+    ['/orders', '/admin/orders'],
+    ['/orders/cabc123', '/admin/orders'],
+    ['/setup-location', '/admin'],
+  ])('sends an admin on %s to %s', (pathname, destination) => {
+    expect(adminRedirectFor(pathname)).toBe(destination);
+  });
+
+  it.each(['/', '/occasions', '/bundles/birthday-box', '/account-deletion', '/admin', '/admin/profile'])(
+    'lets an admin view %s',
+    (pathname) => {
+      expect(adminRedirectFor(pathname)).toBeNull();
+    },
+  );
 });

@@ -18,6 +18,8 @@ import { Spinner } from '@/components/ui/spinner';
 import { Separator } from '@/components/ui/separator';
 import { FieldError } from '@/components/ui/field-error';
 import { useAuthStore } from '@/store/auth.store';
+import { useIsAdmin } from '@/hooks/use-is-admin';
+import { AdminShoppingBlocked } from '@/components/layout/admin-preview';
 import { NIGERIAN_STATES } from '@luvngift/shared';
 import {
   usePlans,
@@ -99,6 +101,7 @@ export function SubscribeFlow() {
   const params = useSearchParams();
   const planSlug = params.get('plan');
   const { isAuthenticated } = useAuthStore();
+  const isAdmin = useIsAdmin();
 
   const [step, setStep] = useState<Step>('recipient');
   const [addressId, setAddressId] = useState<string | null>(null);
@@ -161,6 +164,8 @@ export function SubscribeFlow() {
       </div>
     );
   }
+
+  if (isAdmin) return <AdminShoppingBlocked action="subscribe" />;
 
   if (plansLoading) return <div className="flex justify-center py-16"><Spinner size="lg" /></div>;
   if (!plan) {

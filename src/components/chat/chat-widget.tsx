@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
 import { useAuthStore } from '@/store/auth.store';
+import { useIsAdmin } from '@/hooks/use-is-admin';
 import {
   useSendChatMessage,
   useStartChat,
@@ -35,7 +36,16 @@ import { clearGuestChat } from '@/lib/guest-chat';
 
 type Stage = 'chat' | 'contact' | 'handed-over';
 
+/**
+ * Admin accounts answer chats from /admin/chat; one started from the widget
+ * would land in their own support queue (and the API refuses it).
+ */
 export function ChatWidget() {
+  const isAdmin = useIsAdmin();
+  return isAdmin ? null : <ChatWidgetPanel />;
+}
+
+function ChatWidgetPanel() {
   const [isOpen, setIsOpen] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [guestKey, setGuestKey] = useState<string | null>(null);

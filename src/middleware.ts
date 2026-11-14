@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { isInSection, safeNextPath, sessionRefreshUrl } from '@/lib/auth-redirect';
+import { adminRedirectFor, isInSection, safeNextPath, sessionRefreshUrl } from '@/lib/auth-redirect';
 import { isStaging } from '@/lib/app-env';
 
 // Routes that require the user to be logged in.
@@ -61,6 +61,12 @@ function authRedirect(request: NextRequest) {
     const dest = safeNextPath(request.nextUrl.searchParams.get('redirect'), fallback);
     return NextResponse.redirect(new URL(dest, request.url));
   }
+
+  // Admin accounts cannot shop: customer account pages send them back into the
+  // dashboard (their 2FA and password live at /admin/profile). The storefront
+  // itself stays viewable as a preview.
+  const adminDestination = isAuth && role === 'ADMIN' ? adminRedirectFor(pathname) : null;
+  if (adminDestination) return NextResponse.redirect(new URL(adminDestination, request.url));
 
   if (!isAuth && AUTH_REQUIRED.some((p) => isInSection(pathname, p))) {
     return loginRedirect(request, pathname);

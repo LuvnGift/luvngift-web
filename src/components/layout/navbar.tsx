@@ -11,6 +11,7 @@ import { Separator } from '@/components/ui/separator';
 import { useAuthStore } from '@/store/auth.store';
 import { useLogout, useMe } from '@/hooks/use-auth';
 import { cn } from '@/lib/utils';
+import { AdminPreviewBanner } from '@/components/layout/admin-preview';
 
 // `protected` links require auth. They are hidden from the nav while logged out,
 // so Next.js never prefetches (and caches) a redirect-to-login for them — which
@@ -119,6 +120,8 @@ export function Navbar() {
 					{mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
 				</button>
 			</div>
+
+			{isAdmin && <AdminPreviewBanner />}
 
 			{/* Mobile menu */}
 			{mobileOpen && (

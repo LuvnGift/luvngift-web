@@ -7,6 +7,8 @@ import { z } from 'zod';
 import { getUserCurrency, type CustomOrderInput } from '@luvngift/shared';
 import { useCreateCustomOrder } from '@/hooks/use-orders';
 import { useAuthStore } from '@/store/auth.store';
+import { useIsAdmin } from '@/hooks/use-is-admin';
+import { AdminShoppingBlocked } from '@/components/layout/admin-preview';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -107,6 +109,7 @@ export default function CustomGiftPage() {
   const router = useRouter();
   const { mutateAsync: submitCustomOrder, isPending } = useCreateCustomOrder();
   const { user, isAuthenticated } = useAuthStore();
+  const isAdmin = useIsAdmin();
 
   const currency = getUserCurrency(user?.buyerCountry);
 
@@ -197,6 +200,14 @@ export default function CustomGiftPage() {
       // error handled in hook
     }
   };
+
+  if (isAdmin) {
+    return (
+      <div className="container mx-auto max-w-lg px-4 py-20">
+        <AdminShoppingBlocked action="request custom gifts" />
+      </div>
+    );
+  }
 
   if (isSubmitted) {
     return (

@@ -11,6 +11,7 @@ import {
   type AuditEntry,
 } from '@/hooks/use-admin';
 import { useMe } from '@/hooks/use-auth';
+import { ADMIN_PROFILE_PATH } from '@/lib/auth-redirect';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -95,7 +96,7 @@ export default function AdminAccessPage() {
             </div>
           </div>
           <Button asChild variant="outline">
-            <Link href="/account">Set up 2FA</Link>
+            <Link href={ADMIN_PROFILE_PATH}>Set up 2FA</Link>
           </Button>
         </div>
       )}
