@@ -12,5 +12,11 @@ allowBuilds:
   esbuild: true
   sharp: true
   unrs-resolver: true
+# pnpm holds back releases younger than its minimum release age, a defence
+# against hijacked third-party packages. @luvngift/shared is our own package,
+# published only by us, and must be installable the moment it is published;
+# listing versions one by one meant every new release was blocked
+# ("max version is 4.0.0") until someone added it here.
+
 minimumReleaseAgeExclude:
-  - '@luvngift/shared@2.0.1 || 2.0.2 || 3.0.0 || 3.1.0 || 4.0.0'
+  - '@luvngift/shared@4.1.0'
