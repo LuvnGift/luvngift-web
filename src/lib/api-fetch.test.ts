@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ApiUnavailableError, fetchList } from './api-fetch';
+import { ApiUnavailableError, fetchList, isTransientStatus, sessionFetch } from './api-fetch';
 
 /**
  * fetchList must never turn an outage into an empty list: an empty render is
@@ -103,5 +103,34 @@ describe('the trusted-server header and rate limits', () => {
     vi.stubGlobal('fetch', fetch);
     await expect(fetchList(URL)).rejects.toBeInstanceOf(ApiUnavailableError);
     expect(fetch).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('sessionFetch / isTransientStatus', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('treats 5xx, 408 and 429 as transient, and auth answers as definite', () => {
+    for (const s of [500, 502, 503, 408, 429]) expect(isTransientStatus(s)).toBe(true);
+    for (const s of [200, 400, 401, 403, 404]) expect(isTransientStatus(s)).toBe(false);
+  });
+
+  it('returns the response, with a request id and a timeout', async () => {
+    const fetch = respond(401);
+    vi.stubGlobal('fetch', fetch);
+    const res = await sessionFetch(URL, { headers: { authorization: 'Bearer x' } });
+    expect(res.status).toBe(401);
+    const init = (fetch.mock.calls[0] as unknown as [string, RequestInit])[1];
+    expect((init.headers as Record<string, string>)['x-request-id']).toMatch(/\S{8,}/);
+    expect((init.headers as Record<string, string>).authorization).toBe('Bearer x');
+    expect(init.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it('throws ApiUnavailableError when the API cannot be reached', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('fetch failed'); }));
+    await expect(sessionFetch(URL)).rejects.toBeInstanceOf(ApiUnavailableError);
   });
 });

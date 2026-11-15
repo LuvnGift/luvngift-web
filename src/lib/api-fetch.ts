@@ -109,6 +109,41 @@ async function attempt(url: string, init?: RequestInit): Promise<Response> {
 }
 
 /**
+ * Whether a status says "try again later" rather than anything about the
+ * caller. Auth checks must not read these as "signed out": doing so cleared a
+ * still-valid session on every Railway deploy or cold start.
+ */
+export function isTransientStatus(status: number): boolean {
+  return status >= 500 || status === 408 || status === 429;
+}
+
+/**
+ * One request on behalf of a signed-in visitor (the admin layout, the session
+ * refresh route), with the same timeout, trusted-server header and request id
+ * as the render fetches. A network error or timeout is thrown as
+ * `ApiUnavailableError`; the caller decides what a status means.
+ */
+export async function sessionFetch(url: string, init?: RequestInit): Promise<Response> {
+  const requestId = renderRequestId();
+  try {
+    const res = await fetch(url, {
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+      cache: 'no-store',
+      ...init,
+      headers: { ...(init?.headers ?? {}), ...serverApiHeaders(), 'x-request-id': requestId },
+    });
+    if (isTransientStatus(res.status)) {
+      console.error(`[session-fetch] ${url} -> HTTP ${res.status} [request-id: ${requestId}]`);
+    }
+    return res;
+  } catch (err) {
+    const cause = err instanceof Error ? err.message : String(err);
+    console.error(`[session-fetch] ${url} -> ${cause} [request-id: ${requestId}]`);
+    throw new ApiUnavailableError(url, cause);
+  }
+}
+
+/**
  * Returns the response `data`, or `null` only when the API genuinely answered
  * 404. Throws `ApiUnavailableError` for timeouts, network errors and 5xx.
  */

@@ -33,7 +33,7 @@ import { PartnersSection } from './partners-section';
 import { useOrderFulfilment } from '@/hooks/use-partners';
 import { RefundSection } from './refund-section';
 import { CustomOrderSection, customOrderStatusBlock } from './custom-order-section';
-import { customOrderVendorBlock, isVendorAssignable, vendorAssignmentBlock } from '@luvngift/shared';
+import { customOrderVendorBlock, isVendorAssignable, vendorAssignmentBlock, shortId, formatMoney } from '@luvngift/shared';
 
 /** The custom-order gate first (its wording is more specific), then the general one. */
 const assignBlock = (order: any): string | null =>
@@ -60,15 +60,8 @@ const paymentColors: Record<string, string> = {
   REFUNDED: 'bg-gray-100 text-gray-700',
 };
 
-function fmt(cents: number, currency: string) {
-  const sym: Record<string, string> = { CAD: 'CA$', USD: '$', GBP: '£', NGN: '₦' };
-  return `${sym[currency] ?? currency}${(cents / 100).toFixed(2)}`;
-}
-
-/** The order reference shown everywhere in admin: #, last 8 chars, uppercase. */
-function shortId(id: string) {
-  return `#${id.slice(-8).toUpperCase()}`;
-}
+/** Every amount in admin is written by the shared formatter (CA$, US$, £, ₦). */
+const fmt = formatMoney;
 
 /**
  * Where a custom gift request is, as a badge. Null for every other order.
@@ -129,7 +122,7 @@ function OrderDetailModal({ orderId, onClose }: { orderId: string; onClose: () =
             Order Details
             {order && (
               <span className="font-mono text-sm text-muted-foreground">
-                #{order.id.slice(-8).toUpperCase()}
+                {shortId(order.id)}
               </span>
             )}
           </DialogTitle>
@@ -629,7 +622,7 @@ function AssignVendorDialog({ order, onClose }: { order: any; onClose: () => voi
         <div className="space-y-4 py-2">
           <div className="space-y-1">
             <p className="text-sm text-muted-foreground">
-              Order <span className="font-mono font-medium">#{order.id.slice(-8).toUpperCase()}</span>
+              Order <span className="font-mono font-medium">{shortId(order.id)}</span>
               {' '}— recipient: <span className="font-medium">{order.recipientName}</span>
             </p>
             {order.vendor && (
@@ -931,7 +924,7 @@ export default function AdminOrdersPage() {
                     <tr key={order.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
                       <td className="px-4 py-3">
                         <span className="font-mono text-xs text-muted-foreground">
-                          #{order.id.slice(-8).toUpperCase()}
+                          {shortId(order.id)}
                         </span>
                       </td>
                       <td className="px-4 py-3">

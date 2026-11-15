@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
+import { shortId } from '@luvngift/shared';
 import {
   Camera,
   CheckCircle2,
@@ -213,7 +214,7 @@ export function VendorOrderClient({ token }: { token: string }) {
       <header className="mb-6">
         <p className="text-sm text-muted-foreground">Hi {order.vendorName}</p>
         <h1 className="font-mono text-2xl font-bold">
-          #{order.reference.slice(-8).toUpperCase()}
+          {shortId(order.reference)}
         </h1>
         <StatusPill status={order.status} />
       </header>

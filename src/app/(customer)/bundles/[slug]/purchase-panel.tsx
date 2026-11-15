@@ -10,7 +10,7 @@ import { useCreateOrder, useUpdateOrder } from '@/hooks/use-orders';
 import { useCreatePaymentIntent, useVerifyPayment } from '@/hooks/use-checkout';
 import { CheckoutElements } from '@/components/checkout/checkout-elements';
 import { useUserCurrency } from '@/hooks/use-exchange-rates';
-import { formatCurrency, formatMoney, getCurrencySymbol } from '@luvngift/shared';
+import { formatCurrency, formatMoney } from '@luvngift/shared';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -253,8 +253,7 @@ function CheckoutPanel({ bundle }: Props) {
                   <span>
                     Use my {formatPoints(points!.balance)} points
                     <span className="block text-xs text-muted-foreground">
-                      Takes up to {getCurrencySymbol(currency)}
-                      {(pointsValue(points!.balance, points!.pointsPerCurrencyUnit) / 100).toFixed(2)} off. Points are
+                      Takes up to {formatMoney(pointsValue(points!.balance, points!.pointsPerCurrencyUnit), currency)} off. Points are
                       only used once you pay.
                     </span>
                   </span>
@@ -277,9 +276,7 @@ function CheckoutPanel({ bundle }: Props) {
                 <CheckoutElements clientSecret={clientSecret}>
                   <StripePaymentForm
                     orderId={order.id}
-                    amountLabel={`${getCurrencySymbol(order.currency)}${(
-                      order.total / 100
-                    ).toFixed(2)}`}
+                    amountLabel={formatMoney(order.total, order.currency)}
                     onBack={() => setCheckoutStep('recipient')}
                   />
                 </CheckoutElements>

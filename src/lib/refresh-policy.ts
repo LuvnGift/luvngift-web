@@ -27,3 +27,14 @@ export function shouldRefreshOn401(url: string | undefined): boolean {
   const path = url.split('?')[0];
   return !NO_REFRESH_AUTH_PATHS.includes(path);
 }
+
+/**
+ * Whether a failed refresh means the session is really over: only when the API
+ * answered about the token (400/401/403). A network error, timeout, 5xx or 429
+ * says nothing about it, and signing out then logged everyone out on a deploy.
+ */
+export function refreshFailureEndsSession(error: unknown): boolean {
+  const status = (error as { response?: { status?: number } } | null)?.response?.status;
+  if (status === undefined) return false;
+  return status >= 400 && status < 500 && status !== 408 && status !== 429;
+}

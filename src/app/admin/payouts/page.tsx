@@ -8,6 +8,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { shortId } from '@luvngift/shared';
 import { CheckCircle2, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
@@ -24,7 +25,7 @@ const STATUSES = [
 ];
 
 const KIND_LABELS: Record<string, string> = { ADVANCE: 'Advance', REIMBURSEMENT: 'Reimbursement', BALANCE: 'On delivery' };
-const ref = (id: string) => `#${id.slice(-8).toUpperCase()}`;
+const ref = shortId;
 
 export default function AdminPayoutsPage() {
   const [status, setStatus] = useState('DUE');

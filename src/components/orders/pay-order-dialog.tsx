@@ -6,7 +6,7 @@ import { PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
 import { useCreatePaymentIntent, useVerifyPayment } from '@/hooks/use-checkout';
 import { CheckoutElements } from '@/components/checkout/checkout-elements';
 import { useOrder, useOrderConversation } from '@/hooks/use-orders';
-import { acceptedQuote, getCurrencySymbol } from '@luvngift/shared';
+import { acceptedQuote, formatMoney, shortId } from '@luvngift/shared';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Spinner } from '@/components/ui/spinner';
@@ -72,7 +72,6 @@ export function PayOrderDialog({
   }, [order?.id]);
 
   if (!order) return null;
-  const symbol = getCurrencySymbol(order.currency);
 
   return (
     <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
@@ -85,7 +84,7 @@ export function PayOrderDialog({
         <div className="space-y-3 text-sm border rounded-lg p-4 bg-muted/30">
           <div className="flex justify-between">
             <span className="text-muted-foreground">Order</span>
-            <span className="font-mono text-xs">#{order.id.slice(-8).toUpperCase()}</span>
+            <span className="font-mono text-xs">{shortId(order.id)}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">Recipient</span>
@@ -98,7 +97,7 @@ export function PayOrderDialog({
           <Separator />
           <div className="flex justify-between font-semibold">
             <span>Total due</span>
-            <span>{symbol}{(order.total / 100).toFixed(2)}</span>
+            <span>{formatMoney(order.total, order.currency)}</span>
           </div>
         </div>
 

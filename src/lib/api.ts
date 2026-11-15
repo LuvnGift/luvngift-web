@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { shouldRefreshOn401 } from './refresh-policy';
+import { shouldRefreshOn401, refreshFailureEndsSession } from './refresh-policy';
 
 // baseURL is intentionally empty — all requests use relative paths (/api/v1/...)
 // so they go through the Next.js proxy (next.config.ts rewrites). This makes
@@ -69,14 +69,18 @@ api.interceptors.response.use(
       originalRequest._retry = true;
       try {
         await refreshSession();
-        return await api(originalRequest);
-      } catch {
-        if (typeof window !== 'undefined') {
+      } catch (refreshError) {
+        // Only the API rejecting the refresh token ends the session. A network
+        // error, timeout or 5xx during a deploy used to sign everyone out, and
+        // so did any failure of the RETRIED request, which shared this catch.
+        if (refreshFailureEndsSession(refreshError) && typeof window !== 'undefined') {
           const { useAuthStore } = await import('@/store/auth.store');
           useAuthStore.getState().clearAuth();
           window.location.href = '/login';
         }
+        return Promise.reject(error);
       }
+      return api(originalRequest);
     }
     // Observability is split: Sentry watches the browser, Axiom holds the API's
     // logs. The correlation id is the join between them, so it must reach

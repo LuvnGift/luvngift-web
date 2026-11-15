@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useQueryClient, type QueryKey } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useSocket } from '@/lib/socket';
+import { shortId } from '@luvngift/shared';
 
 /**
  * Keeps an order's queries fresh while its page is open.
@@ -76,7 +77,7 @@ export function useAdminOrderActivity(onOpen: (orderId: string) => void) {
       qc.invalidateQueries({ queryKey: ['admin', 'orders'] });
       if (payload.by !== 'CUSTOMER') return;
       const orderId = payload.orderId;
-      toast.info(`Customer replied on custom order #${orderId.slice(-8).toUpperCase()}`, {
+      toast.info(`Customer replied on custom order ${shortId(orderId)}`, {
         action: { label: 'Open', onClick: () => onOpen(orderId) },
         duration: 15_000,
       });

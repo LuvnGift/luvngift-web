@@ -29,6 +29,7 @@ import {
   verifyPartnerBankAccountSchema,
   type BankVerificationMethod,
   type PayoutEventKind,
+  shortId,
 } from '@luvngift/shared';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -358,7 +359,7 @@ export function PaymentHistoryCard({ vendorId }: { vendorId: string }) {
                 <p>
                   <span className="font-medium">{EVENT_LABELS[e.kind]}</span>
                   {e.amountNgn !== null && <> · {e.amountNgn < 0 ? '−' : ''}{nairaLabel(Math.abs(e.amountNgn))}</>}
-                  {e.orderId && <span className="font-mono text-xs"> · #{e.orderId.slice(-8).toUpperCase()}</span>}
+                  {e.orderId && <span className="font-mono text-xs"> · {shortId(e.orderId)}</span>}
                   {e.reference && <> · ref {e.reference}</>}
                 </p>
                 {e.note && <p className="text-xs text-muted-foreground">{e.note}</p>}
