@@ -2,24 +2,26 @@ import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import AdminClientLayout from './admin-client-layout';
 import { sessionRefreshUrl } from '@/lib/auth-redirect';
+import { ApiUnavailableError, isTransientStatus, sessionFetch } from '@/lib/api-fetch';
 
+/**
+ * True for an admin, false when the API says this token is not one (expired,
+ * invalid, or a customer). Throws when the API could not answer: that renders
+ * the error page and keeps the cookies, instead of signing the admin out
+ * because of a deploy or a cold start.
+ */
 async function verifyAdminSession(): Promise<boolean> {
   const cookieStore = await cookies();
   const accessToken = cookieStore.get('accessToken')?.value;
   if (!accessToken) return false;
 
-  try {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? '';
-    const res = await fetch(`${apiUrl}/api/v1/users/me`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-      cache: 'no-store',
-    });
-    if (!res.ok) return false;
-    const body = await res.json();
-    return body?.data?.role === 'ADMIN';
-  } catch {
-    return false;
-  }
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? '';
+  const url = `${apiUrl}/api/v1/users/me`;
+  const res = await sessionFetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+  if (isTransientStatus(res.status)) throw new ApiUnavailableError(url, `HTTP ${res.status}`);
+  if (!res.ok) return false;
+  const body = await res.json();
+  return body?.data?.role === 'ADMIN';
 }
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {

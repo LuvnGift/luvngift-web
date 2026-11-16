@@ -11,6 +11,7 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import { useDeleteAccount } from '@/hooks/use-user';
+import { deleteAccountSchema } from '@luvngift/shared';
 
 interface Props {
   /** False for Google-only accounts, which have no password to re-enter. */
@@ -31,9 +32,15 @@ export function DeleteAccountCard({ hasPassword, twoFactorEnabled }: Props) {
   const deleteAccount = useDeleteAccount();
 
   const ready =
-    confirm === 'DELETE'
+    // The request as the API validates it (deleteAccountSchema in
+    // @luvngift/shared); which fields are needed depends on the account.
+    deleteAccountSchema.safeParse({
+      confirm,
+      password: hasPassword ? password : undefined,
+      totpCode: twoFactorEnabled ? totpCode : undefined,
+    }).success
     && (!hasPassword || password.length > 0)
-    && (!twoFactorEnabled || /^\d{6}$/.test(totpCode));
+    && (!twoFactorEnabled || totpCode.length > 0);
 
   const close = (next: boolean) => {
     if (deleteAccount.isPending) return;

@@ -4,7 +4,7 @@ import { Separator } from '@/components/ui/separator';
 import { FooterAccountLinks } from './footer-account-links';
 import { FooterChatButton } from './footer-chat-button';
 import { CookieSettingsButton } from './cookie-settings-button';
-import { BUSINESS, businessAddressLine, businessPhoneHref } from '@/lib/business';
+import { BUSINESS, businessAddressLine, businessPhoneHref } from '@luvngift/shared';
 
 export function Footer() {
   return (

@@ -1,16 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
 import { useMe } from '@/hooks/use-auth';
 import { useAuthStore } from '@/store/auth.store';
 import { useSetLocation } from '@/hooks/use-user';
 import {
   updateProfileSchema, UpdateProfileInput,
   updateLocationSchema, UpdateLocationInput,
-  changePasswordSchema,
 } from '@luvngift/shared';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
@@ -20,35 +18,19 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { SavedCardsCard } from './saved-cards-card';
 import Link from 'next/link';
 import { DeleteAccountCard } from './delete-account-card';
-import { latestAdultDateOfBirth } from '@/lib/age';
+import { ChangePasswordCard } from '@/components/account/change-password-card';
+import { TwoFactorCard } from '@/components/account/two-factor-card';
+import { latestAdultDateOfBirth } from '@luvngift/shared';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Spinner } from '@/components/ui/spinner';
 import { MapPin, Repeat, ChevronRight } from 'lucide-react';
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
-} from '@/components/ui/dialog';
 import { toast } from 'sonner';
-
-const passwordSchema = changePasswordSchema.extend({
-  confirmPassword: z.string().min(1, 'Please confirm your password'),
-}).refine((d) => d.newPassword === d.confirmPassword, {
-  message: 'Passwords do not match',
-  path: ['confirmPassword'],
-});
-
-type PasswordForm = z.infer<typeof passwordSchema>;
 
 export default function AccountPage() {
   const { data: user, isLoading } = useMe();
   const { setUser } = useAuthStore();
-  const [twoFADialog, setTwoFADialog] = useState<'setup' | 'disable' | null>(null);
-  const [qrCode, setQrCode] = useState<string | null>(null);
-  const [totpSecret, setTotpSecret] = useState<string | null>(null);
-  const [totpToken, setTotpToken] = useState('');
-
   const { mutate: setLocation, isPending: locationPending } = useSetLocation();
   const profileForm = useForm<UpdateProfileInput>({ resolver: zodResolver(updateProfileSchema) });
-  const passwordForm = useForm<PasswordForm>({ resolver: zodResolver(passwordSchema) });
   const locationForm = useForm<UpdateLocationInput>({ resolver: zodResolver(updateLocationSchema) });
   const selectedCountry = locationForm.watch('buyerCountry');
 
@@ -82,19 +64,6 @@ export default function AccountPage() {
       toast.success('Profile updated.');
     } catch (err: any) {
       toast.error(err?.response?.data?.error?.message ?? 'Failed to update profile.');
-    }
-  };
-
-  const onPasswordSubmit = async (data: PasswordForm) => {
-    try {
-      await api.post('/api/v1/auth/change-password', {
-        currentPassword: data.currentPassword,
-        newPassword: data.newPassword,
-      });
-      toast.success('Password changed.');
-      passwordForm.reset();
-    } catch (err: any) {
-      toast.error(err?.response?.data?.error?.message ?? 'Failed to change password.');
     }
   };
 
@@ -297,203 +266,15 @@ export default function AccountPage() {
         {/* Saved cards */}
         <SavedCardsCard />
 
-        {/* Password section */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Change password</CardTitle>
-            <CardDescription>Update your account password.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={passwordForm.handleSubmit(onPasswordSubmit)} className="space-y-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="currentPassword">Current password</Label>
-                <Input
-                  id="currentPassword"
-                  {...passwordForm.register('currentPassword')}
-                  type="password"
-                  autoComplete="current-password"
-                />
-                {passwordForm.formState.errors.currentPassword && (
-                  <p className="text-destructive text-xs">
-                    {passwordForm.formState.errors.currentPassword.message}
-                  </p>
-                )}
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="newPassword">New password</Label>
-                <Input
-                  id="newPassword"
-                  {...passwordForm.register('newPassword')}
-                  type="password"
-                  autoComplete="new-password"
-                />
-                {passwordForm.formState.errors.newPassword && (
-                  <p className="text-destructive text-xs">
-                    {passwordForm.formState.errors.newPassword.message}
-                  </p>
-                )}
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="confirmPassword">Confirm new password</Label>
-                <Input
-                  id="confirmPassword"
-                  {...passwordForm.register('confirmPassword')}
-                  type="password"
-                  autoComplete="new-password"
-                />
-                {passwordForm.formState.errors.confirmPassword && (
-                  <p className="text-destructive text-xs">
-                    {passwordForm.formState.errors.confirmPassword.message}
-                  </p>
-                )}
-              </div>
-              <Button type="submit" disabled={passwordForm.formState.isSubmitting}>
-                {passwordForm.formState.isSubmitting ? 'Updating...' : 'Update password'}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
+        <ChangePasswordCard />
 
-        {/* 2FA section */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Two-factor authentication</CardTitle>
-            <CardDescription>
-              {user?.twoFactorEnabled
-                ? '2FA is enabled on your account.'
-                : 'Add an extra layer of security to your account.'}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {user?.twoFactorEnabled ? (
-              <Button
-                variant="destructive"
-                onClick={() => { setTwoFADialog('disable'); setTotpToken(''); }}
-              >
-                Disable 2FA
-              </Button>
-            ) : (
-              <Button
-                onClick={async () => {
-                  try {
-                    const res = await api.post('/api/v1/auth/2fa/setup');
-                    setQrCode(res.data.data.qrCode);
-                    setTotpSecret(res.data.data.secret);
-                    setTwoFADialog('setup');
-                    setTotpToken('');
-                  } catch {
-                    toast.error('Failed to setup 2FA.');
-                  }
-                }}
-              >
-                Enable 2FA
-              </Button>
-            )}
-          </CardContent>
-        </Card>
+        <TwoFactorCard enabled={Boolean(user?.twoFactorEnabled)} />
 
         <DeleteAccountCard
           hasPassword={(user as { hasPassword?: boolean } | undefined)?.hasPassword !== false}
           twoFactorEnabled={Boolean(user?.twoFactorEnabled)}
         />
 
-        {/* 2FA Setup Dialog */}
-        <Dialog open={twoFADialog === 'setup'} onOpenChange={() => setTwoFADialog(null)}>
-          <DialogContent className="max-w-sm">
-            <DialogHeader>
-              <DialogTitle>Set up 2FA</DialogTitle>
-              <DialogDescription>
-                Scan the QR code with your authenticator app, then enter the 6-digit code to verify.
-              </DialogDescription>
-            </DialogHeader>
-            {qrCode && (
-              <div className="flex flex-col items-center gap-2 py-2">
-                <img src={qrCode} alt="2FA QR Code" className="w-48 h-48" />
-                {totpSecret && (
-                  <div className="w-full space-y-1">
-                    <p className="text-xs text-muted-foreground text-center">
-                      Can&apos;t scan? Enter this code manually in your app:
-                    </p>
-                    <p className="text-xs font-mono bg-muted rounded px-3 py-2 text-center tracking-widest select-all break-all">
-                      {totpSecret}
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
-            <div className="space-y-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="setup-token">Verification code</Label>
-                <Input
-                  id="setup-token"
-                  value={totpToken}
-                  onChange={(e) => setTotpToken(e.target.value)}
-                  placeholder="000000"
-                  maxLength={6}
-                  className="text-center text-lg tracking-widest"
-                />
-              </div>
-              <Button
-                className="w-full"
-                disabled={totpToken.length !== 6}
-                onClick={async () => {
-                  try {
-                    await api.post('/api/v1/auth/2fa/verify', { token: totpToken });
-                    toast.success('2FA enabled successfully.');
-                    setTwoFADialog(null);
-                    window.location.reload();
-                  } catch {
-                    toast.error('Invalid code. Please try again.');
-                  }
-                }}
-              >
-                Verify & Enable
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-
-        {/* 2FA Disable Dialog */}
-        <Dialog open={twoFADialog === 'disable'} onOpenChange={() => setTwoFADialog(null)}>
-          <DialogContent className="max-w-sm">
-            <DialogHeader>
-              <DialogTitle>Disable 2FA</DialogTitle>
-              <DialogDescription>
-                Enter the 6-digit code from your authenticator app to confirm.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="disable-token">Verification code</Label>
-                <Input
-                  id="disable-token"
-                  value={totpToken}
-                  onChange={(e) => setTotpToken(e.target.value)}
-                  placeholder="000000"
-                  maxLength={6}
-                  className="text-center text-lg tracking-widest"
-                />
-              </div>
-              <Button
-                variant="destructive"
-                className="w-full"
-                disabled={totpToken.length !== 6}
-                onClick={async () => {
-                  try {
-                    await api.post('/api/v1/auth/2fa/disable', { token: totpToken });
-                    toast.success('2FA disabled.');
-                    setTwoFADialog(null);
-                    window.location.reload();
-                  } catch {
-                    toast.error('Invalid code. Please try again.');
-                  }
-                }}
-              >
-                Confirm Disable
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
       </div>
     </div>
   );

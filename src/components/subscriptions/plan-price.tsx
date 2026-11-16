@@ -1,34 +1,17 @@
 'use client';
 
 import { useUserCurrency } from '@/hooks/use-exchange-rates';
-import { OFFERED_INTERVALS, cycleWord, cadenceLabel, type Interval } from '@/lib/cadence';
+import { OFFERED_INTERVALS, cycleWord, cadenceLabel, type SubscriptionInterval as Interval, formatMoney, pickPrice, type SubscriptionPrice } from '@luvngift/shared';
 
-export interface PlanPriceRow {
-  interval: Interval;
-  currency: string;
-  amount: number;
-}
+export type PlanPriceRow = Pick<SubscriptionPrice, 'interval' | 'currency' | 'amount' | 'billing'>;
 
-const SYMBOLS: Record<string, string> = { CAD: 'CA$', USD: 'US$', GBP: '£' };
-const format = (row: PlanPriceRow) =>
-  `${SYMBOLS[row.currency] ?? row.currency}${(row.amount / 100).toFixed(2)}`;
+const format = (row: PlanPriceRow) => formatMoney(row.amount, row.currency);
 
-/**
- * The price row a buyer will actually be charged: the one in their currency
- * (the API charges getUserCurrency(buyerCountry): CAD, GBP, else USD). Never
- * converted in the browser. Showing the first row regardless of currency let a
- * Canadian see a US$ figure and then be charged a different CA$ one.
- */
-export function pickPrice(
-  prices: PlanPriceRow[],
-  interval: PlanPriceRow['interval'],
-  currency: string,
-): PlanPriceRow | undefined {
-  return prices.find((p) => p.interval === interval && p.currency === currency);
-}
+/** The row a buyer is charged (rule in @luvngift/shared). Re-exported for this file's importers. */
+export { pickPrice };
 
 /** Headline price for a plan card. A placeholder until the buyer's currency is known. */
-export function PlanPrice({ prices }: { prices: PlanPriceRow[] }) {
+export function PlanPrice({ prices, annualDiscountPercent }: { prices: PlanPriceRow[]; annualDiscountPercent?: number | null }) {
   const { currency, ready } = useUserCurrency();
   if (!ready) return <span className="inline-block h-8 w-32 animate-pulse rounded bg-muted" aria-hidden="true" />;
 
@@ -50,6 +33,11 @@ export function PlanPrice({ prices }: { prices: PlanPriceRow[] }) {
           Also {others.map((o) => cadenceLabel(o.interval)).join(' or ')}
         </span>
       )}
+      {annualDiscountPercent ? (
+        <span className="block text-xs font-medium text-green-700 mt-0.5">
+          Or pay for the year and save {annualDiscountPercent}%
+        </span>
+      ) : null}
     </>
   );
 }

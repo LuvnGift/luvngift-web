@@ -30,14 +30,17 @@ import {
 } from '@/lib/admin-order-tabs';
 import { VendorLinkSection } from './vendor-link-section';
 import { PartnersSection } from './partners-section';
+import { useOrderFulfilment } from '@/hooks/use-partners';
 import { RefundSection } from './refund-section';
-import { CustomOrderSection, customOrderStatusBlock, customOrderVendorBlock } from './custom-order-section';
-import { isVendorAssignable, vendorAssignmentBlock } from '@/lib/vendor-assignment';
+import { CustomOrderSection, customOrderStatusBlock } from './custom-order-section';
+import { customOrderVendorBlock, isVendorAssignable, vendorAssignmentBlock, shortId, formatMoney } from '@luvngift/shared';
 
 /** The custom-order gate first (its wording is more specific), then the general one. */
-const assignBlock = (order: any): string | null => customOrderVendorBlock(order) ?? vendorAssignmentBlock(order);
-import { ADMIN_STAGE, type QuoteStatus } from '@/lib/custom-orders';
-import { VendorPayBasis } from './vendor-pay-basis';
+const assignBlock = (order: any): string | null =>
+  customOrderVendorBlock({ quoteStatus: order.quoteStatus, paymentStatus: order.payment?.status ?? null }) ??
+  vendorAssignmentBlock({ status: order.status, subscriptionId: order.subscriptionId, paymentStatus: order.payment?.status ?? null });
+import { ADMIN_STAGE } from '@/lib/custom-orders';
+import { type QuoteStatus } from '@luvngift/shared';
 
 const ORDER_STATUSES = ['PENDING', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'REFUNDED'];
 
@@ -57,15 +60,8 @@ const paymentColors: Record<string, string> = {
   REFUNDED: 'bg-gray-100 text-gray-700',
 };
 
-function fmt(cents: number, currency: string) {
-  const sym: Record<string, string> = { CAD: 'CA$', USD: '$', GBP: '£', NGN: '₦' };
-  return `${sym[currency] ?? currency}${(cents / 100).toFixed(2)}`;
-}
-
-/** The order reference shown everywhere in admin: #, last 8 chars, uppercase. */
-function shortId(id: string) {
-  return `#${id.slice(-8).toUpperCase()}`;
-}
+/** Every amount in admin is written by the shared formatter (CA$, US$, £, ₦). */
+const fmt = formatMoney;
 
 /**
  * Where a custom gift request is, as a badge. Null for every other order.
@@ -126,7 +122,7 @@ function OrderDetailModal({ orderId, onClose }: { orderId: string; onClose: () =
             Order Details
             {order && (
               <span className="font-mono text-sm text-muted-foreground">
-                #{order.id.slice(-8).toUpperCase()}
+                {shortId(order.id)}
               </span>
             )}
           </DialogTitle>
@@ -294,7 +290,6 @@ function OrderDetailModal({ orderId, onClose }: { orderId: string; onClose: () =
                   <span>Total</span><span>{fmt(order.total, order.currency)}</span>
                 </div>
               </div>
-              <VendorPayBasis order={order as never} fmt={fmt} />
               {order.quoteStatus === 'AWAITING_QUOTE' && (
                 <p className="mt-2 rounded-md border border-purple-200 bg-purple-50 p-3 text-xs text-purple-900">
                   This is a custom request, so it has no price until you quote it below —
@@ -599,9 +594,18 @@ function AssignVendorDialog({ order, onClose }: { order: any; onClose: () => voi
   // APPROVED only: without a status filter the list included pending and rejected
   // applicants. The API filters isActive only when no status is given, so filter it here.
   const { data: vendorsData, isLoading } = useVendors(1, 100, '', false, 'APPROVED');
+  // Partners covering the recipient's state, best score first (the API ranks them).
+  const { data: fulfilment } = useOrderFulfilment(order.id);
   const assign = useAssignVendor();
 
-  const vendors = (vendorsData?.vendors ?? []).filter(isVendorAssignable);
+  const covering = fulfilment?.candidates ?? [];
+  const coveringIds = new Set(covering.map((c) => c.id));
+  const scoreOf = new Map(covering.map((c) => [c.id, c.score?.score ?? null]));
+  const approved = (vendorsData?.vendors ?? []).filter(isVendorAssignable);
+  const vendors = [
+    ...covering.map((c) => approved.find((v: any) => v.id === c.id)).filter(Boolean),
+    ...approved.filter((v: any) => !coveringIds.has(v.id)),
+  ];
 
   const handleSubmit = () => {
     if (!vendorId) return;
@@ -612,13 +616,13 @@ function AssignVendorDialog({ order, onClose }: { order: any; onClose: () => voi
     <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
-          <DialogTitle>Assign Vendor</DialogTitle>
+          <DialogTitle>Assign Partner</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
           <div className="space-y-1">
             <p className="text-sm text-muted-foreground">
-              Order <span className="font-mono font-medium">#{order.id.slice(-8).toUpperCase()}</span>
+              Order <span className="font-mono font-medium">{shortId(order.id)}</span>
               {' '}— recipient: <span className="font-medium">{order.recipientName}</span>
             </p>
             {order.vendor && (
@@ -646,7 +650,10 @@ function AssignVendorDialog({ order, onClose }: { order: any; onClose: () => voi
                     <SelectItem key={v.id} value={v.id}>
                       <span className="font-medium">{v.name}</span>
                       <span className="text-muted-foreground ml-2 text-xs">
-                        · {v.state} · {v.businessType}
+                        · {v.state}
+                        {coveringIds.has(v.id)
+                          ? ` · covers ${order.deliveryState}${scoreOf.get(v.id) != null ? ` · score ${scoreOf.get(v.id)}` : ' · not scored yet'}`
+                          : ` · does not list ${order.deliveryState}`}
                       </span>
                     </SelectItem>
                   ))}
@@ -656,7 +663,7 @@ function AssignVendorDialog({ order, onClose }: { order: any; onClose: () => voi
           </div>
 
           <p className="text-xs text-muted-foreground">
-            Assigning a vendor will move the order to <strong>PROCESSING</strong> and notify the vendor by email and SMS.
+            Assigning a partner moves the order to <strong>PROCESSING</strong>, gives them the order's partner line, and sends their link by email and SMS. They are paid on the schedule set on their profile.
           </p>
         </div>
 
@@ -917,7 +924,7 @@ export default function AdminOrdersPage() {
                     <tr key={order.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
                       <td className="px-4 py-3">
                         <span className="font-mono text-xs text-muted-foreground">
-                          #{order.id.slice(-8).toUpperCase()}
+                          {shortId(order.id)}
                         </span>
                       </td>
                       <td className="px-4 py-3">

@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { Wand2 } from 'lucide-react';
 import { OccasionCard } from '@/components/occasions/occasion-card';
 import type { Occasion } from '@luvngift/shared';
-import { CACHE_TAGS, CACHE_FALLBACK_SECONDS } from '@/lib/cache-tags';
+import { CACHE_TAGS, CACHE_FALLBACK_SECONDS } from '@luvngift/shared';
 import { fetchList } from '@/lib/api-fetch';
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.luvngift.com';

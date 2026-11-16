@@ -13,9 +13,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
 export interface PartnerPayLine {
-  role: 'SOURCING' | 'AGENT' | 'DELIVERY';
+  /** FULFILMENT since 2026-11-11; older orders may carry the retired split roles. */
+  role: 'FULFILMENT' | 'SOURCING' | 'AGENT' | 'DELIVERY';
   amountNgn: number;
-  payoutMode: 'ADVANCE' | 'REIMBURSE' | 'SPLIT' | null;
+  payoutMode: string | null;
   payouts: { kind: string; amountNgn: number; status: 'DUE' | 'PAID' }[];
 }
 
@@ -30,8 +31,16 @@ export interface PartnerState {
 }
 
 const naira = (kobo: number) => `₦${(kobo / 100).toLocaleString('en-NG')}`;
-const ROLE_LABELS = { SOURCING: 'Buying the goods', AGENT: 'Managing the order', DELIVERY: 'Delivery' };
-const KIND_LABELS: Record<string, string> = { ADVANCE: 'Paid in advance', REIMBURSEMENT: 'Reimbursed', BALANCE: 'On delivery' };
+const ROLE_LABELS: Record<PartnerPayLine['role'], string> = {
+  FULFILMENT: 'This order (goods + your fee)',
+  SOURCING: 'Buying the goods',
+  AGENT: 'Managing the order',
+  DELIVERY: 'Delivery',
+};
+const KIND_LABELS: Record<string, string> = { ADVANCE: 'Paid upfront', REIMBURSEMENT: 'Reimbursed', BALANCE: 'On delivery' };
+/** How this line is paid, in the partner's words. A retired schedule reads as on delivery. */
+const scheduleText = (l: PartnerPayLine) =>
+  l.payoutMode === 'SPLIT' ? 'Part is paid when you are assigned, the rest once delivered.' : 'Paid in full once delivered.';
 
 function errorMessage(err: unknown, fallback: string): string {
   return (err as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message ?? fallback;
@@ -141,12 +150,11 @@ export function RecipientCode({ token, state, onDone }: { token: string; state: 
 }
 
 export function Receipts({ token, state, onDone }: { token: string; state: PartnerState; onDone: () => Promise<void> }) {
-  const reimbursed = state.yourPay.some((l) => l.role === 'SOURCING' && l.payoutMode === 'REIMBURSE');
   const [file, setFile] = useState<File | null>(null);
   const [amount, setAmount] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  if (!state.yourPay.some((l) => l.role === 'SOURCING') && !state.receipts.length) return null;
+  if (!state.yourPay.length && !state.receipts.length) return null;
 
   const upload = async () => {
     if (!file) return;
@@ -170,9 +178,7 @@ export function Receipts({ token, state, onDone }: { token: string; state: Partn
   return (
     <Card icon={<Receipt className="h-4 w-4" />} title="Receipts">
       <p className="mb-3 text-sm text-muted-foreground">
-        {reimbursed
-          ? 'Upload a photo of each receipt. We reimburse the goods once we approve them.'
-          : 'Upload a photo of your receipts so we have a record of what was bought.'}
+        Upload a photo of your receipts so we have a record of what was bought. They do not change what you are paid.
       </p>
       {state.receipts.map((r) => (
         <p key={r.id} className="text-sm">{naira(r.amountNgn)} · {r.status === 'SUBMITTED' ? 'waiting for review' : r.status.toLowerCase()}</p>
@@ -198,7 +204,8 @@ export function YourPay({ state }: { state: PartnerState }) {
       <ul className="space-y-2 text-sm">
         {state.yourPay.map((l) => (
           <li key={l.role}>
-            <p className="font-medium">{ROLE_LABELS[l.role]}: {naira(l.amountNgn)}</p>
+            <p className="font-medium">{ROLE_LABELS[l.role] ?? l.role}: {naira(l.amountNgn)}</p>
+            {l.payoutMode && <p className="text-muted-foreground">{scheduleText(l)}</p>}
             {l.payouts.map((p, i) => (
               <p key={i} className="text-muted-foreground">
                 {KIND_LABELS[p.kind] ?? p.kind} {naira(p.amountNgn)} · {p.status === 'PAID' ? 'paid' : 'due'}

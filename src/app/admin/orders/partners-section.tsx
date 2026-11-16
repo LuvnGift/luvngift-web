@@ -1,37 +1,35 @@
 'use client';
 
 /**
- * Who is fulfilling the order, and what each is owed (admin only).
+ * Who is fulfilling the order, and what they are owed (admin only).
  *
- * One line per role (goods, agent, delivery), snapshotted from the cost stack
- * at checkout. Each line can go to a different partner; payouts follow the
- * partner's schedule and are recorded here when paid. The customer sees the
- * same story as a timeline by role, never names or amounts.
+ * One partner per order (2026-11-11): one line of goods + the fulfilment fee
+ * for the recipient's state band, snapshotted at checkout. The partner is
+ * chosen with Assign Vendor (which issues their link) and takes the line;
+ * payouts follow the schedule on their profile and are recorded here when
+ * paid. The customer sees the same story as a timeline, never names or amounts.
  */
 
 import { useState } from 'react';
-import { CheckCircle2, ExternalLink, Pencil, Star, UserCheck } from 'lucide-react';
+import { CheckCircle2, ExternalLink, Pencil, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
+import { BAND_LABELS, formatMoney } from '@luvngift/shared';
+import { PayoutActionDialog, type PayoutActionTarget } from '@/components/admin/payout-action-dialog';
 import {
-  PAYOUT_MODE_LABELS,
-  ROLES,
   ROLE_LABELS,
   nairaLabel,
-  useAssignPartnerLine,
-  useCancelPayout,
+  payoutModeLabel,
   useConfirmRecipient,
-  useMarkPayoutPaid,
   useOrderFulfilment,
   useRatePartner,
   useReviewReceipt,
-  useSetPartnerAmounts,
-  type Candidate,
-  type FulfilmentRole,
+  useSetPartnerAmount,
+  useRecalculatePayouts,
+  useOrderMoney,
   type OrderFulfilment,
   type PartnerLine,
-  type PayoutMode,
 } from '@/hooks/use-partners';
 
 const SELECT = 'h-9 rounded-md border border-input bg-background px-2 text-sm';
@@ -54,155 +52,123 @@ export function PartnersSection({ orderId }: { orderId: string }) {
   return (
     <div className="space-y-4">
       <div className="flex items-baseline justify-between gap-2">
-        <p className={heading}>Partners</p>
-        {data.lines.length > 0 && <p className="text-xs text-muted-foreground">Partner cost {nairaLabel(data.totalNgn)}</p>}
+        <p className={heading}>Partner</p>
+        <p className="text-xs text-muted-foreground">
+          {data.order.deliveryState}: {BAND_LABELS[data.band]} band, fee {nairaLabel(data.bandFeeNgn)} today
+        </p>
       </div>
-      <AmountsEditor data={data} />
-      {data.lines.map((line) => (
-        <LineRow key={line.id} orderId={orderId} line={line} candidates={data.candidates[line.role] ?? []} />
-      ))}
+      <AmountEditor data={data} />
+      {data.lines.map((line) => <LineRow key={line.id} line={line} />)}
+      {data.lines.length > 0 && !data.lines.some((l) => l.vendor) && (
+        <p className="text-xs text-muted-foreground">
+          Not assigned yet. Use Assign Vendor: it sends the partner their link and gives them this line.
+        </p>
+      )}
+      <RecalculatePayouts data={data} />
       <Receipts data={data} />
       <Confirmation data={data} />
       <Timeline data={data} />
       {data.order.status === 'DELIVERED' && <Ratings data={data} />}
+      <OrderMoney orderId={orderId} />
     </div>
   );
 }
 
-/** Amounts per role. Opens by itself on an order with none (a custom gift or a legacy bundle). */
-function AmountsEditor({ data }: { data: OrderFulfilment }) {
-  const save = useSetPartnerAmounts(data.order.id);
+/**
+ * What the partner is owed (goods + fee). Opens by itself on an order with no
+ * line (a custom gift, or a bundle priced before goods were costed).
+ */
+function AmountEditor({ data }: { data: OrderFulfilment }) {
+  const save = useSetPartnerAmount(data.order.id);
+  const current = data.lines.find((l) => l.role === 'FULFILMENT');
   const [open, setOpen] = useState(false);
-  const initial = Object.fromEntries(ROLES.map((r) => [r, String((data.lines.find((l) => l.role === r)?.amountNgn ?? 0) / 100)]));
-  const [values, setValues] = useState<Record<string, string>>(initial);
-  const empty = data.lines.length === 0;
+  const [value, setValue] = useState(current ? String(current.amountNgn / 100) : '');
+  const empty = !current;
 
   if (!empty && !open) {
     return (
       <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => setOpen(true)}>
-        <Pencil className="h-3 w-3 mr-1" /> Edit amounts
+        <Pencil className="h-3 w-3 mr-1" /> Edit amount
       </Button>
     );
   }
+  const amountNgn = toKobo(value || '0');
   const submit = async () => {
-    const lines = ROLES.map((role) => ({ role, amountNgn: toKobo(values[role] || '0') })).filter((l) => l.amountNgn > 0 || data.lines.some((x) => x.role === l.role));
-    if (!lines.length) return;
-    await save.mutateAsync(lines);
+    if (amountNgn <= 0) return;
+    await save.mutateAsync(amountNgn);
     setOpen(false);
   };
   return (
     <div className="rounded-md border p-3 space-y-2">
       <p className="text-sm">
-        {empty ? 'No partner amounts on this order yet (a custom gift or a bundle priced the old way). Set what each role is paid:' : 'What each role is paid (₦):'}
+        {empty
+          ? `No partner amount on this order yet (a custom gift, or a bundle priced before its goods were costed). Set what the partner is paid: the goods plus the ${BAND_LABELS[data.band]} band fee (${nairaLabel(data.bandFeeNgn)}).`
+          : 'What the partner is paid for this order, goods + fee (₦):'}
       </p>
-      <div className="grid grid-cols-3 gap-2">
-        {ROLES.map((role) => (
-          <label key={role} className="text-xs space-y-1">
-            <span className="text-muted-foreground">{ROLE_LABELS[role]} (₦)</span>
-            <Input inputMode="decimal" value={values[role]} onChange={(e) => setValues({ ...values, [role]: e.target.value })} />
-          </label>
-        ))}
-      </div>
+      <label className="text-xs space-y-1 block max-w-xs">
+        <span className="text-muted-foreground">Partner is owed (₦)</span>
+        <Input inputMode="decimal" value={value} onChange={(e) => setValue(e.target.value)} />
+      </label>
       <div className="flex gap-2">
-        <Button size="sm" onClick={submit} disabled={save.isPending}>{save.isPending ? <Spinner size="sm" /> : 'Save amounts'}</Button>
+        <Button size="sm" onClick={submit} disabled={amountNgn <= 0 || save.isPending}>{save.isPending ? <Spinner size="sm" /> : 'Save amount'}</Button>
         {!empty && <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>}
       </div>
     </div>
   );
 }
 
-function LineRow({ orderId, line, candidates }: { orderId: string; line: PartnerLine; candidates: Candidate[] }) {
-  const [assigning, setAssigning] = useState(false);
+function LineRow({ line }: { line: PartnerLine }) {
   const live = line.payouts.filter((p) => p.status !== 'CANCELLED');
   return (
     <div className="rounded-md border p-3 space-y-2 text-sm">
-      <div className="flex items-start justify-between gap-2 flex-wrap">
-        <div>
-          <p className="font-medium">{ROLE_LABELS[line.role]} · {nairaLabel(line.amountNgn)}</p>
-          <p className="text-xs text-muted-foreground">
-            {line.vendor ? line.vendor.name : 'Unassigned'}
-            {line.vendor?.payTerms === 'REVENUE_SHARE' && ' · revenue share (paid as before, not in this ledger)'}
-            {line.payoutMode && ` · ${PAYOUT_MODE_LABELS[line.payoutMode]}${line.splitPercent ? ` ${line.splitPercent}%` : ''}`}
-            {line.vendor?.payTerms === 'FIXED_NAIRA' && ` · owed ${nairaLabel(line.owedNgn)}`}
-          </p>
-        </div>
-        <Button variant="outline" size="sm" className="h-8 gap-1" onClick={() => setAssigning((v) => !v)}>
-          <UserCheck className="h-3 w-3" /> {line.vendor ? 'Change' : 'Assign'}
-        </Button>
+      <div>
+        <p className="font-medium">{ROLE_LABELS[line.role]} · {nairaLabel(line.amountNgn)}</p>
+        <p className="text-xs text-muted-foreground">
+          {line.vendor ? line.vendor.name : 'Unassigned'}
+          {line.vendor && ` · ${payoutModeLabel(line.payoutMode)}${line.payoutMode === 'SPLIT' && line.splitPercent ? ` (${line.splitPercent}% upfront)` : ''}`}
+          {line.vendor && ` · owed ${nairaLabel(line.owedNgn)}`}
+        </p>
       </div>
-      {assigning && <AssignForm orderId={orderId} role={line.role} candidates={candidates} onDone={() => setAssigning(false)} />}
       {live.length > 0 && (
         <ul className="space-y-1.5">
-          {live.map((p) => <PayoutRow key={p.id} payout={p} />)}
+          {live.map((p) => <PayoutRow key={p.id} payout={p} line={line} />)}
         </ul>
       )}
     </div>
   );
 }
 
-function AssignForm({ orderId, role, candidates, onDone }: { orderId: string; role: FulfilmentRole; candidates: Candidate[]; onDone: () => void }) {
-  const assign = useAssignPartnerLine(orderId);
-  const [vendorId, setVendorId] = useState(candidates[0]?.id ?? '');
-  const [mode, setMode] = useState<PayoutMode | ''>('');
-  const [split, setSplit] = useState('');
-  if (!candidates.length) {
-    return <p className="text-xs text-amber-700">No approved partner covers this state for {ROLE_LABELS[role].toLowerCase()}. Add coverage on a partner&apos;s page first.</p>;
-  }
-  const submit = async () => {
-    await assign.mutateAsync({
-      role,
-      vendorId,
-      ...(mode && { payoutMode: mode }),
-      ...(mode === 'SPLIT' && split && { splitPercent: Number(split) }),
-    });
-    onDone();
-  };
-  return (
-    <div className="flex flex-wrap items-end gap-2 rounded-md bg-muted/40 p-2">
-      <select className={SELECT} value={vendorId} onChange={(e) => setVendorId(e.target.value)} aria-label="Partner">
-        {candidates.map((c) => (
-          <option key={c.id} value={c.id}>
-            {c.name} · {c.score?.score != null ? `score ${c.score.score}` : 'not scored yet'}
-          </option>
-        ))}
-      </select>
-      <select className={SELECT} value={mode} onChange={(e) => setMode(e.target.value as PayoutMode | '')} aria-label="Payout schedule">
-        <option value="">Partner&apos;s usual schedule</option>
-        {(Object.keys(PAYOUT_MODE_LABELS) as PayoutMode[]).map((m) => <option key={m} value={m}>{PAYOUT_MODE_LABELS[m]}</option>)}
-      </select>
-      {mode === 'SPLIT' && <Input className="w-24" placeholder="% now" inputMode="numeric" value={split} onChange={(e) => setSplit(e.target.value)} />}
-      <Button size="sm" onClick={submit} disabled={!vendorId || assign.isPending}>{assign.isPending ? <Spinner size="sm" /> : 'Assign'}</Button>
-    </div>
-  );
-}
-
-function PayoutRow({ payout }: { payout: PartnerLine['payouts'][number] }) {
-  const markPaid = useMarkPayoutPaid();
-  const cancel = useCancelPayout();
-  const [reference, setReference] = useState('');
+function PayoutRow({ payout, line }: { payout: PartnerLine['payouts'][number]; line: PartnerLine }) {
+  const [mode, setMode] = useState<'pay' | 'cancel' | null>(null);
   const label = `${payout.kind.charAt(0)}${payout.kind.slice(1).toLowerCase()} ${nairaLabel(payout.amountNgn)}`;
   if (payout.status === 'PAID') {
-    return <li className="text-xs text-green-700 flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> {label} paid · ref {payout.reference}</li>;
+    return (
+      <li className="text-xs text-green-700 flex items-center gap-1">
+        <CheckCircle2 className="h-3 w-3" /> {label} paid · ref {payout.reference}
+        {payout.proofUrl && (
+          <a href={payout.proofUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline">
+            receipt <ExternalLink className="h-3 w-3" />
+          </a>
+        )}
+      </li>
+    );
   }
+  if (payout.status === 'BATCHED') {
+    return <li className="text-xs text-muted-foreground">{label} · in a payout batch (record it from Payouts → Batches)</li>;
+  }
+  // The bank account is checked by the API on submit; this panel does not load it.
+  const target: PayoutActionTarget = {
+    id: payout.id,
+    amountNgn: payout.amountNgn,
+    vendorId: payout.vendorId,
+    partnerName: line.vendor?.name ?? 'the partner',
+  };
   return (
     <li className="flex flex-wrap items-center gap-2 text-xs">
       <span className="font-medium text-amber-800">{label} due</span>
-      <Input className="h-7 w-40 text-xs" placeholder="Transfer reference" value={reference} onChange={(e) => setReference(e.target.value)} />
-      <Button size="sm" className="h-7 text-xs" disabled={reference.trim().length < 3 || markPaid.isPending} onClick={() => markPaid.mutate({ id: payout.id, reference: reference.trim() })}>
-        Mark paid
-      </Button>
-      <Button
-        size="sm"
-        variant="ghost"
-        className="h-7 text-xs text-muted-foreground"
-        disabled={cancel.isPending}
-        onClick={() => {
-          const reason = prompt('Why is this payout cancelled? (at least 5 characters)');
-          if (reason && reason.trim().length >= 5) cancel.mutate({ id: payout.id, reason: reason.trim() });
-        }}
-      >
-        Cancel
-      </Button>
+      <Button size="sm" className="h-7 text-xs" onClick={() => setMode('pay')}>Record payment</Button>
+      <Button size="sm" variant="ghost" className="h-7 text-xs text-muted-foreground" onClick={() => setMode('cancel')}>Cancel</Button>
+      <PayoutActionDialog target={mode ? target : null} mode={mode ?? 'pay'} onClose={() => setMode(null)} />
     </li>
   );
 }
@@ -229,7 +195,7 @@ function Receipts({ data }: { data: OrderFulfilment }) {
           )}
         </div>
       ))}
-      <p className="text-xs text-muted-foreground">Approving reimburses a partner on the Reimburse schedule, up to the goods line.</p>
+      <p className="text-xs text-muted-foreground">Receipts are evidence of what was bought. Reviewing one records the check; it never pays anything.</p>
     </div>
   );
 }
@@ -287,7 +253,7 @@ function Ratings({ data }: { data: OrderFulfilment }) {
   if (!partners.size) return null;
   return (
     <div className="space-y-2">
-      <p className={heading}>Rate the partners</p>
+      <p className={heading}>Rate the partner</p>
       {[...partners].map(([id, name]) => (
         <RatingForm key={id} orderId={data.order.id} vendorId={id} name={name} existing={data.ratings.find((r) => r.vendorId === id)} />
       ))}
@@ -301,6 +267,8 @@ function RatingForm({ orderId, vendorId, name, existing }: { orderId: string; ve
     punctuality: existing?.punctuality ?? 0,
     quality: existing?.quality ?? 0,
     communication: existing?.communication ?? 0,
+    // Used the Luvngift packaging as briefed.
+    packaging: existing?.packaging ?? 0,
   });
   const ready = Object.values(scores).every((v) => v >= 1);
   return (
@@ -315,6 +283,64 @@ function RatingForm({ orderId, vendorId, name, existing }: { orderId: string; ve
       <Button size="sm" className="h-7 text-xs gap-1" disabled={!ready || rate.isPending} onClick={() => rate.mutate({ vendorId, ...scores })}>
         <Star className="h-3 w-3" /> {existing ? 'Update' : 'Rate'}
       </Button>
+    </div>
+  );
+}
+
+/**
+ * Money in (what the buyer paid, less refunds) and out (what the partner is
+ * owed). The margin is an estimate in CA$ at the latest CAD funding rate and
+ * leaves out card fees, which are not recorded: a guide, not accounts.
+ */
+function OrderMoney({ orderId }: { orderId: string }) {
+  const { data } = useOrderMoney(orderId);
+  if (!data) return null;
+  const { moneyIn, moneyOut, estimate } = data;
+  const signed = (kobo: number) => `${kobo < 0 ? '−' : ''}${nairaLabel(Math.abs(kobo))}`;
+  return (
+    <div className="space-y-1.5 text-xs">
+      <p className={heading}>Money in and out</p>
+      <p>
+        In: {formatMoney(moneyIn.totalMinor, moneyIn.currency)}
+        {moneyIn.refundedMinor > 0 && ` less ${formatMoney(moneyIn.refundedMinor, moneyIn.currency)} refunded`}
+        {moneyIn.paymentStatus ? ` · payment ${moneyIn.paymentStatus.toLowerCase()}` : ' · no payment'}
+      </p>
+      <p>
+        Out: partner owed {nairaLabel(moneyOut.owedNgn)} · paid {nairaLabel(moneyOut.paidNgn)}
+        {moneyOut.batchedNgn > 0 && ` · in a batch ${nairaLabel(moneyOut.batchedNgn)}`}
+        {moneyOut.dueNgn > 0 && ` · due ${nairaLabel(moneyOut.dueNgn)}`}
+        {moneyOut.adjustmentsNgn !== 0 && ` · adjustments ${signed(moneyOut.adjustmentsNgn)}`}
+      </p>
+      {estimate ? (
+        <p>
+          Estimated margin <strong className={estimate.marginCadCents < 0 ? 'text-red-700' : ''}>{formatMoney(estimate.marginCadCents, 'CAD')}</strong>{' '}
+          <span className="text-muted-foreground">
+            ({formatMoney(estimate.netInCadCents, 'CAD')} in, {formatMoney(estimate.partnerCostCadCents, 'CAD')} partner cost at ₦
+            {estimate.fundingRate.toFixed(2)}/CA$ from {estimate.fundingDate}; card fees not included)
+          </span>
+        </p>
+      ) : (
+        <p className="text-muted-foreground">No margin estimate: it needs a paid order and a CAD funding record (Payouts → Reports).</p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Puts the order's payouts right: gives its partner any line they do not hold
+ * and, once delivered, makes due whatever they are still owed. For an order
+ * fixed after the fact (amount set or partner changed after delivery). Safe to
+ * press twice: it only adds what is missing.
+ */
+function RecalculatePayouts({ data }: { data: OrderFulfilment }) {
+  const recalc = useRecalculatePayouts(data.order.id);
+  if (!data.lines.length || !data.order.leadVendorId || ['CANCELLED', 'REFUNDED'].includes(data.order.status)) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+      <Button size="sm" variant="outline" className="h-7 text-xs" disabled={recalc.isPending} onClick={() => recalc.mutate()}>
+        Recalculate payouts
+      </Button>
+      <span>If a delivered order shows nothing owed, this makes due what its partner is missing.</span>
     </div>
   );
 }

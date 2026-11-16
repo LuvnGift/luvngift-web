@@ -9,9 +9,9 @@ import { useSubscribeRoadmap } from '@/hooks/use-roadmap';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
+import { subscribeRoadmapSchema } from '@luvngift/shared';
 
-const schema = z.object({
-  email: z.string().trim().email('Enter a valid email address'),
+const schema = subscribeRoadmapSchema.extend({
   // Honeypot — hidden; must stay empty.
   website: z.string().max(0).optional(),
 });

@@ -1,9 +1,4 @@
-import {
-  buildTimeline,
-  formatMoney,
-  type OrderConversation,
-  type TimelineEntry,
-} from '@/lib/custom-orders';
+import { buildTimeline, formatMoney, type OrderConversation, type TimelineEntry } from '@luvngift/shared';
 
 type Viewer = 'CUSTOMER' | 'ADMIN';
 

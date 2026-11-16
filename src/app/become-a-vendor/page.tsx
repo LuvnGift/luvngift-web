@@ -10,29 +10,29 @@ const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.luvngift.com';
 export const metadata: Metadata = {
   title: 'Become a Vendor — Sell with Luvngift',
   description:
-    'Sell with Luvngift and fulfil curated gift orders for the Nigerian diaspora. Apply to become a partner — a fulfilment agent, a shop, or a delivery or logistics company. Every order states, in naira, what you are paid for your part.',
+    'Already make hampers or gift boxes in Nigeria? Fulfil Luvngift orders for Nigerians abroad in your state, using our branded packaging. Every order states, in naira, what you are paid.',
   alternates: { canonical: `${BASE_URL}/become-a-vendor` },
   openGraph: {
     title: 'Become a Luvngift Vendor',
     description:
-      'Join our network of Nigeria-based vendors and fulfilment providers delivering gifts for customers abroad.',
+      'Hamper and gift businesses across Nigeria: fulfil Luvngift orders for customers abroad, in our branded packaging.',
     url: `${BASE_URL}/become-a-vendor`,
     type: 'website',
   },
 };
 
 const BENEFITS = [
-  { icon: TrendingUp, title: 'A steady stream of orders', desc: 'We bring the customers — diaspora buyers ordering gifts for delivery across Nigeria.' },
-  { icon: Wallet, title: 'Clear naira pay on every order', desc: 'Each order states what you are paid, in naira, for the part you handle: buying the goods, managing the order or delivering it. It does not move with exchange rates, and card fees and customer reward points come out of our share, not yours.' },
-  { icon: CalendarClock, title: 'Paid on a schedule that suits the work', desc: 'Goods money in advance, or reimbursed on your receipts, or part up front and the rest on delivery: agreed when you are approved and shown on every order.' },
-  { icon: ShieldCheck, title: 'No upfront cost', desc: 'It is free to apply and join. You focus on fulfilment; we handle pricing and the customer experience.' },
+  { icon: TrendingUp, title: 'Orders you would not otherwise reach', desc: 'We bring the customers: Nigerians abroad ordering gifts for loved ones in your state.' },
+  { icon: Wallet, title: 'Clear naira pay on every order', desc: 'Each order states, in naira, what you are paid: the goods plus your fee for packing and delivering it. It does not move with exchange rates, and card fees and customer reward points come out of our share, not yours.' },
+  { icon: CalendarClock, title: 'Paid on a schedule agreed with you', desc: 'In full once the order is delivered, or part when you are assigned the order and the rest on delivery. Agreed when you are approved and shown on every order.' },
+  { icon: PackageCheck, title: 'Our packaging, your craft', desc: 'We send you Luvngift boxes and wrapping at no cost to you. You source and pack the gift as you already do, in our packaging.' },
 ];
 
 const STEPS = [
-  { icon: Store, title: 'Apply', desc: 'Tell us about your business and what you can fulfil across Nigeria.' },
-  { icon: BadgeCheck, title: 'Get vetted and approved', desc: 'We check who you are (agents: ID, a guarantor and two references), interview you and send your onboarding pack.' },
-  { icon: PackageCheck, title: 'Receive orders', desc: 'We assign orders to you with full delivery details by email and SMS.' },
-  { icon: Truck, title: 'Fulfil & earn', desc: 'Deliver the gift, keep us updated, and get paid on our payout schedule.' },
+  { icon: Store, title: 'Apply', desc: 'Tell us about your hamper or gift business and the states you deliver to.' },
+  { icon: BadgeCheck, title: 'Get vetted and approved', desc: 'We check your address, talk it through with you, and ask you to make a sample hamper in our packaging.' },
+  { icon: PackageCheck, title: 'Receive orders', desc: 'We send you each order with full delivery details by email and SMS, and a link to update it.' },
+  { icon: Truck, title: 'Deliver & get paid', desc: 'Pack it in our packaging, deliver it, upload the delivery photo, and get paid on your schedule. We rate every delivery.' },
 ];
 
 export default function BecomeAVendorPage() {
@@ -46,19 +46,19 @@ export default function BecomeAVendorPage() {
           <div className="container mx-auto max-w-3xl px-4 text-center">
             <div className="mb-6 inline-flex items-center gap-2 rounded-full border bg-background px-4 py-1.5 text-sm text-muted-foreground shadow-sm">
               <Store className="h-3.5 w-3.5 text-primary" />
-              For Nigeria-based vendors &amp; fulfilment providers
+              For hamper &amp; gift businesses in Nigeria
             </div>
             <h1 className="mb-5 text-4xl font-bold tracking-tight md:text-5xl">
               Sell with <span className="text-primary">Luvngift</span>
             </h1>
             <p className="text-lg leading-relaxed text-muted-foreground">
-              We connect Nigerians abroad with loved ones at home through curated gifts. Join our network of
-              vendors across Nigeria — supply products, handle delivery, or manage sourcing and fulfilment —
-              and earn on every order you complete.
+              We connect Nigerians abroad with loved ones at home through curated gifts. If you already make
+              hampers or gift boxes, fulfil our orders in your state: you source, pack in our branded packaging
+              and deliver, and earn on every order you complete.
             </p>
             <div className="mt-8 flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm font-medium">
               <span className="flex items-center gap-1.5"><Wallet className="h-4 w-4 text-primary" /> Clear naira pay on every order</span>
-              <span className="flex items-center gap-1.5"><CalendarClock className="h-4 w-4 text-primary" /> Advance or reimbursement</span>
+              <span className="flex items-center gap-1.5"><CalendarClock className="h-4 w-4 text-primary" /> Paid on delivery or part upfront</span>
               <span className="flex items-center gap-1.5"><ShieldCheck className="h-4 w-4 text-primary" /> Free to join</span>
             </div>
           </div>
@@ -69,7 +69,7 @@ export default function BecomeAVendorPage() {
           <div className="container mx-auto px-4">
             <div className="mx-auto mb-12 max-w-2xl text-center">
               <h2 className="mb-2 text-2xl font-bold md:text-3xl">Why sell with Luvngift</h2>
-              <p className="text-muted-foreground">We run the platform and bring the orders. You do what you do best — fulfil them.</p>
+              <p className="text-muted-foreground">We run the platform, bring the orders and supply the packaging. You do what you already do well.</p>
             </div>
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
               {BENEFITS.map((b) => (
@@ -114,15 +114,16 @@ export default function BecomeAVendorPage() {
             <div className="grid gap-10 lg:grid-cols-2 lg:items-start">
               {/* Left: wording */}
               <div className="lg:sticky lg:top-24">
-                <h2 className="mb-3 text-2xl font-bold md:text-3xl">Apply to become a vendor</h2>
+                <h2 className="mb-3 text-2xl font-bold md:text-3xl">Apply to become a partner</h2>
                 <p className="mb-6 text-muted-foreground leading-relaxed">
                   Tell us about your business and we&apos;ll be in touch — usually within 2–3 business days.
-                  Once approved, you&apos;ll start receiving orders right away.
+                  Once you are approved, we send you our packaging and start sending you orders.
                 </p>
                 <ul className="space-y-3">
                   {[
-                    'A stated naira amount for your part of every order',
-                    'Paid in advance, on receipts, or part up front',
+                    'A stated naira amount on every order: goods plus your fee',
+                    'Paid in full on delivery, or part upfront',
+                    'Luvngift packaging supplied to you',
                     'Order details delivered to you by email and SMS',
                     'Free to apply — no upfront cost',
                   ].map((point) => (

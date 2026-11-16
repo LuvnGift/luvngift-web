@@ -10,11 +10,12 @@ import {
   Wheat,
   type LucideIcon,
 } from 'lucide-react';
-import type { AisleIcon } from '@/lib/box-aisles';
+import type { ItemCategoryIcon as AisleIcon } from '@luvngift/shared';
 
 /**
- * One glyph per category icon key. The keys are the API's ITEM_CATEGORY_ICONS
- * (item-categories.validation.ts) and mobile's BoxPicker ICONS: change all three.
+ * One glyph per category icon key (ITEM_CATEGORY_ICONS in @luvngift/shared).
+ * The Record over the shared type fails to compile when a key is added there
+ * and has no glyph here.
  */
 export const AISLE_ICONS: Record<AisleIcon, LucideIcon> = {
   grains: Wheat,

@@ -16,6 +16,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Spinner } from '@/components/ui/spinner';
 import { FulfilmentRulesCard } from './fulfilment-rules-card';
+import { subscriptionRulesSchema } from '@luvngift/shared';
 
 export default function AdminSettingsPage() {
   const { data, isLoading } = useAdminExchangeRates();
@@ -190,10 +191,11 @@ function SubscriptionRulesCard() {
   useEffect(() => {
     if (!data) return;
     setForm({
-      vendorSharePercent: String(data.vendorSharePercent),
       marginTolerancePoints: String(data.marginTolerancePoints),
       minFillPercent: String(data.minFillPercent),
       pointsPerCurrencyUnit: String(data.pointsPerCurrencyUnit),
+      annualDiscountPercent: String(data.annualDiscountPercent ?? 10),
+      annualCancellationFeePercent: String(data.annualCancellationFeePercent ?? 10),
       USD: String(data.cardFeePercent.USD),
       CAD: String(data.cardFeePercent.CAD),
       GBP: String(data.cardFeePercent.GBP),
@@ -201,16 +203,16 @@ function SubscriptionRulesCard() {
   }, [data]);
 
   const n = (k: string) => Number(form[k]);
-  const within = (k: string, min: number, max: number) =>
-    form[k] !== '' && Number.isFinite(n(k)) && n(k) >= min && n(k) <= max;
-  const valid =
-    within('vendorSharePercent', 50, 90) &&
-    within('marginTolerancePoints', 1, 50) &&
-    within('minFillPercent', 50, 100) &&
-    Number.isInteger(n('minFillPercent')) &&
-    within('pointsPerCurrencyUnit', 10, 10_000) &&
-    Number.isInteger(n('pointsPerCurrencyUnit')) &&
-    ['USD', 'CAD', 'GBP'].every((c) => within(c, 0, 20));
+  const rulesPayload = {
+    marginTolerancePoints: n('marginTolerancePoints'),
+    minFillPercent: n('minFillPercent'),
+    pointsPerCurrencyUnit: n('pointsPerCurrencyUnit'),
+    annualDiscountPercent: n('annualDiscountPercent'),
+    annualCancellationFeePercent: n('annualCancellationFeePercent'),
+    cardFeePercent: { USD: n('USD'), CAD: n('CAD'), GBP: n('GBP') },
+  };
+  // The API's own bounds (subscriptionRulesSchema in @luvngift/shared), not a copy.
+  const valid = Object.values(form).every((v) => v !== '') && subscriptionRulesSchema.safeParse(rulesPayload).success;
 
   const field = (key: string, label: string, hint: string) => (
     <div className="space-y-2">
@@ -235,10 +237,21 @@ function SubscriptionRulesCard() {
         ) : (
           <>
             <div className="grid sm:grid-cols-3 gap-4">
-              {field('vendorSharePercent', 'Legacy vendor share (%)', 'Only for vendors still on the revenue share (approved before fixed naira pay). Of the value delivered; card fees and points come from our share. 50–90.')}
               {field('marginTolerancePoints', 'Margin tolerance (points)', 'Flag a price whose live markup falls this far below its plan’s. 1–50.')}
               {field('minFillPercent', 'Minimum box fill (%)', 'How full a subscriber’s box must be. 50–100.')}
               {field('pointsPerCurrencyUnit', 'Points per US$1 / CA$1 / £1', 'How many points take 1 unit off a charge. 100 means 500 points = 5.00. 10–10,000.')}
+            </div>
+            <div>
+              <p className="text-sm font-medium mb-2">Paying for the year</p>
+              <div className="grid sm:grid-cols-2 gap-4">
+                {field('annualDiscountPercent', 'Annual discount (%)', 'Off a year of deliveries paid at once, on curated and basket plans. Comes out of the platform share. Applies to prices published after a change. 0–30.')}
+                {field('annualCancellationFeePercent', 'Cancellation admin fee (%)', 'Taken from the refund when a paid year is cancelled part-way, on the undelivered value. 0–25.')}
+              </div>
+              <p className="text-xs text-amber-800 mt-2">
+                The Refund Policy (section 6) states a 10% fee and the Terms state the discount is shown before
+                subscribing. Change the policy wording with the fee. The fee awaits the accountant&apos;s and a
+                lawyer&apos;s view: set it to 0 to stop charging it at once.
+              </p>
             </div>
             <div>
               <p className="text-sm font-medium mb-2">Estimated card fees (%)</p>
@@ -253,20 +266,14 @@ function SubscriptionRulesCard() {
               </p>
             </div>
             <p className="text-xs text-muted-foreground">
-              Defaults: vendor {data?.defaults.vendorSharePercent}%, tolerance{' '}
+              Defaults: tolerance{' '}
               {data?.defaults.marginTolerancePoints} points, minimum fill {data?.defaults.minFillPercent}%.
               Changing these does not reprice anything: republish a plan to apply them.
             </p>
             <Button
               disabled={update.isPending || !valid}
               onClick={() =>
-                update.mutate({
-                  vendorSharePercent: n('vendorSharePercent'),
-                  marginTolerancePoints: n('marginTolerancePoints'),
-                  minFillPercent: n('minFillPercent'),
-                  pointsPerCurrencyUnit: n('pointsPerCurrencyUnit'),
-                  cardFeePercent: { USD: n('USD'), CAD: n('CAD'), GBP: n('GBP') },
-                })
+                update.mutate(rulesPayload)
               }
             >
               {update.isPending ? 'Saving...' : 'Save pricing settings'}

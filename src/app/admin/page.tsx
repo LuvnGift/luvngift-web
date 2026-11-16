@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAdminMetrics } from '@/hooks/use-admin';
+import { formatMoney } from '@luvngift/shared';
 
 /**
  * Admin dashboard.
@@ -30,13 +31,9 @@ import { useAdminMetrics } from '@/hooks/use-admin';
  * dashboard-specific palette, so admin still looks like Luvngift.
  */
 
-const SYMBOLS: Record<string, string> = { CAD: 'CA$', USD: '$', GBP: '£' };
 
 function money(cents: number, currency = 'USD') {
-  return `${SYMBOLS[currency] ?? ''}${(cents / 100).toLocaleString('en-US', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
+  return formatMoney(cents, currency);
 }
 
 function signedCad(cents: number) {

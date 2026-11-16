@@ -6,9 +6,9 @@ import Link from 'next/link';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { createAddressSchema } from '@luvngift/shared';
-import { loadStripe } from '@stripe/stripe-js';
-import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
+import { createAddressSchema, formatMoney, DELIVERIES_PER_YEAR } from '@luvngift/shared';
+import { PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
+import { CheckoutElements } from '@/components/checkout/checkout-elements';
 import { Check, ArrowLeft, MapPin, PackageOpen, ShieldAlert } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -18,7 +18,9 @@ import { Spinner } from '@/components/ui/spinner';
 import { Separator } from '@/components/ui/separator';
 import { FieldError } from '@/components/ui/field-error';
 import { useAuthStore } from '@/store/auth.store';
-import { NIGERIAN_STATES } from '@/lib/nigerian-states';
+import { useIsAdmin } from '@/hooks/use-is-admin';
+import { AdminShoppingBlocked } from '@/components/layout/admin-preview';
+import { NIGERIAN_STATES } from '@luvngift/shared';
 import {
   usePlans,
   useAddresses,
@@ -30,13 +32,17 @@ import {
   type SubscriptionInterval,
   type BoxPlan,
   type SubstitutionPreference,
+  isCurated,
+  isBasket,
+  useBasketQuote,
 } from '@/hooks/use-subscriptions';
-import { boxFill, type BoxFill } from '@/lib/box-fill';
+import { boxFill, type BoxFill } from '@luvngift/shared';
 import { BoxPicker } from '@/components/subscriptions/box-picker';
 import { useUserCurrency } from '@/hooks/use-exchange-rates';
 import { pickPrice } from '@/components/subscriptions/plan-price';
-import { longDate, previewChargeDate } from '@/lib/subscription-start';
-import { OFFERED_INTERVALS, cadenceLabel, cadenceTitle, type OfferedInterval } from '@/lib/cadence';
+import { longDate, previewChargeDate } from '@luvngift/shared';
+import { OFFERED_INTERVALS, cadenceLabel, cadenceTitle, type OfferedInterval } from '@luvngift/shared';
+
 
 /** Where a new subscriber lands: their subscriptions, with a confirmation. */
 const AFTER_SUBSCRIBE = '/account/subscriptions?subscribed=true';
@@ -44,7 +50,6 @@ const AFTER_SUBSCRIBE = '/account/subscriptions?subscribed=true';
 /** Fallback if a cached plans payload predates box sizing. Matches the API default. */
 const DEFAULT_MIN_FILL = 80;
 
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 
 const SUBSTITUTION_OPTIONS: {
   value: SubstitutionPreference;
@@ -68,9 +73,7 @@ const SUBSTITUTION_OPTIONS: {
   },
 ];
 
-const SYMBOLS: Record<string, string> = { CAD: 'CA$', USD: '$', GBP: '£', NGN: '₦' };
-const fmt = (cents: number, currency: string) =>
-  `${SYMBOLS[currency] ?? currency}${(cents / 100).toFixed(2)}`;
+const fmt = formatMoney;
 
 type Step = 'recipient' | 'box' | 'payment';
 
@@ -98,10 +101,12 @@ export function SubscribeFlow() {
   const params = useSearchParams();
   const planSlug = params.get('plan');
   const { isAuthenticated } = useAuthStore();
+  const isAdmin = useIsAdmin();
 
   const [step, setStep] = useState<Step>('recipient');
   const [addressId, setAddressId] = useState<string | null>(null);
   const [interval, setInterval] = useState<OfferedInterval>('MONTHLY');
+  const [billing, setBilling] = useState<'PER_DELIVERY' | 'ANNUAL'>('PER_DELIVERY');
   const [picked, setPicked] = useState<Record<string, number>>({});
   const [preference, setPreference] = useState<SubstitutionPreference>('SMART');
   const [dietaryFlags, setDietaryFlags] = useState<string[]>([]);
@@ -120,11 +125,26 @@ export function SubscribeFlow() {
     () => plans?.find((p) => p.slug === planSlug) ?? plans?.[0],
     [plans, planSlug],
   );
-  const minFill = plan?.boxMinFillPercent ?? DEFAULT_MIN_FILL;
+  const basket = isBasket(plan);
+  // A basket has no minimum: it is a cart, priced on what is in it.
+  const minFill = basket ? 0 : plan?.boxMinFillPercent ?? DEFAULT_MIN_FILL;
   // Same query the box step runs, so this is served from cache: the summary
   // needs the fill too.
   const { data: catalogue } = useCatalogue(addressId ?? undefined, plan?.id);
   const fill = boxFill(picked, catalogue ?? [], minFill);
+  const hasItems = Object.keys(picked).length > 0;
+  const { data: quote, isFetching: quoting, isError: quoteFailed } = useBasketQuote(
+    plan?.id, addressId ?? undefined, picked, basket && hasItems && fill.status !== 'OVER',
+  );
+  // The price shown must be the price of the basket on screen before it can be confirmed.
+  const quoted = basket && hasItems && !quoting && !quoteFailed && quote ? quote : null;
+  // For a year, the quote's annual figure at this cadence; otherwise per delivery.
+  const basketPrice = !quoted
+    ? null
+    : billing === 'ANNUAL'
+      ? quoted.annual?.amounts[interval] ?? null
+      : quoted.amount;
+  const boxReady = isCurated(plan) || (fill.status === 'OK' && (!basket || basketPrice !== null));
 
   const { mutateAsync: createSubscription, isPending: subscribing } = useCreateSubscription();
   const { currency: buyerCurrency } = useUserCurrency();
@@ -145,6 +165,8 @@ export function SubscribeFlow() {
     );
   }
 
+  if (isAdmin) return <AdminShoppingBlocked action="subscribe" />;
+
   if (plansLoading) return <div className="flex justify-center py-16"><Spinner size="lg" /></div>;
   if (!plan) {
     return (
@@ -158,14 +180,16 @@ export function SubscribeFlow() {
   }
 
   // The row the API will charge: same currency rule on both sides.
-  const price = pickPrice(plan.prices, interval, buyerCurrency);
+  const annualOffered = plan.annualDiscountPercent != null;
+  const yearly = billing === 'ANNUAL' && annualOffered;
+  const price = pickPrice(plan.prices, interval, buyerCurrency, yearly ? 'ANNUAL' : 'PER_DELIVERY');
 
   const handleSubscribe = async () => {
     if (!addressId) return;
-    const items = Object.entries(picked).map(([customItemId, quantity]) => ({
-      customItemId,
-      quantity,
-    }));
+    // A curated box is the plan's own contents: the API ignores items for it.
+    const items = isCurated(plan)
+      ? []
+      : Object.entries(picked).map(([customItemId, quantity]) => ({ customItemId, quantity }));
     try {
       const result = await createSubscription({
         planId: plan.id,
@@ -176,6 +200,8 @@ export function SubscribeFlow() {
         dietaryFlags,
         dietaryNotes: dietaryNotes.trim() || undefined,
         ...(startChoice === 'date' && firstDeliveryDate ? { firstDeliveryDate } : {}),
+        ...(basket && basketPrice !== null ? { expectedAmount: basketPrice } : {}),
+        ...(yearly ? { billing: 'ANNUAL' as const } : {}),
       });
       setIntentType(result.intentType ?? 'payment');
       setStartsAt(result.startsAt ?? null);
@@ -222,6 +248,7 @@ export function SubscribeFlow() {
             setDietaryNotes={setDietaryNotes}
             fill={fill}
             minFill={minFill}
+            ready={boxReady}
             onBack={() => setStep('recipient')}
             onNext={handleSubscribe}
             submitting={subscribing || (startChoice === 'date' && !firstDeliveryDate)}
@@ -229,9 +256,9 @@ export function SubscribeFlow() {
         )}
 
         {step === 'payment' && clientSecret && (
-          <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme: 'stripe' } }}>
+          <CheckoutElements clientSecret={clientSecret}>
             <PaymentStep onBack={() => setStep('box')} intentType={intentType} startsAt={startsAt} />
-          </Elements>
+          </CheckoutElements>
         )}
       </div>
 
@@ -245,7 +272,10 @@ export function SubscribeFlow() {
           <p className="text-xs uppercase tracking-wide text-muted-foreground mb-2">Frequency</p>
           <div className="grid grid-cols-3 gap-2">
             {OFFERED_INTERVALS.map((opt) => {
-              const available = plan.prices.some((p) => p.interval === opt);
+              // A basket has no fixed prices: its cadences are the plan's own list.
+              const available = basket
+                ? ((plan as { intervals?: string[] }).intervals ?? ['MONTHLY']).includes(opt)
+                : plan.prices.some((p) => p.interval === opt);
               if (!available) return null;
               return (
                 <button
@@ -264,6 +294,44 @@ export function SubscribeFlow() {
           </div>
         </div>
 
+        {annualOffered && (
+          <>
+            <Separator />
+            <div>
+              <p className="text-xs uppercase tracking-wide text-muted-foreground mb-2">Pay</p>
+              <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="How you pay">
+                {([
+                  ['PER_DELIVERY', 'Each delivery', null],
+                  ['ANNUAL', 'For the year', `Save ${plan.annualDiscountPercent}%`],
+                ] as const).map(([value, label, hint]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    role="radio"
+                    aria-checked={billing === value}
+                    disabled={step === 'payment'}
+                    onClick={() => setBilling(value)}
+                    className={`rounded-md border px-3 py-2 text-xs font-medium transition-colors disabled:opacity-50 ${
+                      billing === value ? 'border-foreground bg-muted' : 'hover:bg-muted/50'
+                    }`}
+                  >
+                    {label}
+                    {hint && <span className="block font-normal text-green-700">{hint}</span>}
+                  </button>
+                ))}
+              </div>
+              {yearly && (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  One payment for {DELIVERIES_PER_YEAR[interval]} deliveries, {cadenceLabel(interval)}.
+                  It cannot be paused. Cancel part-way and we refund the deliveries not yet made, less
+                  a fee and the discount on those made (see our{' '}
+                  <Link href="/refund-policy" target="_blank" className="underline underline-offset-2">Refund Policy</Link>).
+                </p>
+              )}
+            </div>
+          </>
+        )}
+
         <Separator />
         <FirstDeliveryPicker
           choice={startChoice}
@@ -275,19 +343,31 @@ export function SubscribeFlow() {
         />
 
         <Separator />
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">Box filled</span>
-          <span className={fill.status === 'OVER' ? 'text-red-600 font-medium' : ''}>
-            {fill.percent}%
+        {!isCurated(plan) && !basket && (
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Box filled</span>
+            <span className={fill.status === 'OVER' ? 'text-red-600 font-medium' : ''}>
+              {fill.percent}%
+            </span>
+          </div>
+        )}
+        <div className="flex justify-between font-semibold text-base">
+          <span>{yearly ? 'For the year' : 'Total'}</span>
+          <span>
+            {basket
+              ? basketPrice !== null && quote ? fmt(basketPrice, quote.currency) : quoting ? '…' : '—'
+              : price ? fmt(price.amount, price.currency) : '—'}
           </span>
         </div>
-        <div className="flex justify-between font-semibold text-base">
-          <span>Total</span>
-          <span>{price ? fmt(price.amount, price.currency) : '—'}</span>
-        </div>
+        {basket && (
+          <p className="text-xs text-muted-foreground">
+            {yearly ? 'One all-in price for a year of this basket.' : 'One all-in price per delivery for what is in the basket.'} It is fixed once you subscribe,
+            and changes only if you change the basket or we give you notice.
+          </p>
+        )}
         <p className="text-xs text-muted-foreground">
           <ChargeSummary
-            cadence={cadenceLabel(interval)}
+            cadence={yearly ? 'every year' : cadenceLabel(interval)}
             chargeAt={
               startsAt ??
               (startChoice === 'date' && firstDeliveryDate && startDates
@@ -581,6 +661,7 @@ function BoxStep({
   setDietaryNotes,
   fill,
   minFill,
+  ready,
   onBack,
   onNext,
   submitting,
@@ -597,34 +678,53 @@ function BoxStep({
   setDietaryNotes: (v: string) => void;
   fill: BoxFill;
   minFill: number;
+  /** Everything the API will check is in place (and a basket's price is on screen). */
+  ready: boolean;
   onBack: () => void;
   onNext: () => void;
   submitting: boolean;
 }) {
-  const { data: items, isLoading } = useCatalogue(addressId, plan.id);
+  const curated = isCurated(plan);
+  const basket = isBasket(plan);
+  // A curated box needs no picker, so no catalogue either.
+  const { data: items, isLoading } = useCatalogue(curated ? undefined : addressId, plan.id);
 
-  if (isLoading) return <div className="flex justify-center py-10"><Spinner /></div>;
+  if (isLoading && !curated) return <div className="flex justify-center py-10"><Spinner /></div>;
 
   return (
     <div className="space-y-5">
-      <div>
-        <h2 className="font-semibold flex items-center gap-2">
-          <PackageOpen className="h-4 w-4" /> Build the box
-        </h2>
-        <p className="text-sm text-muted-foreground mt-1">
-          Each item shows how much of the box it takes up. Fill the box to at least{' '}
-          <strong>{minFill}%</strong>, using up to <strong>{plan.slotCount}</strong> different
-          items in any quantity.
-        </p>
-      </div>
+      {curated ? (
+        <CuratedContents plan={plan} />
+      ) : (
+        <>
+          <div>
+            <h2 className="font-semibold flex items-center gap-2">
+              <PackageOpen className="h-4 w-4" /> {basket ? 'Fill the basket' : 'Build the box'}
+            </h2>
+            {basket ? (
+              <p className="text-sm text-muted-foreground mt-1">
+                Add what they need, in any quantity, up to the most one delivery can hold. You pay
+                for what is in it, and the price updates as you go.
+              </p>
+            ) : (
+              <p className="text-sm text-muted-foreground mt-1">
+                Each item shows how much of the box it takes up. Fill the box to at least{' '}
+                <strong>{minFill}%</strong>, using up to <strong>{plan.slotCount}</strong> different
+                items in any quantity.
+              </p>
+            )}
+          </div>
 
-      <BoxPicker
-        items={items ?? []}
-        picked={picked}
-        onChange={setPicked}
-        slotCount={plan.slotCount}
-        minFill={minFill}
-      />
+          <BoxPicker
+            items={items ?? []}
+            picked={picked}
+            onChange={setPicked}
+            slotCount={basket ? 50 : plan.slotCount}
+            minFill={minFill}
+            basket={basket}
+          />
+        </>
+      )}
 
       {/* Dietary constraints — safety, so this sits above the preference picker. */}
       <div className="rounded-lg border p-4 space-y-3">
@@ -723,10 +823,32 @@ function BoxStep({
         <Button variant="outline" onClick={onBack} disabled={submitting}>
           <ArrowLeft className="h-4 w-4 mr-1" /> Back
         </Button>
-        <Button onClick={onNext} disabled={submitting || fill.status !== 'OK'} className="flex-1">
+        <Button onClick={onNext} disabled={submitting || !ready} className="flex-1">
           {submitting ? <><Spinner size="sm" className="mr-2" />Setting up…</> : 'Continue to payment'}
         </Button>
       </div>
+    </div>
+  );
+}
+
+/** A curated box: what arrives every delivery, nothing to choose. */
+function CuratedContents({ plan }: { plan: BoxPlan }) {
+  return (
+    <div>
+      <h2 className="font-semibold flex items-center gap-2">
+        <PackageOpen className="h-4 w-4" /> What&apos;s in the box
+      </h2>
+      <p className="text-sm text-muted-foreground mt-1">
+        We put this box together, and every delivery brings all of it.
+      </p>
+      <ul className="mt-3 divide-y rounded-lg border text-sm">
+        {(plan.contents ?? []).map((c) => (
+          <li key={c.customItem.id} className="flex justify-between gap-3 px-3 py-2">
+            <span>{c.customItem.name}</span>
+            <span className="text-muted-foreground">× {c.quantity}</span>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

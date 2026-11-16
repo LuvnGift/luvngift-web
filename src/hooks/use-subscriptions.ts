@@ -4,77 +4,50 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
 
-/**
- * Subscription types come from @luvngift/shared so web and mobile stay on one
- * contract. Imported for use in this file and re-exported so components keep
- * importing them from here.
- */
+import type { input } from 'zod';
 import type {
-  SubscriptionPlan as SharedSubscriptionPlan,
-  SubscriptionPrice as SharedSubscriptionPrice,
-  Subscription as SharedSubscription,
-  SubscriptionCatalogueItem as CatalogueItem,
+  BasketQuote,
+  BoxCatalogueItem,
+  CancelQuote,
+  CreateSubscriptionResult,
+  StartDates,
+  Subscription,
+  SubscriptionPlan,
   SubstitutionPreference,
-  CreateSubscriptionResult as SharedCreateSubscriptionResult,
+  createSubscriptionSchema,
 } from '@luvngift/shared';
-import type { Interval } from '@/lib/cadence';
 
-export { DIETARY_FLAGS } from '@luvngift/shared';
+/**
+ * Every subscription type and rule is in @luvngift/shared: the API builds its
+ * responses from the same declarations, and the app uses them too. Re-exported
+ * here so components keep one import site; nothing is declared again here.
+ */
+export { DIETARY_FLAGS, hasNotStarted, isBasket, isCurated } from '@luvngift/shared';
 export type {
+  BasketQuote,
+  BoxCatalogueItem,
+  CancelQuote,
+  CreateSubscriptionResult,
+  PlanContent,
+  StartDates,
+  Subscription,
+  SubscriptionDelivery,
+  SubscriptionInterval,
   SubscriptionItem,
-  SubscriptionCatalogueItem as CatalogueItem,
+  SubscriptionPlan,
+  SubscriptionPrice,
   SubscriptionStatus,
+  SubscriptionTermSummary,
   SubstitutionPreference,
 } from '@luvngift/shared';
 
-/**
- * Cadences: the shared package still says MONTHLY | BIWEEKLY. Every 2 months
- * and quarterly were added in the API first (2026-11-06), so these types are
- * widened here until the next package publish.
- */
-export type SubscriptionInterval = Interval;
-export type SubscriptionPrice = Omit<SharedSubscriptionPrice, 'interval'> & { interval: Interval };
-export type SubscriptionPlan = Omit<SharedSubscriptionPlan, 'prices'> & { prices: SubscriptionPrice[] };
 
-/** One delivery of a subscription, as its subscriber may see it. */
-export interface SubscriptionDelivery {
-  id: string;
-  status: string;
-  createdAt: string;
-  preferredDeliveryDate: string | null;
-  deliveryProofUrl: string | null;
-  deliveryProofAt: string | null;
-}
+/** A plan as the box picker reads it (the minimum fill is on every plan payload). */
+export type BoxPlan = SubscriptionPlan;
 
-/**
- * The shared type plus what the API added after the last package publish:
- * a later start date, and the most recent deliveries.
- */
-export type Subscription = Omit<SharedSubscription, 'interval'> & {
-  interval: Interval;
-  /** First charge time of a subscription that starts later; null = already charging. */
-  startsAt?: string | null;
-  orders?: SubscriptionDelivery[];
-};
-
-export type CreateSubscriptionResult = SharedCreateSubscriptionResult & {
-  /** confirmSetup for a later start (nothing charged now), confirmPayment otherwise. */
-  intentType?: 'setup' | 'payment';
-  startsAt?: string | null;
-  firstDeliveryFrom?: string | null;
-};
-
-/** True while a later-starting subscription has not taken its first charge. */
-export const hasNotStarted = (sub: Pick<Subscription, 'startsAt'>) =>
-  Boolean(sub.startsAt && new Date(sub.startsAt).getTime() > Date.now());
-
-/** The first delivery dates that can be chosen today, as YYYY-MM-DD. The API owns the rule. */
-export interface StartDates {
-  earliest: string;
-  latest: string;
-  leadDays: number;
-  maxDaysAhead: number;
-}
+/** Null for a plan paid per delivery, or a year fully delivered. */
+export const fetchCancelQuote = (id: string) =>
+  api.get(`/api/v1/subscriptions/${id}/cancel-quote`).then((r) => r.data.data as CancelQuote | null);
 
 export const useStartDates = () =>
   useQuery<StartDates>({
@@ -111,22 +84,6 @@ export const usePlans = () =>
     queryFn: () => api.get('/api/v1/subscriptions/plans').then((r) => r.data.data),
   });
 
-/**
- * A box-picker item. `share` is the percentage of the plan's box one unit uses;
- * the naira cost behind it is never sent. Declared here rather than in
- * `@luvngift/shared` until the next package publish.
- */
-export interface BoxCatalogueItem {
-  id: string;
-  name: string;
-  description?: string | null;
-  category: string;
-  share: number | null;
-}
-
-/** Public plans embed the minimum box fill so the picker needs no extra request. */
-export type BoxPlan = SubscriptionPlan & { boxMinFillPercent?: number };
-
 /** Catalogue is scoped to the recipient's state — availability varies by region. */
 export const useCatalogue = (addressId?: string, planId?: string) =>
   useQuery<BoxCatalogueItem[]>({
@@ -159,24 +116,45 @@ export const useCreateAddress = () => {
 
 // ─── Subscribe ────────────────────────────────────────────────────────────────
 
-interface CreateSubscriptionInput {
-  planId: string;
-  addressId: string;
-  interval: SubscriptionInterval;
-  items: { customItemId: string; quantity: number }[];
-  substitutionPreference?: SubstitutionPreference;
-  dietaryFlags?: string[];
-  dietaryNotes?: string;
-  /** YYYY-MM-DD. Omitted = start now. */
-  firstDeliveryDate?: string;
-}
+/** The request body, as the shared schema accepts it. */
+type CreateSubscriptionInput = input<typeof createSubscriptionSchema>;
 
-export const useCreateSubscription = () =>
-  useMutation<CreateSubscriptionResult, Error, CreateSubscriptionInput>({
-    mutationFn: (data) => api.post('/api/v1/subscriptions', data).then((r) => r.data.data),
-    onError: (err: any) =>
-      toast.error(err?.response?.data?.error?.message ?? "Couldn't start your subscription."),
+
+/**
+ * A basket's all-in price per delivery as it is built. Keyed on the exact
+ * contents so the shown price always belongs to the basket on screen;
+ * `placeholderData` keeps the last figure while the next one loads.
+ */
+export const useBasketQuote = (
+  planId: string | undefined,
+  addressId: string | undefined,
+  picked: Record<string, number>,
+  enabled: boolean,
+) => {
+  const items = Object.entries(picked)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([customItemId, quantity]) => ({ customItemId, quantity }));
+  return useQuery<BasketQuote>({
+    queryKey: ['subscriptions', 'basket-quote', planId, addressId, items],
+    queryFn: () =>
+      api.post('/api/v1/subscriptions/basket-quote', { planId, addressId, items }).then((r) => r.data.data),
+    enabled: enabled && Boolean(planId && addressId),
+    placeholderData: (previous) => previous,
+    retry: false,
   });
+};
+
+export const useCreateSubscription = () => {
+  const qc = useQueryClient();
+  return useMutation<CreateSubscriptionResult, Error, CreateSubscriptionInput>({
+    mutationFn: (data) => api.post('/api/v1/subscriptions', data).then((r) => r.data.data),
+    onError: (err: any) => {
+      // A basket price that moved since it was shown: fetch the new one.
+      qc.invalidateQueries({ queryKey: ['subscriptions', 'basket-quote'] });
+      toast.error(err?.response?.data?.error?.message ?? "Couldn't start your subscription.");
+    },
+  });
+};
 
 // ─── Manage ───────────────────────────────────────────────────────────────────
 
@@ -262,16 +240,19 @@ export const useUpdateSubscriptionItems = () => {
   return useMutation<
     Subscription,
     Error,
-    { id: string; items: { customItemId: string; quantity: number }[] }
+    { id: string; items: { customItemId: string; quantity: number }[]; expectedAmount?: number }
   >({
-    mutationFn: ({ id, items }) =>
-      api.put(`/api/v1/subscriptions/${id}/items`, { items }).then((r) => r.data.data),
+    mutationFn: ({ id, items, expectedAmount }) =>
+      api.put(`/api/v1/subscriptions/${id}/items`, { items, expectedAmount }).then((r) => r.data.data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: MINE_KEY });
       toast.success('Box updated');
     },
-    onError: (err: any) =>
-      toast.error(err?.response?.data?.error?.message ?? "Couldn't update your box."),
+    onError: (err: any) => {
+      // A basket price that moved: refresh the quote so the new one is on screen.
+      qc.invalidateQueries({ queryKey: ['subscriptions', 'basket-quote'] });
+      toast.error(err?.response?.data?.error?.message ?? "Couldn't update your box.");
+    },
   });
 };
 

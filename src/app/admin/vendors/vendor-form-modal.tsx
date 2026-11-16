@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Building2, User, FileText } from 'lucide-react';
+import { Building2, User, FileText, ShieldAlert } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,14 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Spinner } from '@/components/ui/spinner';
 import { useCreateVendor, useUpdateVendor, VendorInput } from '@/hooks/use-admin';
 import type { Vendor } from '@luvngift/shared';
-import { NIGERIAN_STATES } from '@/lib/nigerian-states';
-
-const BUSINESS_TYPES = [
-  { value: 'RETAIL', label: 'Retail — supplies goods / products' },
-  { value: 'DELIVERY', label: 'Delivery — delivers to recipients' },
-  { value: 'LOGISTICS', label: 'Logistics — sourcing & fulfilment' },
-  { value: 'AGENT', label: 'Fulfilment agent — an individual (starts pending: vet before approving)' },
-] as const;
+import { CONTACT_CHANGE_HOLD_HOURS, NIGERIAN_STATES, partnerContactChanges, totpCodeSchema } from '@luvngift/shared';
 
 const NAME_RE = /^[a-zA-ZÀ-ÖØ-öø-ÿ'\-\s]+$/;
 
@@ -33,7 +26,6 @@ const schema = z.object({
   phone: z.string().regex(/^\d{11}$/, 'Enter a valid 11-digit number'),
   address: z.string().trim().min(5, 'Address is required').max(200),
   state: z.string().min(2, 'Please select a state'),
-  businessType: z.enum(['RETAIL', 'DELIVERY', 'LOGISTICS', 'AGENT']),
   notes: z.string().trim().max(500).optional(),
 });
 
@@ -68,7 +60,8 @@ export default function VendorFormModal({ open, onClose, vendor }: Props) {
   const update = useUpdateVendor();
   const isPending = create.isPending || update.isPending;
 
-  const { register, handleSubmit, control, reset, formState: { errors } } = useForm<FormValues>({
+  const [totpCode, setTotpCode] = useState('');
+  const { register, handleSubmit, control, reset, watch, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
       name: '',
@@ -78,7 +71,6 @@ export default function VendorFormModal({ open, onClose, vendor }: Props) {
       phone: '',
       address: '',
       state: '',
-      businessType: 'RETAIL',
       notes: '',
     },
   });
@@ -94,7 +86,6 @@ export default function VendorFormModal({ open, onClose, vendor }: Props) {
         phone: (vendor.phone ?? '').replace(/\D/g, '').slice(0, 11),
         address: vendor.address,
         state: vendor.state,
-        businessType: vendor.businessType as FormValues['businessType'],
         notes: vendor.notes ?? '',
       });
     } else {
@@ -106,11 +97,17 @@ export default function VendorFormModal({ open, onClose, vendor }: Props) {
         phone: '',
         address: '',
         state: '',
-        businessType: 'RETAIL',
         notes: '',
       });
     }
+    setTotpCode('');
   }, [vendor, open, reset]);
+
+  // Bank-details links go to the partner's email and phone, so changing either
+  // needs a fresh 2FA code (the API enforces it with the same shared rule).
+  const contactChanged =
+    isEdit && !!vendor && partnerContactChanges(vendor, { email: watch('email'), phone: watch('phone') }).length > 0;
+  const codeOk = !contactChanged || totpCodeSchema.safeParse(totpCode).success;
 
   const onSubmit = async (values: FormValues) => {
     const data: VendorInput = {
@@ -120,12 +117,11 @@ export default function VendorFormModal({ open, onClose, vendor }: Props) {
       phone: values.phone,
       address: values.address,
       state: values.state,
-      businessType: values.businessType,
       notes: values.notes || undefined,
     };
     try {
       if (isEdit && vendor) {
-        await update.mutateAsync({ id: vendor.id, ...data });
+        await update.mutateAsync({ id: vendor.id, ...data, ...(contactChanged ? { totpCode } : {}) });
       } else {
         await create.mutateAsync(data);
       }
@@ -143,7 +139,7 @@ export default function VendorFormModal({ open, onClose, vendor }: Props) {
           <p className="text-sm text-muted-foreground">
             {isEdit
               ? 'Update vendor details below.'
-              : 'Admin-created vendors are immediately approved and active.'}
+              : 'Partners added here start pending, like applicants: approve them on their page once the address, interview and sample hamper checks pass.'}
           </p>
         </DialogHeader>
 
@@ -180,26 +176,7 @@ export default function VendorFormModal({ open, onClose, vendor }: Props) {
                 {errors.state && <p className="text-destructive text-xs">{errors.state.message}</p>}
               </div>
 
-              <div className="space-y-1.5">
-                <Label>Business type</Label>
-                <Controller
-                  control={control}
-                  name="businessType"
-                  render={({ field }) => (
-                    <Select value={field.value} onValueChange={field.onChange}>
-                      <SelectTrigger aria-label="Business type">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {BUSINESS_TYPES.map((t) => (
-                          <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-                {errors.businessType && <p className="text-destructive text-xs">{errors.businessType.message}</p>}
-              </div>
+
             </div>
 
             <div className="space-y-1.5">
@@ -253,6 +230,26 @@ export default function VendorFormModal({ open, onClose, vendor }: Props) {
             </div>
           </div>
 
+          {contactChanged && (
+            <div className="space-y-2 rounded-md border border-amber-200 bg-amber-50/50 p-3 text-sm">
+              <p className="flex gap-2 text-xs text-amber-800">
+                <ShieldAlert className="h-4 w-4 shrink-0" />
+                You are changing where this partner&rsquo;s bank-details links and payout notices go. Only do this on a request
+                you have confirmed on the contacts already on file. Their old email and phone will be told, and no bank-details
+                link can be sent for {CONTACT_CHANGE_HOLD_HOURS} hours.
+              </p>
+              <Input
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                maxLength={6}
+                placeholder="2FA code"
+                aria-label="2FA code"
+                value={totpCode}
+                onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, ''))}
+              />
+            </div>
+          )}
+
           {/* Notes */}
           <div className="space-y-4 border-t pt-4">
             <SectionHeading icon={FileText}>Additional info</SectionHeading>
@@ -274,7 +271,7 @@ export default function VendorFormModal({ open, onClose, vendor }: Props) {
             <Button type="button" variant="outline" onClick={onClose} disabled={isPending}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isPending}>
+            <Button type="submit" disabled={isPending || !codeOk}>
               {isPending
                 ? <><Spinner size="sm" className="mr-2" />Saving...</>
                 : isEdit ? 'Save changes' : 'Add vendor'}

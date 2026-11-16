@@ -1,5 +1,5 @@
 import type { SubscriptionStatus } from '@/hooks/use-admin';
-import { cadenceTitle } from '@/lib/cadence';
+import { cadenceTitle, shortId } from '@luvngift/shared';
 
 export const STATUS_LABEL: Record<SubscriptionStatus, string> = {
   ACTIVE: 'Active',
@@ -41,4 +41,4 @@ export const shortDate = (iso: string | null | undefined) =>
   iso ? new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
 
 /** Matches the order reference everywhere else in admin and in email. */
-export const orderRef = (id: string) => `#${id.slice(-8).toUpperCase()}`;
+export const orderRef = shortId;

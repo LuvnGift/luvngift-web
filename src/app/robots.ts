@@ -18,6 +18,7 @@ export default function robots(): MetadataRoute.Robots {
           // Vendor links carry a working credential in the path. They must
           // never be indexed; the pages also send `noindex, nofollow`.
           '/vendor/orders/',
+          '/vendor/bank-details/',
         ],
       },
     ],

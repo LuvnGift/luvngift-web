@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { ApplyForm } from './apply-form';
 import { EMPLOYMENT_LABELS } from '../constants';
 import { fetchResourceOrNull } from '@/lib/api-fetch';
-import { CACHE_TAGS, CACHE_FALLBACK_SECONDS } from '@/lib/cache-tags';
+import { CACHE_TAGS, CACHE_FALLBACK_SECONDS } from '@luvngift/shared';
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.luvngift.com';
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? '';

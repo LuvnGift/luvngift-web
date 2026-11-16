@@ -25,11 +25,13 @@ import {
   CalendarClock,
   ClipboardList,
   Banknote,
+  UserCog,
 } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useLogout } from '@/hooks/use-auth';
 import { cn } from '@/lib/utils';
+import { ADMIN_PROFILE_PATH } from '@/lib/auth-redirect';
 import { useAdminOrderActivity } from '@/hooks/use-order-live';
 
 const NAV_ITEMS = [
@@ -96,7 +98,21 @@ export default function AdminClientLayout({ children }: { children: React.ReactN
         ))}
       </nav>
 
-      <div className="border-t p-4">
+      <div className="space-y-1 border-t p-4">
+        {/* Your own 2FA and password. Admins have no customer account page. */}
+        <Link
+          href={ADMIN_PROFILE_PATH}
+          onClick={() => setSidebarOpen(false)}
+          className={cn(
+            'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+            isActive(ADMIN_PROFILE_PATH)
+              ? 'bg-primary/10 text-primary'
+              : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+          )}
+        >
+          <UserCog className="h-4 w-4" />
+          My profile
+        </Link>
         <Button
           variant="ghost"
           className="w-full justify-start gap-3 text-muted-foreground"

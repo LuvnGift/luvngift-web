@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Spinner } from '@/components/ui/spinner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { NIGERIAN_STATES } from '@/lib/nigerian-states';
+import { NIGERIAN_STATES, getCurrencySymbol } from '@luvngift/shared';
 import {
   useAdminCatalogueItems,
   useCreateCatalogueItem,
@@ -22,7 +22,14 @@ import { CategoryManager } from './category-manager';
 import { FieldError } from '@/components/ui/field-error';
 import { catalogueItemFormSchema, fieldErrors } from '@/lib/admin-schemas';
 
-interface CatalogueItem extends Omit<CatalogueItemInput, 'categoryId'> {
+/**
+ * The form's state: the request body, plus the currency an older item was
+ * costed in (shown so admin re-costs it in naira; the API always stores NGN
+ * and ignores this field).
+ */
+type ItemForm = CatalogueItemInput & { currency?: string };
+
+interface CatalogueItem extends Omit<ItemForm, 'categoryId'> {
   id: string;
   category: string;
   /** Null for an item saved before categories were managed: it must be re-filed. */
@@ -33,7 +40,6 @@ interface CatalogueItem extends Omit<CatalogueItemInput, 'categoryId'> {
 
 const UNFILED = '__unfiled';
 
-const SYMBOLS: Record<string, string> = { CAD: 'CA$', USD: '$', GBP: '£', NGN: '₦' };
 
 /**
  * Items costed before box sizing may be in another currency. They are hidden
@@ -41,7 +47,7 @@ const SYMBOLS: Record<string, string> = { CAD: 'CA$', USD: '$', GBP: '£', NGN: 
  */
 const isLegacy = (item: { currency?: string }) => (item.currency ?? 'NGN') !== 'NGN';
 
-const EMPTY: CatalogueItemInput = {
+const EMPTY: ItemForm = {
   name: '',
   description: '',
   price: 0,
@@ -62,7 +68,7 @@ export default function AdminCataloguePage() {
 
   const [editing, setEditing] = useState<CatalogueItem | null>(null);
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState<CatalogueItemInput>(EMPTY);
+  const [form, setForm] = useState<ItemForm>(EMPTY);
   // Price is entered in major units; the API stores the smallest unit.
   const [priceMajor, setPriceMajor] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -245,7 +251,7 @@ export default function AdminCataloguePage() {
 
                   <div className="flex items-center gap-2 shrink-0">
                     <span className="text-sm font-medium">
-                      {SYMBOLS[item.currency ?? 'NGN']}
+                      {getCurrencySymbol(item.currency ?? 'NGN')}
                       {isLegacy(item)
                         ? (item.price / 100).toFixed(2)
                         : Math.round(item.price / 100).toLocaleString('en-NG')}
@@ -342,7 +348,7 @@ export default function AdminCataloguePage() {
                 <FieldError message={errors.priceMajor} />
                 {editing && isLegacy(editing) ? (
                   <p className="text-xs text-red-700">
-                    This was costed as {SYMBOLS[editing.currency!] ?? editing.currency}
+                    This was costed as {getCurrencySymbol(editing.currency!)}
                     {(editing.price / 100).toFixed(2)}. Enter what it costs in naira to bring it back
                     into the box picker.
                   </p>

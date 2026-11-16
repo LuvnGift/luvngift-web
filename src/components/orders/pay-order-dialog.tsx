@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { loadStripe } from '@stripe/stripe-js';
-import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
+import { PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { useCreatePaymentIntent, useVerifyPayment } from '@/hooks/use-checkout';
+import { CheckoutElements } from '@/components/checkout/checkout-elements';
 import { useOrder, useOrderConversation } from '@/hooks/use-orders';
-import { acceptedQuote } from '@/lib/custom-orders';
+import { acceptedQuote, formatMoney, shortId } from '@luvngift/shared';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Spinner } from '@/components/ui/spinner';
@@ -16,9 +16,6 @@ import {
 import { toast } from 'sonner';
 import type { Order } from '@luvngift/shared';
 
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
-
-const currencySymbols: Record<string, string> = { CAD: 'CA$', USD: '$', GBP: '£', NGN: '₦' };
 
 export interface PayableOrder {
   id: string;
@@ -75,7 +72,6 @@ export function PayOrderDialog({
   }, [order?.id]);
 
   if (!order) return null;
-  const symbol = currencySymbols[order.currency] ?? order.currency;
 
   return (
     <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
@@ -88,7 +84,7 @@ export function PayOrderDialog({
         <div className="space-y-3 text-sm border rounded-lg p-4 bg-muted/30">
           <div className="flex justify-between">
             <span className="text-muted-foreground">Order</span>
-            <span className="font-mono text-xs">#{order.id.slice(-8).toUpperCase()}</span>
+            <span className="font-mono text-xs">{shortId(order.id)}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">Recipient</span>
@@ -101,7 +97,7 @@ export function PayOrderDialog({
           <Separator />
           <div className="flex justify-between font-semibold">
             <span>Total due</span>
-            <span>{symbol}{(order.total / 100).toFixed(2)}</span>
+            <span>{formatMoney(order.total, order.currency)}</span>
           </div>
         </div>
 
@@ -112,9 +108,9 @@ export function PayOrderDialog({
         )}
 
         {clientSecret ? (
-          <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme: 'stripe' } }}>
+          <CheckoutElements clientSecret={clientSecret}>
             <PaymentForm orderId={order.id} onBack={onClose} onSuccess={() => onPaid(order.id)} />
-          </Elements>
+          </CheckoutElements>
         ) : (
           <div className="flex justify-center py-8"><Spinner /></div>
         )}

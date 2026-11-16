@@ -16,11 +16,11 @@ import {
   type Subscription,
 } from '@/hooks/use-subscriptions';
 import { useUserCurrency } from '@/hooks/use-exchange-rates';
-import { formatPoints, pointsValue } from '@/lib/points';
-import { longDate } from '@/lib/subscription-start';
+import { formatPoints, pointsValue, formatMoney } from '@luvngift/shared';
+import { longDate } from '@luvngift/shared';
 
-const SYMBOLS: Record<string, string> = { CAD: 'CA$', USD: 'US$', GBP: '£' };
-const money = (cents: number, currency: string) => `${SYMBOLS[currency] ?? currency}${(cents / 100).toFixed(2)}`;
+// Every price is written one way, everywhere (formatMoney in @luvngift/shared).
+const money = formatMoney;
 
 const KIND_LABEL: Record<PointsSummary['history'][number]['kind'], string> = {
   EARNED: 'Earned',

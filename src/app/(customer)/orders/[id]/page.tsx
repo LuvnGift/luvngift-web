@@ -6,7 +6,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { ArrowLeft, Download, MapPin, Phone, MessageSquare } from 'lucide-react';
 import { useOrder } from '@/hooks/use-orders';
 import { useDeliveryWindow } from '@/hooks/use-subscriptions';
-import { formatDeliveryDates } from '@/lib/delivery';
+import { formatDeliveryDates, formatMoney, shortId } from '@luvngift/shared';
 import { OrderStatusBadge } from '@/components/orders/order-status-badge';
 import { OrderTimeline } from '@/components/orders/order-timeline';
 import { Button } from '@/components/ui/button';
@@ -17,9 +17,8 @@ import { toast } from 'sonner';
 import { OrderStatus } from '@luvngift/shared';
 import { useOrderLive } from '@/hooks/use-order-live';
 import { CustomOrderConversation } from '@/components/orders/custom-order-conversation';
-import type { QuoteStatus } from '@/lib/custom-orders';
+import type { QuoteStatus } from '@luvngift/shared';
 
-const currencySymbols: Record<string, string> = { CAD: 'CA$', USD: '$', GBP: '£', NGN: '₦' };
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -59,11 +58,11 @@ export default function OrderDetailPage({ params }: Props) {
     );
   }
 
-  const symbol = currencySymbols[order.currency] ?? order.currency;
+  const money = (amount: number) => formatMoney(amount, order.currency);
   const quoteStatus = (order as { quoteStatus?: QuoteStatus | null }).quoteStatus ?? null;
-  const subtotal = (order.subtotal / 100).toFixed(2);
-  const tax = (order.tax / 100).toFixed(2);
-  const total = (order.total / 100).toFixed(2);
+  const subtotal = money(order.subtotal);
+  const tax = money(order.tax);
+  const total = money(order.total);
   const { pointsRedeemed = 0, pointsDiscount = 0 } = order as { pointsRedeemed?: number; pointsDiscount?: number };
 
   return (
@@ -81,7 +80,7 @@ export default function OrderDetailPage({ params }: Props) {
         <div>
           <div className="flex items-center gap-3">
             <h1 className="text-xl font-bold">
-              Order #{order.id.slice(-8).toUpperCase()}
+              Order {shortId(order.id)}
             </h1>
             <OrderStatusBadge status={order.status as OrderStatus} />
           </div>
@@ -190,7 +189,7 @@ export default function OrderDetailPage({ params }: Props) {
                       </span>
                       {/* Bundle items have no individual price (a bundle is priced as a whole; OrderItem.price is 0 only because the column is non-nullable). Showing 0.00 reads as free. Subscription cycle items DO carry real prices. */}
                       {item.price > 0 ? (
-                        <span className="font-medium">{symbol}{(item.price / 100).toFixed(2)}</span>
+                        <span className="font-medium">{money(item.price)}</span>
                       ) : (
                         <span className="text-muted-foreground text-xs">Included</span>
                       )}
@@ -214,19 +213,19 @@ export default function OrderDetailPage({ params }: Props) {
                 ))}
                 <Separator />
                 <div className="flex justify-between text-sm text-muted-foreground">
-                  <span>Subtotal</span><span>{symbol}{subtotal}</span>
+                  <span>Subtotal</span><span>{subtotal}</span>
                 </div>
                 <div className="flex justify-between text-sm text-muted-foreground">
-                  <span>Tax</span><span>{symbol}{tax}</span>
+                  <span>Tax</span><span>{tax}</span>
                 </div>
                 {pointsDiscount > 0 && (
                   <div className="flex justify-between text-sm text-green-700">
                     <span>Points ({pointsRedeemed.toLocaleString('en-GB')})</span>
-                    <span>−{symbol}{(pointsDiscount / 100).toFixed(2)}</span>
+                    <span>−{money(pointsDiscount)}</span>
                   </div>
                 )}
                 <div className="flex justify-between font-semibold">
-                  <span>Total</span><span>{symbol}{total}</span>
+                  <span>Total</span><span>{total}</span>
                 </div>
               </CardContent>
             </Card>

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ApiUnavailableError, fetchList } from './api-fetch';
+import { ApiUnavailableError, fetchList, isTransientStatus, sessionFetch } from './api-fetch';
 
 /**
  * fetchList must never turn an outage into an empty list: an empty render is
@@ -50,5 +50,87 @@ describe('fetchList', () => {
   it('throws when the response is not a list', async () => {
     vi.stubGlobal('fetch', respond(200, { success: true, data: { occasions: [] } }));
     await expect(fetchList(URL)).rejects.toThrow(/not a list/);
+  });
+});
+
+describe('the trusted-server header and rate limits', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
+    vi.useRealTimers();
+    vi.resetModules();
+  });
+
+  it('identifies this server to the API when the shared secret is set', async () => {
+    vi.stubEnv('REVALIDATE_SECRET', 'a-shared-secret-of-length');
+    const fetch = respond(200, { success: true, data: [] });
+    vi.stubGlobal('fetch', fetch);
+    await fetchList(URL);
+    const headers = (fetch.mock.calls[0] as unknown as [string, RequestInit])[1].headers as Record<string, string>;
+    expect(headers['x-luvngift-server']).toBe('a-shared-secret-of-length');
+  });
+
+  it('sends nothing when the secret is not set', async () => {
+    vi.stubEnv('REVALIDATE_SECRET', '');
+    const fetch = respond(200, { success: true, data: [] });
+    vi.stubGlobal('fetch', fetch);
+    await fetchList(URL);
+    const headers = (fetch.mock.calls[0] as unknown as [string, RequestInit])[1].headers as Record<string, string>;
+    expect(headers).not.toHaveProperty('x-luvngift-server');
+  });
+
+  it('at build, waits out a 429 and tries again instead of failing the deploy', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.stubEnv('NEXT_PHASE', 'phase-production-build');
+    vi.resetModules();
+    const { fetchList: buildFetchList } = await import('./api-fetch');
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(null, { status: 429, headers: { 'retry-after': '1' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: [{ slug: 'birthday' }] }), { status: 200 }));
+    vi.stubGlobal('fetch', fetch);
+    vi.useFakeTimers();
+    const result = buildFetchList(URL);
+    await vi.runAllTimersAsync();
+    await expect(result).resolves.toEqual([{ slug: 'birthday' }]);
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('at runtime, does not keep a visitor waiting on a 429', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const fetch = respond(429);
+    vi.stubGlobal('fetch', fetch);
+    await expect(fetchList(URL)).rejects.toBeInstanceOf(ApiUnavailableError);
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('sessionFetch / isTransientStatus', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('treats 5xx, 408 and 429 as transient, and auth answers as definite', () => {
+    for (const s of [500, 502, 503, 408, 429]) expect(isTransientStatus(s)).toBe(true);
+    for (const s of [200, 400, 401, 403, 404]) expect(isTransientStatus(s)).toBe(false);
+  });
+
+  it('returns the response, with a request id and a timeout', async () => {
+    const fetch = respond(401);
+    vi.stubGlobal('fetch', fetch);
+    const res = await sessionFetch(URL, { headers: { authorization: 'Bearer x' } });
+    expect(res.status).toBe(401);
+    const init = (fetch.mock.calls[0] as unknown as [string, RequestInit])[1];
+    expect((init.headers as Record<string, string>)['x-request-id']).toMatch(/\S{8,}/);
+    expect((init.headers as Record<string, string>).authorization).toBe('Bearer x');
+    expect(init.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it('throws ApiUnavailableError when the API cannot be reached', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('fetch failed'); }));
+    await expect(sessionFetch(URL)).rejects.toBeInstanceOf(ApiUnavailableError);
   });
 });

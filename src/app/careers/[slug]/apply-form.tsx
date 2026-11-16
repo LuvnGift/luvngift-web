@@ -12,23 +12,18 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { Spinner } from '@/components/ui/spinner';
+import { jobApplicationSchema, RESUME_MAX_BYTES, RESUME_MIME_TYPES } from '@luvngift/shared';
 
-const NAME_RE = /^[a-zA-ZÀ-ÖØ-öø-ÿ'\-\s]+$/;
-const MAX_RESUME_BYTES = 5 * 1024 * 1024;
-const ACCEPTED = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+const MAX_RESUME_BYTES = RESUME_MAX_BYTES;
+const ACCEPTED: readonly string[] = RESUME_MIME_TYPES;
 
-const schema = z.object({
-  firstName: z.string().trim().min(1, 'First name is required').max(50).regex(NAME_RE, 'Letters only'),
-  lastName: z.string().trim().min(1, 'Last name is required').max(50).regex(NAME_RE, 'Letters only'),
-  email: z.string().trim().email('Enter a valid email address'),
-  phone: z.string().trim().max(20).optional().or(z.literal('')),
-  coverLetter: z.string().trim().max(5000).optional().or(z.literal('')),
+// The text fields are the API's own (jobApplicationSchema in @luvngift/shared);
+// the CV is a browser file, checked here before upload.
+const schema = jobApplicationSchema.extend({
   resume: z
     .custom<FileList>((v) => typeof FileList !== 'undefined' && v instanceof FileList && v.length > 0, 'Please attach your résumé')
     .refine((files) => files?.[0] && files[0].size <= MAX_RESUME_BYTES, 'Résumé must be 5MB or smaller')
     .refine((files) => files?.[0] && ACCEPTED.includes(files[0].type), 'Résumé must be a PDF or Word document'),
-  // Honeypot — hidden; must stay empty.
-  website: z.string().max(0).optional(),
 });
 
 type FormValues = z.infer<typeof schema>;

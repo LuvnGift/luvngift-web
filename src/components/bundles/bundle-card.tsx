@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { useUserCurrency } from '@/hooks/use-exchange-rates';
 import { formatCurrency } from '@luvngift/shared';
 import type { Bundle } from '@luvngift/shared';
-import { formatDeliveryRange } from '@/lib/delivery';
+import { formatDeliveryRange } from '@luvngift/shared';
 
 interface BundleCardProps {
   // deliveryWindowDays is supplied by the API alongside the bundle, so no page

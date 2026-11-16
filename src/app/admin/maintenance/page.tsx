@@ -50,6 +50,18 @@ const TASKS: Record<MaintenanceTask, { title: string; when: string; what: string
     what: 'Emails each subscriber who booked a later start about three days before their first charge, with the date and amount, so they can change the box or cancel at no cost first. Subscribers who booked inside those three days are not emailed.',
     promise: 'Terms § 9',
   },
+  'points:expiry-reminders': {
+    title: 'Points expiry reminders',
+    when: 'Every day at 08:15 UTC',
+    what: 'Emails each subscriber whose points start expiring within about 30 days, once per batch of points, so they can spend them first.',
+    promise: 'Terms § 9',
+  },
+  'subscriptions:annual-deliveries': {
+    title: 'Annual plan deliveries',
+    when: 'Every day at 00:30 UTC',
+    what: "Creates the next delivery order for each paid annual subscription whose date has come round. A missed run catches up on the next one and never repeats a delivery.",
+    promise: 'Fulfilment',
+  },
   'refunds:timeliness': {
     title: 'Refund deadline check',
     when: 'Weekdays at 13:00 UTC',
@@ -58,6 +70,21 @@ const TASKS: Record<MaintenanceTask, { title: string; when: string; what: string
   },
 };
 
+/**
+ * A task the API knows and this page does not yet (the API added two before
+ * this map caught up, and `meta.title` on undefined crashed the whole page).
+ */
+function metaFor(task: string) {
+  return (
+    TASKS[task as MaintenanceTask] ?? {
+      title: task,
+      when: 'Scheduled',
+      what: 'An automated task. Its description has not been added to this page yet.',
+      promise: 'an operational promise',
+    }
+  );
+}
+
 const RESULT_LABELS: Record<string, string> = {
   guestChats: 'Guest chats',
   jobApplications: 'Job applications',
@@ -65,7 +92,10 @@ const RESULT_LABELS: Record<string, string> = {
   rejectedVendors: 'Rejected vendor applications',
   changes: 'Price changes due',
   moved: 'Subscribers moved',
-  failed: 'Subscribers that failed (retried tomorrow)',
+  failed: 'Failed (retried on the next run)',
+  due: 'Due',
+  sent: 'Emails sent',
+  made: 'Delivery orders created',
   overdueRequests: 'Overdue refund requests',
   stuckRefunds: 'Unsettled refunds',
   checked: 'Plans checked',
@@ -93,7 +123,7 @@ function ResultSummary({ result }: { result: unknown }) {
 const when = (iso: string) => new Date(iso).toLocaleString();
 
 function TaskCard({ status }: { status: MaintenanceTaskStatus }) {
-  const meta = TASKS[status.task];
+  const meta = metaFor(status.task);
   const run = useRunMaintenance();
   const [latest, setLatest] = useState<{ dryRun: boolean; ranAt: string; result: unknown } | null>(null);
   const isRetention = status.task === 'retention:sweep';

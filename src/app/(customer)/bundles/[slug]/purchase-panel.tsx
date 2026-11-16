@@ -5,12 +5,12 @@ import { ShoppingBag } from 'lucide-react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { loadStripe } from '@stripe/stripe-js';
-import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
+import { PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { useCreateOrder, useUpdateOrder } from '@/hooks/use-orders';
-import { useCreatePaymentIntent, useVerifyPayment, useSetSaveCard } from '@/hooks/use-checkout';
+import { useCreatePaymentIntent, useVerifyPayment } from '@/hooks/use-checkout';
+import { CheckoutElements } from '@/components/checkout/checkout-elements';
 import { useUserCurrency } from '@/hooks/use-exchange-rates';
-import { formatCurrency } from '@luvngift/shared';
+import { formatCurrency, formatMoney } from '@luvngift/shared';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -26,14 +26,14 @@ import { toast } from 'sonner';
 import type { Bundle, Order as SharedOrder } from '@luvngift/shared';
 import { usePoints } from '@/hooks/use-subscriptions';
 import { useAuthStore } from '@/store/auth.store';
-import { formatPoints, pointsValue } from '@/lib/points';
+import { useIsAdmin } from '@/hooks/use-is-admin';
+import { AdminShoppingBlocked } from '@/components/layout/admin-preview';
+import { formatPoints, pointsValue } from '@luvngift/shared';
 
 /** Points columns the API added after the last shared-package publish. */
 type Order = SharedOrder & { pointsRedeemed?: number; pointsDiscount?: number };
 
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 
-const currencySymbols: Record<string, string> = { CAD: 'CA$', USD: '$', GBP: '£', NGN: '₦' };
 
 const NIGERIAN_STATES = [
   'Abia', 'Adamawa', 'Akwa Ibom', 'Anambra', 'Bauchi', 'Bayelsa', 'Benue', 'Borno',
@@ -68,6 +68,11 @@ interface Props {
 }
 
 export function PurchasePanel({ bundle }: Props) {
+  const isAdmin = useIsAdmin();
+  return isAdmin ? <AdminShoppingBlocked action="place orders" /> : <CheckoutPanel bundle={bundle} />;
+}
+
+function CheckoutPanel({ bundle }: Props) {
   const { currency, convert, ready } = useUserCurrency();
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [checkoutStep, setCheckoutStep] = useState<'recipient' | 'payment'>('recipient');
@@ -248,8 +253,7 @@ export function PurchasePanel({ bundle }: Props) {
                   <span>
                     Use my {formatPoints(points!.balance)} points
                     <span className="block text-xs text-muted-foreground">
-                      Takes up to {currencySymbols[currency] ?? currency}
-                      {(pointsValue(points!.balance, points!.pointsPerCurrencyUnit) / 100).toFixed(2)} off. Points are
+                      Takes up to {formatMoney(pointsValue(points!.balance, points!.pointsPerCurrencyUnit), currency)} off. Points are
                       only used once you pay.
                     </span>
                   </span>
@@ -269,18 +273,13 @@ export function PurchasePanel({ bundle }: Props) {
             <div className="grid sm:grid-cols-2 gap-6">
               <OrderSummary order={order} bundleName={bundle.name} />
               <div>
-                <Elements
-                  stripe={stripePromise}
-                  options={{ clientSecret, appearance: { theme: 'stripe' } }}
-                >
+                <CheckoutElements clientSecret={clientSecret}>
                   <StripePaymentForm
                     orderId={order.id}
-                    amountLabel={`${currencySymbols[order.currency] ?? order.currency}${(
-                      order.total / 100
-                    ).toFixed(2)}`}
+                    amountLabel={formatMoney(order.total, order.currency)}
                     onBack={() => setCheckoutStep('recipient')}
                   />
-                </Elements>
+                </CheckoutElements>
               </div>
             </div>
           )}
@@ -293,8 +292,7 @@ export function PurchasePanel({ bundle }: Props) {
 // ─── Order summary ────────────────────────────────────────────────────────────
 
 function OrderSummary({ order, bundleName }: { order: Order; bundleName: string }) {
-  const sym = currencySymbols[order.currency] ?? order.currency;
-  const fmt = (cents: number) => `${sym}${(cents / 100).toFixed(2)}`;
+  const fmt = (cents: number) => formatMoney(cents, order.currency);
 
   return (
     <div className="space-y-4 text-sm">
@@ -388,24 +386,7 @@ function StripePaymentForm({
   const stripe = useStripe();
   const elements = useElements();
   const { mutateAsync: verifyPayment } = useVerifyPayment();
-  const { mutateAsync: setSaveCard } = useSetSaveCard();
   const [isProcessing, setIsProcessing] = useState(false);
-  const [saveCard, setSaveCardState] = useState(false);
-  const [savingPref, setSavingPref] = useState(false);
-
-  // The preference is applied to the PaymentIntent server-side. If that call
-  // fails we revert the checkbox rather than let it silently lie.
-  const handleToggleSaveCard = async (checked: boolean) => {
-    setSaveCardState(checked);
-    setSavingPref(true);
-    try {
-      await setSaveCard({ orderId, savePaymentMethod: checked });
-    } catch {
-      setSaveCardState(!checked);
-    } finally {
-      setSavingPref(false);
-    }
-  };
 
   const handlePay = async () => {
     if (!stripe || !elements) return;
@@ -430,30 +411,16 @@ function StripePaymentForm({
 
   return (
     <div className="space-y-4">
+      {/* Saved cards and the "save this card" box are the Payment Element's own,
+          enabled by the customer session in CheckoutElements. A separate
+          checkbox here saved cards Stripe would never offer back. */}
       <PaymentElement options={{ business: { name: 'Luvngift' } }} />
-
-      <label className="flex items-start gap-2.5 rounded-md border p-3 cursor-pointer hover:bg-muted/40 transition-colors">
-        <input
-          type="checkbox"
-          checked={saveCard}
-          disabled={isProcessing || savingPref}
-          onChange={(e) => handleToggleSaveCard(e.target.checked)}
-          className="mt-0.5 h-4 w-4 shrink-0 accent-[#dd1d4a]"
-        />
-        <span className="text-sm">
-          <span className="font-medium">Save this card for future gifts</span>
-          <span className="block text-xs text-muted-foreground mt-0.5">
-            Securely stored by Stripe so you can check out faster next time. You can remove it
-            any time from your account.
-          </span>
-        </span>
-      </label>
 
       <div className="flex gap-3">
         <Button variant="outline" onClick={onBack} disabled={isProcessing} className="flex-1">
           Back
         </Button>
-        <Button onClick={handlePay} disabled={isProcessing || savingPref || !stripe} className="flex-1">
+        <Button onClick={handlePay} disabled={isProcessing || !stripe} className="flex-1">
           {isProcessing ? (
             <><Spinner size="sm" className="mr-2" />Processing...</>
           ) : (

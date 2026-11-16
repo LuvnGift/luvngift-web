@@ -2,22 +2,25 @@
  * Admin orders list: tabs, search and sort, kept in the URL so a refresh, the
  * back button or a shared link lands on the same view.
  *
- * Mirrors `ORDER_TABS` in `luvngift-api/src/modules/admin/order-list.ts` — the
- * API decides what each tab contains; this file only names and orders them.
+ * The tabs are ORDER_TABS in @luvngift/shared (the API decides what each
+ * holds); this file only labels them, in the API's order.
  */
 
-export const ORDER_TABS = [
-  { id: 'needs-action', label: 'Needs action' },
-  { id: 'pending', label: 'Pending' },
-  { id: 'processing', label: 'Processing' },
-  { id: 'shipped', label: 'Shipped' },
-  { id: 'delivered', label: 'Delivered' },
-  { id: 'closed', label: 'Cancelled / Refunded' },
-  { id: 'all', label: 'All' },
-] as const;
+import { ORDER_TABS as SHARED_TABS, type OrderSort, type OrderTab } from '@luvngift/shared';
 
-export type OrderTab = (typeof ORDER_TABS)[number]['id'];
-export type OrderSort = 'newest' | 'oldest';
+export type { OrderSort, OrderTab };
+
+const LABELS: Record<OrderTab, string> = {
+  'needs-action': 'Needs action',
+  pending: 'Pending',
+  processing: 'Processing',
+  shipped: 'Shipped',
+  delivered: 'Delivered',
+  closed: 'Cancelled / Refunded',
+  all: 'All',
+};
+
+export const ORDER_TABS = SHARED_TABS.map((id) => ({ id, label: LABELS[id] }));
 
 export interface OrderListParams {
   tab: OrderTab;
