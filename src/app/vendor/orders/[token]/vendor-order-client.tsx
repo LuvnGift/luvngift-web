@@ -219,11 +219,22 @@ export function VendorOrderClient({ token }: { token: string }) {
         <StatusPill status={order.status} />
       </header>
 
-      {delivered && (
+      {/* The recipient's code can complete the order before the photo arrives,
+          so the banner says what is on file rather than assuming the photo. */}
+      {delivered && order.hasProof && (
         <div className="mb-6 flex items-start gap-3 rounded-xl border border-green-200 bg-green-50 p-4">
           <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-green-700" />
           <p className="text-sm text-green-900">
             Delivery confirmed and the photo is with us. Nothing else is needed — thank you.
+          </p>
+        </div>
+      )}
+      {delivered && !order.hasProof && (
+        <div className="mb-6 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
+          <Camera className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" />
+          <p className="text-sm text-amber-900">
+            Delivered — thank you. Please still upload the handover photo below: it is what the
+            buyer sees.
           </p>
         </div>
       )}
@@ -376,7 +387,7 @@ export function VendorOrderClient({ token }: { token: string }) {
                 ) : (
                   <CheckCircle2 className="h-5 w-5" />
                 )}
-                <span className="ml-2">Confirm delivery</span>
+                <span className="ml-2">{delivered ? 'Upload photo' : 'Confirm delivery'}</span>
               </Button>
             </>
           )}
