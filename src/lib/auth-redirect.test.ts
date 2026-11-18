@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { adminRedirectFor, isInSection, safeNextPath, sessionRefreshUrl } from './auth-redirect';
+import { adminRedirectFor, isInSection, isPrefetchRequest, safeNextPath, sessionRefreshUrl } from './auth-redirect';
 
 /**
  * `next` / `redirect` arrive in query strings, so these guard against open
@@ -74,4 +74,23 @@ describe('adminRedirectFor', () => {
       expect(adminRedirectFor(pathname)).toBeNull();
     },
   );
+});
+
+/**
+ * Prefetches must not renew a session: they raced the single-use refresh token
+ * and the losers were cached as redirects to /login.
+ */
+describe('isPrefetchRequest', () => {
+  it.each([
+    ['App Router <Link> prefetch', { 'next-router-prefetch': '1' }],
+    ['browser prefetch', { purpose: 'prefetch' }],
+    ['speculation rules', { 'sec-purpose': 'prefetch;prerender' }],
+  ])('recognises a %s', (_label, headers) => {
+    expect(isPrefetchRequest(new Headers(headers))).toBe(true);
+  });
+
+  it('treats a real navigation as not a prefetch', () => {
+    expect(isPrefetchRequest(new Headers({ accept: 'text/html' }))).toBe(false);
+    expect(isPrefetchRequest(new Headers({ rsc: '1' }))).toBe(false);
+  });
 });

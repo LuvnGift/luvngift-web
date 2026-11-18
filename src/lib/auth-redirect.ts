@@ -54,3 +54,20 @@ export function adminRedirectFor(pathname: string): string | null {
   const match = ADMIN_REDIRECTS.find(([section]) => isInSection(pathname, section));
   return match ? match[1] : null;
 }
+
+/**
+ * True when the request is a speculative prefetch rather than a navigation:
+ * the App Router's `<Link>` prefetch (`next-router-prefetch`) or a browser /
+ * speculation-rules prefetch (`purpose` / `sec-purpose`).
+ *
+ * A prefetch must never renew a session. The refresh token is single-use, so
+ * when the access token had expired, every on-screen admin link prefetched at
+ * once and raced to renew with the same token: one won, the rest were refused
+ * and answered "sign in", and the router cached those answers — so clicking
+ * Support Chat or Reviews went to /login while other links worked.
+ */
+export function isPrefetchRequest(headers: Headers): boolean {
+  if (headers.get('next-router-prefetch')) return true;
+  const purpose = `${headers.get('purpose') ?? ''} ${headers.get('sec-purpose') ?? ''}`;
+  return /\bprefetch\b/i.test(purpose);
+}

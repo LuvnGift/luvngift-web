@@ -84,6 +84,10 @@ export default function AdminClientLayout({ children }: { children: React.ReactN
           <Link
             key={item.href}
             href={item.href}
+            // No prefetch: 17 links prefetched at once is what raced the
+            // single-use refresh token (see isPrefetchRequest). The pages are
+            // client-rendered, so prefetching saved little.
+            prefetch={false}
             onClick={() => setSidebarOpen(false)}
             className={cn(
               'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
