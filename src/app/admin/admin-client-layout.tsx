@@ -33,6 +33,7 @@ import { useLogout } from '@/hooks/use-auth';
 import { cn } from '@/lib/utils';
 import { ADMIN_PROFILE_PATH } from '@/lib/auth-redirect';
 import { useAdminOrderActivity } from '@/hooks/use-order-live';
+import { useAdminChatAlerts } from '@/hooks/use-admin-chat-live';
 
 const NAV_ITEMS = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
@@ -64,6 +65,12 @@ export default function AdminClientLayout({ children }: { children: React.ReactN
   );
   useAdminOrderActivity(openOrder);
   const pathname = usePathname();
+  // A customer's chat message alerts on every admin page but the chat itself.
+  const openChat = useCallback(
+    (sessionId: string) => router.push(`/admin/chat?session=${sessionId}`),
+    [router],
+  );
+  useAdminChatAlerts(openChat, pathname.startsWith('/admin/chat'));
   const { mutate: logout } = useLogout();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 

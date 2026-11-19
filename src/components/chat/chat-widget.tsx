@@ -11,13 +11,14 @@ import {
   useSendChatMessage,
   useStartChat,
   useChatSocket,
-  useResumeGuestChat,
+  useResumeChat,
   useEscalateChat,
+  type ResumedChat,
 } from '@/hooks/use-chat';
 import { ChatMessageRole } from '@luvngift/shared';
 import type { ChatMessage } from '@luvngift/shared';
 import { cn } from '@/lib/utils';
-import { clearGuestChat } from '@/lib/guest-chat';
+import { clearGuestChat, clearUserChat, writeUserChat } from '@/lib/guest-chat';
 
 /**
  * Support chat, available without an account.
@@ -35,6 +36,11 @@ import { clearGuestChat } from '@/lib/guest-chat';
  */
 
 type Stage = 'chat' | 'contact' | 'handed-over';
+
+/** The panel is open and the tab is in front: the only time a reply counts as seen. */
+function isConversationInView(isOpen: boolean): boolean {
+  return isOpen && typeof document !== 'undefined' && document.visibilityState === 'visible';
+}
 
 /**
  * Admin accounts answer chats from /admin/chat; one started from the widget
@@ -55,20 +61,74 @@ function ChatWidgetPanel() {
   const [contact, setContact] = useState({ name: '', email: '' });
   const [contactError, setContactError] = useState<string | null>(null);
   const [confirmingClose, setConfirmingClose] = useState(false);
+  /** Agent replies that arrived while the panel was closed or the tab hidden. */
+  const [unread, setUnread] = useState(0);
+  const isOpenRef = useRef(false);
+  /** The page-load resume, so opening the panel mid-flight does not start a second chat. */
+  const resumeRef = useRef<Promise<ResumedChat | null> | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const { user } = useAuthStore();
   const { mutateAsync: startChat, isPending: starting } = useStartChat();
   const { mutateAsync: sendMessage, isPending: sending } = useSendChatMessage();
-  const { mutateAsync: resumeGuestChat } = useResumeGuestChat();
+  const { mutateAsync: resumeChat } = useResumeChat();
+  const userId = user?.id ?? null;
   const { mutateAsync: escalate, isPending: escalating } = useEscalateChat();
 
   const handleIncomingMessage = useCallback((msg: ChatMessage) => {
     setMessages((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]));
+    if (msg.role === ChatMessageRole.AGENT && !isConversationInView(isOpenRef.current)) {
+      setUnread((n) => n + 1);
+    }
   }, []);
 
-  useChatSocket(sessionId, handleIncomingMessage, guestKey);
+  const { markSeen, joined } = useChatSocket(sessionId, handleIncomingMessage, guestKey);
+
+  useEffect(() => {
+    isOpenRef.current = isOpen;
+  }, [isOpen]);
+
+  /**
+   * Reports the agent's replies as seen, which is what stops them being
+   * emailed. Only while the panel is open AND the tab is visible: a reply
+   * sitting in a background tab has not been read.
+   */
+  useEffect(() => {
+    if (!joined) return;
+    const report = () => {
+      if (!isConversationInView(isOpenRef.current)) return;
+      setUnread(0);
+      if (messages.some((m) => m.role === ChatMessageRole.AGENT)) markSeen();
+    };
+    report();
+    document.addEventListener('visibilitychange', report);
+    return () => document.removeEventListener('visibilitychange', report);
+  }, [joined, isOpen, messages, markSeen]);
+
+  const applyResumed = useCallback((resumed: ResumedChat) => {
+    setSessionId(resumed.session.sessionId);
+    setGuestKey(resumed.session.guestKey);
+    setMessages(resumed.messages);
+    setUnread(resumed.unread);
+    setStage(resumed.isEscalated ? 'handed-over' : 'chat');
+  }, []);
+
+  /**
+   * Picks the stored conversation back up on page load, not on first open, so
+   * the socket is in the room and an agent's reply arrives live (with a dot on
+   * the closed bubble) instead of waiting for the email fallback.
+   */
+  useEffect(() => {
+    if (sessionId) return;
+    const pending = resumeChat({ userId });
+    resumeRef.current = pending;
+    void pending.then((resumed) => {
+      if (resumed && resumeRef.current === pending) applyResumed(resumed);
+    });
+    // Re-run only when who is signed in changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -79,20 +139,15 @@ function ChatWidgetPanel() {
     : 'Hi! Ask me anything about our gifts, delivery to Nigeria, or how it all works. I can get a person for you at any point.';
 
   const begin = useCallback(async () => {
-    // A returning guest keeps their thread. Signed-in users get a fresh session,
-    // as before — their history lives in their account.
-    if (!user) {
-      const resumed = await resumeGuestChat();
-      if (resumed) {
-        setSessionId(resumed.session.sessionId);
-        setGuestKey(resumed.session.guestKey);
-        setMessages(resumed.messages);
-        if (resumed.isEscalated) setStage('handed-over');
-        return;
-      }
+    // A returning visitor keeps their open thread, signed in or not.
+    const resumed = await (resumeRef.current ?? resumeChat({ userId }));
+    if (resumed) {
+      applyResumed(resumed);
+      return;
     }
     try {
       const started = await startChat();
+      if (userId) writeUserChat(userId, started.sessionId);
       setSessionId(started.sessionId);
       setGuestKey(started.guestKey);
       setMessages([
@@ -116,7 +171,7 @@ function ChatWidgetPanel() {
         } as ChatMessage,
       ]);
     }
-  }, [user, resumeGuestChat, startChat, greeting]);
+  }, [userId, resumeChat, applyResumed, startChat, greeting]);
 
   const openChat = useCallback(async () => {
     setIsOpen(true);
@@ -130,6 +185,18 @@ function ChatWidgetPanel() {
     window.addEventListener('chat:open', handler);
     return () => window.removeEventListener('chat:open', handler);
   }, [openChat]);
+
+  // The unseen-reply email links to `/?chat=open`. Read once, then dropped from
+  // the address bar so a reload does not pop the panel open again.
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (url.searchParams.get('chat') !== 'open') return;
+    url.searchParams.delete('chat');
+    window.history.replaceState(window.history.state, '', url.toString());
+    void openChat();
+    // Mount only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function handleSend() {
     if (!input.trim() || !sessionId) return;
@@ -186,6 +253,9 @@ function ChatWidgetPanel() {
 
   function endChat() {
     clearGuestChat();
+    clearUserChat();
+    resumeRef.current = null;
+    setUnread(0);
     setSessionId(null);
     setGuestKey(null);
     setMessages([]);
@@ -226,9 +296,14 @@ function ChatWidgetPanel() {
         <button
           onClick={() => void openChat()}
           className="fixed bottom-6 right-6 z-50 print:hidden flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-colors hover:bg-primary/90"
-          aria-label="Chat with us"
+          aria-label={unread > 0 ? `Chat with us, ${unread} new from the team` : 'Chat with us'}
         >
           <MessageCircle className="h-6 w-6" />
+          {unread > 0 && (
+            <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-green-600 px-1 text-[11px] font-semibold text-white ring-2 ring-background">
+              {unread}
+            </span>
+          )}
         </button>
       )}
 
@@ -309,8 +384,8 @@ function ChatWidgetPanel() {
               <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-xs text-green-900">
                 A member of the team has been alerted.{' '}
                 {user
-                  ? 'They will reply here, and by email if you have closed this.'
-                  : `We will reply to ${contact.email || 'your email'} — you can close this window safely.`}
+                  ? 'They will reply here. If you have left by then, we will email you the reply.'
+                  : `They will reply here. If you have left by then, we will email ${contact.email || 'you'} — you can close this window safely.`}
               </div>
             )}
 

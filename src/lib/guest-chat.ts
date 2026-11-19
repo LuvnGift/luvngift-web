@@ -47,3 +47,41 @@ export function clearGuestChat(): void {
     /* nothing to do */
   }
 }
+
+/**
+ * A signed-in customer's open conversation, so it survives a reload or a new
+ * visit. It used to be dropped on every page load, which meant an agent's reply
+ * to someone who had left could only ever reach them by email.
+ *
+ * Only a pointer: the session id is no credential (reading it needs the
+ * account's cookie). Tied to the user id so a shared browser never offers one
+ * person's conversation to another.
+ */
+const USER_KEY = 'luvngift.userChat';
+
+export function readUserChat(userId: string): string | null {
+  try {
+    const raw = localStorage.getItem(USER_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { sessionId?: string; userId?: string };
+    return parsed?.userId === userId && parsed.sessionId ? parsed.sessionId : null;
+  } catch {
+    return null;
+  }
+}
+
+export function writeUserChat(userId: string, sessionId: string): void {
+  try {
+    localStorage.setItem(USER_KEY, JSON.stringify({ userId, sessionId }));
+  } catch {
+    /* blocked storage: the chat works, it just will not be resumed */
+  }
+}
+
+export function clearUserChat(): void {
+  try {
+    localStorage.removeItem(USER_KEY);
+  } catch {
+    /* nothing to do */
+  }
+}
