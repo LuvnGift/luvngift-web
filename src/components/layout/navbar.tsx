@@ -12,6 +12,8 @@ import { useAuthStore } from '@/store/auth.store';
 import { useLogout, useMe } from '@/hooks/use-auth';
 import { cn } from '@/lib/utils';
 import { AdminPreviewBanner } from '@/components/layout/admin-preview';
+import { isStaffRole } from '@luvngift/shared';
+import { homeForRole } from '@/lib/auth-redirect';
 
 // `protected` links require auth. They are hidden from the nav while logged out,
 // so Next.js never prefetches (and caches) a redirect-to-login for them — which
@@ -26,9 +28,10 @@ const customerLinks = [
   { href: '/account/subscriptions', label: 'My Subscriptions', icon: CalendarHeart, protected: true },
 ];
 
-const adminLinks = [
+/** Admin and staff accounts: the store (as a preview) and their own dashboard. */
+const staffLinks = (dashboard: string) => [
   { href: '/', label: 'Home', icon: Home, protected: false },
-  { href: '/admin', label: 'Dashboard', icon: LayoutDashboard, protected: true },
+  { href: dashboard, label: 'Dashboard', icon: LayoutDashboard, protected: true },
 ];
 
 export function Navbar() {
@@ -47,9 +50,11 @@ export function Navbar() {
   }, []);
 
   const showAuthed = mounted && isAuthenticated;
-  const isAdmin = showAuthed && user?.role === 'ADMIN';
+  // Admin and staff alike: no shopping, and a dashboard of their own.
+  const isAdmin = showAuthed && isStaffRole(user?.role);
+  const dashboard = homeForRole(user?.role);
   // Hide protected links (e.g. My Orders) until we know the user is signed in.
-  const navLinks = (isAdmin ? adminLinks : customerLinks).filter(
+  const navLinks = (isAdmin ? staffLinks(dashboard) : customerLinks).filter(
     (link) => !link.protected || showAuthed,
   );
 
@@ -66,7 +71,7 @@ export function Navbar() {
 		<header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
 			<div className="container mx-auto flex h-16 items-center justify-between px-4">
 				{/* Brand */}
-				<Link href={isAdmin ? "/admin" : "/"} className="flex items-center gap-1">
+				<Link href={isAdmin ? dashboard : "/"} className="flex items-center gap-1">
 					<Image src="/images/luvngift.png" alt="Luvngift" width={48} height={48} priority className="object-contain" />
 					<span className="text-lg font-bold tracking-tight text-foreground leading-none">
 						Luv<span className="text-primary">N</span>gift
@@ -121,7 +126,7 @@ export function Navbar() {
 				</button>
 			</div>
 
-			{isAdmin && <AdminPreviewBanner />}
+			{isAdmin && <AdminPreviewBanner href={dashboard} />}
 
 			{/* Mobile menu */}
 			{mobileOpen && (

@@ -3,7 +3,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
-import type { OrderConversation } from '@luvngift/shared';
+import type { OrderConversation, StaffPermission } from '@luvngift/shared';
+
+/** The body of PATCH /admin/users/:id/role (shared `updateUserAccessSchema`). */
+export type UserAccessChange =
+  | { role: 'CUSTOMER' | 'ADMIN' }
+  | { role: 'STAFF'; permissions: StaffPermission[]; title: string };
 import type { OrderListParams, OrderTab } from '@/lib/admin-order-tabs';
 import type { SubscriptionInterval as Interval } from '@luvngift/shared';
 import type { input } from 'zod';
@@ -211,9 +216,11 @@ export interface AdminUser {
   id: string;
   username: string;
   email: string;
-  role?: 'ADMIN' | 'CUSTOMER';
+  role?: 'ADMIN' | 'CUSTOMER' | 'STAFF';
   emailVerified: boolean;
   twoFactorEnabled?: boolean;
+  staffPermissions?: StaffPermission[];
+  staffTitle?: string | null;
   createdAt: string;
 }
 
@@ -236,7 +243,7 @@ export const useLookupUserByEmail = () =>
   });
 
 /**
- * Promote to ADMIN or demote to CUSTOMER.
+ * Grant admin or staff access, or return an account to CUSTOMER.
  *
  * The API refuses self-demotion and removing the last admin; both would lock
  * everyone out of the dashboard. Surface its message rather than a generic one,
@@ -245,19 +252,19 @@ export const useLookupUserByEmail = () =>
 export const useUpdateUserRole = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, role }: { id: string; role: 'ADMIN' | 'CUSTOMER' }) =>
-      api.patch(`/api/v1/admin/users/${id}/role`, { role }).then((r) => r.data.data),
+    mutationFn: ({ id, ...access }: { id: string } & UserAccessChange) =>
+      api.patch(`/api/v1/admin/users/${id}/role`, access).then((r) => r.data.data),
     onSuccess: (user) => {
       qc.invalidateQueries({ queryKey: ['admin', 'users'] });
       qc.invalidateQueries({ queryKey: ['admin', 'admins'] });
-      toast.success(
-        user.role === 'ADMIN'
-          ? `${user.username} is now an admin`
-          : `${user.username} is no longer an admin`,
-      );
+      const message =
+        user.role === 'ADMIN' ? `${user.username} is now an admin`
+        : user.role === 'STAFF' ? `${user.username} now has staff access as ${user.staffTitle}`
+        : `${user.username} no longer has team access`;
+      toast.success(message);
     },
     onError: (err: any) =>
-      toast.error(err?.response?.data?.error?.message ?? 'Could not change that user’s role'),
+      toast.error(err?.response?.data?.error?.message ?? 'Could not change that user’s access'),
   });
 };
 

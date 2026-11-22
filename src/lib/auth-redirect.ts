@@ -55,6 +55,42 @@ export function adminRedirectFor(pathname: string): string | null {
   return match ? match[1] : null;
 }
 
+/** A staff member's own profile (2FA, password), inside the ops dashboard. */
+export const STAFF_PROFILE_PATH = '/ops/profile';
+
+/**
+ * Where a STAFF account requesting `pathname` is sent instead. Staff cannot
+ * shop either, and have no admin dashboard: their home is /ops.
+ */
+const STAFF_REDIRECTS: Array<[section: string, destination: string]> = [
+  ['/admin', '/ops'],
+  ['/account', STAFF_PROFILE_PATH],
+  ['/orders', '/ops/orders'],
+  ['/setup-location', '/ops'],
+];
+
+export function staffRedirectFor(pathname: string): string | null {
+  const match = STAFF_REDIRECTS.find(([section]) => isInSection(pathname, section));
+  return match ? match[1] : null;
+}
+
+/** Where each kind of account lands by default (after sign-in, or away from a guest page). */
+export function homeForRole(role: string | null | undefined): string {
+  if (role === 'ADMIN') return '/admin';
+  if (role === 'STAFF') return '/ops';
+  return '/';
+}
+
+/**
+ * Which sections a role may enter, for the session-refresh route: it must never
+ * send someone back into a section their role is refused from (that loops).
+ */
+export function destinationForRole(next: string, role: string): string {
+  if (isInSection(next, '/admin') && role !== 'ADMIN') return homeForRole(role);
+  if (isInSection(next, '/ops') && role !== 'ADMIN' && role !== 'STAFF') return '/';
+  return next;
+}
+
 /**
  * True when the request is a speculative prefetch rather than a navigation:
  * the App Router's `<Link>` prefetch (`next-router-prefetch`) or a browser /

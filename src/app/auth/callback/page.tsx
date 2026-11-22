@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth.store';
 import { Spinner } from '@/components/ui/spinner';
 import { api } from '@/lib/api';
+import { homeForRole } from '@/lib/auth-redirect';
 
 export default function AuthCallbackPage() {
   const router = useRouter();
@@ -32,7 +33,7 @@ export default function AuthCallbackPage() {
         setUser(user);
 
         // Fresh page load (OAuth redirect) so the Router Cache is already empty.
-        router.replace(user.role === 'ADMIN' ? '/admin' : '/');
+        router.replace(homeForRole(user.role));
       } catch {
         router.replace('/login?error=oauth_failed');
       }

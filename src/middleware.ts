@@ -1,6 +1,14 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { adminRedirectFor, isInSection, isPrefetchRequest, safeNextPath, sessionRefreshUrl } from '@/lib/auth-redirect';
+import {
+  adminRedirectFor,
+  homeForRole,
+  isInSection,
+  isPrefetchRequest,
+  safeNextPath,
+  sessionRefreshUrl,
+  staffRedirectFor,
+} from '@/lib/auth-redirect';
 import { isStaging } from '@/lib/app-env';
 
 // Routes that require the user to be logged in.
@@ -12,6 +20,8 @@ const AUTH_REQUIRED = ['/orders', '/account', '/setup-location'];
 const GUEST_ONLY = ['/login', '/register', '/verify-email', '/forgot-password', '/reset-password', '/2fa'];
 // Routes that require admin role
 const ADMIN_ONLY = ['/admin'];
+// The ops dashboard: STAFF and ADMIN
+const STAFF_ONLY = ['/ops'];
 
 /**
  * Reads the `session` hint cookie. It is only a hint — it lives 7 days and is
@@ -57,7 +67,7 @@ function authRedirect(request: NextRequest) {
 
   if (isAuth && GUEST_ONLY.some((p) => isInSection(pathname, p))) {
     // Honour ?redirect= so a re-login lands on the page an alert email linked to.
-    const fallback = role === 'ADMIN' ? '/admin' : '/';
+    const fallback = homeForRole(role);
     const dest = safeNextPath(request.nextUrl.searchParams.get('redirect'), fallback);
     return NextResponse.redirect(new URL(dest, request.url));
   }
@@ -67,14 +77,20 @@ function authRedirect(request: NextRequest) {
   // itself stays viewable as a preview.
   const adminDestination = isAuth && role === 'ADMIN' ? adminRedirectFor(pathname) : null;
   if (adminDestination) return NextResponse.redirect(new URL(adminDestination, request.url));
+  // Staff: the same, plus /admin sends them to their own dashboard.
+  const staffDestination = isAuth && role === 'STAFF' ? staffRedirectFor(pathname) : null;
+  if (staffDestination) return NextResponse.redirect(new URL(staffDestination, request.url));
 
   if (!isAuth && AUTH_REQUIRED.some((p) => isInSection(pathname, p))) {
     return loginRedirect(request, pathname);
   }
 
-  if (ADMIN_ONLY.some((p) => isInSection(pathname, p))) {
+  const inAdmin = ADMIN_ONLY.some((p) => isInSection(pathname, p));
+  const inOps = STAFF_ONLY.some((p) => isInSection(pathname, p));
+  if (inAdmin || inOps) {
     if (!isAuth) return loginRedirect(request, pathname + search);
-    if (role !== 'ADMIN') return NextResponse.redirect(new URL('/', request.url));
+    const allowed = inAdmin ? role === 'ADMIN' : role === 'ADMIN' || role === 'STAFF';
+    if (!allowed) return NextResponse.redirect(new URL('/', request.url));
     if (!request.cookies.get('accessToken')?.value) {
       // A prefetch gets an uncacheable empty answer, never a renewal: parallel
       // prefetches raced the single-use refresh token and the losers were

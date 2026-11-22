@@ -12,6 +12,8 @@ import {
 } from '@/hooks/use-admin';
 import { useMe } from '@/hooks/use-auth';
 import { ADMIN_PROFILE_PATH } from '@/lib/auth-redirect';
+import { STAFF_PERMISSION_LABELS } from '@luvngift/shared';
+import { StaffAccessForm, type StaffAccessValue } from './staff-access-form';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,6 +31,9 @@ import { ShieldCheck, ShieldMinus, Search, AlertTriangle, CheckCircle, XCircle, 
  * to, and only then grant. That ordering exists so the consequential step is
  * never one stray click away, and so you cannot promote the wrong person by
  * misreading a row in a long table.
+ *
+ * The same flow grants STAFF access (e.g. the Country Brand Manager): a title
+ * and a set of permission switches for the ops dashboard, nothing in here.
  */
 export default function AdminAccessPage() {
   const { data: admins, isLoading } = useAdmins();
@@ -39,31 +44,48 @@ export default function AdminAccessPage() {
 
   const [email, setEmail] = useState('');
   const [found, setFound] = useState<AdminUser | null>(null);
+  const [grantingStaff, setGrantingStaff] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   function search(e: React.FormEvent) {
     e.preventDefault();
     if (!email.trim()) return;
     setFound(null);
+    setGrantingStaff(false);
     lookup.mutate(email.trim(), { onSuccess: setFound });
+  }
+
+  const reset = () => {
+    setFound(null);
+    setEmail('');
+    setGrantingStaff(false);
+  };
+
+  function grantStaff(value: StaffAccessValue) {
+    if (!found) return;
+    updateRole.mutate({ id: found.id, role: 'STAFF', ...value }, { onSuccess: reset });
+  }
+
+  function editStaff(member: AdminUser, value: StaffAccessValue) {
+    updateRole.mutate(
+      { id: member.id, role: 'STAFF', ...value },
+      { onSuccess: () => setEditingId(null) },
+    );
   }
 
   function grant() {
     if (!found) return;
     updateRole.mutate(
       { id: found.id, role: 'ADMIN' },
-      {
-        onSuccess: () => {
-          setFound(null);
-          setEmail('');
-        },
-      },
+      { onSuccess: reset },
     );
   }
 
   function revoke(admin: AdminUser) {
+    const kind = admin.role === 'STAFF' ? 'staff' : 'admin';
     const message =
-      `Remove admin access from "${admin.username}" (${admin.email})? ` +
-      'They will become a normal customer and lose access to this dashboard.';
+      `Remove ${kind} access from "${admin.username}" (${admin.email})? ` +
+      'They will become a normal customer, lose access straight away and be signed out.';
     if (!confirm(message)) return;
     updateRole.mutate({ id: admin.id, role: 'CUSTOMER' });
   }
@@ -74,10 +96,11 @@ export default function AdminAccessPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Admin access</h1>
+        <h1 className="text-2xl font-bold">Admin and staff access</h1>
         <p className="text-muted-foreground text-sm">
-          Grant or remove access to this dashboard. Admins can see every order, issue refunds,
-          read customer data and change settings.
+          Grant or remove team access. Admins can see every order, issue refunds, read customer
+          data and change settings. Staff use the ops dashboard only, with the permissions you
+          give them.
         </p>
       </div>
 
@@ -104,7 +127,7 @@ export default function AdminAccessPage() {
       <Card>
         <CardContent className="space-y-4 p-6">
           <div>
-            <h2 className="font-semibold">Grant admin access</h2>
+            <h2 className="font-semibold">Grant access</h2>
             <p className="text-muted-foreground text-sm">
               Enter the exact email address of an existing account. They must have registered
               and verified their email first.
@@ -163,11 +186,36 @@ export default function AdminAccessPage() {
                     )}
                   </div>
                 </div>
-                <Button onClick={grant} disabled={updateRole.isPending || alreadyAdmin || unverified}>
-                  <ShieldCheck className="mr-2 h-4 w-4" />
-                  {updateRole.isPending ? 'Granting…' : 'Grant admin access'}
-                </Button>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => setGrantingStaff(true)}
+                    disabled={updateRole.isPending || unverified || found.role !== 'CUSTOMER'}
+                  >
+                    Give staff access
+                  </Button>
+                  <Button onClick={grant} disabled={updateRole.isPending || alreadyAdmin || unverified}>
+                    <ShieldCheck className="mr-2 h-4 w-4" />
+                    {updateRole.isPending ? 'Granting…' : 'Grant admin access'}
+                  </Button>
+                </div>
               </div>
+
+              {grantingStaff && (
+                <div className="mt-4 border-t pt-4">
+                  <StaffAccessForm
+                    submitLabel="Give staff access"
+                    pending={updateRole.isPending}
+                    onSubmit={grantStaff}
+                    onCancel={() => setGrantingStaff(false)}
+                  />
+                </div>
+              )}
+              {found.role === 'STAFF' && (
+                <p className="text-muted-foreground mt-3 text-sm">
+                  This account already has staff access. Change it under Current team below.
+                </p>
+              )}
 
               {alreadyAdmin && (
                 <p className="text-muted-foreground mt-3 text-sm">
@@ -178,7 +226,7 @@ export default function AdminAccessPage() {
                 <p className="mt-3 flex gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
                   <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                   This person has not verified their email address. Until they do, the account
-                  cannot be given admin access — anyone could have signed up with an address
+                  cannot be given admin or staff access — anyone could have signed up with an address
                   they do not control.
                 </p>
               )}
@@ -189,9 +237,9 @@ export default function AdminAccessPage() {
 
       <Card>
         <CardContent className="p-6">
-          <h2 className="font-semibold">Current admins</h2>
+          <h2 className="font-semibold">Current team</h2>
           <p className="text-muted-foreground mb-4 text-sm">
-            Everyone with access to this dashboard.
+            Everyone with admin or staff access.
           </p>
 
           {isLoading ? (
@@ -211,10 +259,36 @@ export default function AdminAccessPage() {
                       )}
                     </p>
                     <p className="text-muted-foreground text-sm">{admin.email}</p>
-                    {!admin.twoFactorEnabled && (
-                      <p className="mt-1 flex items-center gap-1 text-xs text-amber-700">
-                        <ShieldAlert className="h-3 w-3" /> No 2FA
-                      </p>
+                    <div className="mt-1 flex flex-wrap items-center gap-2">
+                      <Badge variant={admin.role === 'ADMIN' ? 'default' : 'secondary'}>
+                        {admin.role === 'STAFF' ? (admin.staffTitle ?? 'Staff') : 'Admin'}
+                      </Badge>
+                      {!admin.twoFactorEnabled && (
+                        <span className="flex items-center gap-1 text-xs text-amber-700">
+                          <ShieldAlert className="h-3 w-3" />
+                          {admin.role === 'STAFF'
+                            ? 'No 2FA: the ops dashboard stays locked until they turn it on'
+                            : 'No 2FA'}
+                        </span>
+                      )}
+                    </div>
+                    {admin.role === 'STAFF' && (
+                      <ul className="text-muted-foreground mt-2 list-disc pl-5 text-xs">
+                        {(admin.staffPermissions ?? []).map((p) => (
+                          <li key={p}>{STAFF_PERMISSION_LABELS[p]}</li>
+                        ))}
+                      </ul>
+                    )}
+                    {editingId === admin.id && (
+                      <div className="mt-4 max-w-xl">
+                        <StaffAccessForm
+                          initial={{ title: admin.staffTitle ?? '', permissions: admin.staffPermissions ?? [] }}
+                          submitLabel="Save access"
+                          pending={updateRole.isPending}
+                          onSubmit={(v) => editStaff(admin, v)}
+                          onCancel={() => setEditingId(null)}
+                        />
+                      </div>
                     )}
                   </div>
                   {me?.id === admin.id ? (
@@ -222,6 +296,12 @@ export default function AdminAccessPage() {
                       You cannot change your own access
                     </span>
                   ) : (
+                    <div className="flex gap-2">
+                      {admin.role === 'STAFF' && editingId !== admin.id && (
+                        <Button variant="outline" size="sm" onClick={() => setEditingId(admin.id)}>
+                          Edit access
+                        </Button>
+                      )}
                     <Button
                       variant="outline"
                       size="sm"
@@ -232,6 +312,7 @@ export default function AdminAccessPage() {
                       <ShieldMinus className="mr-1 h-3 w-3" />
                       Remove access
                     </Button>
+                    </div>
                   )}
                 </div>
               ))}
@@ -240,8 +321,8 @@ export default function AdminAccessPage() {
 
           <Separator className="my-4" />
           <p className="text-muted-foreground text-xs">
-            The last remaining admin cannot be removed, and you cannot change your own role —
-            either would lock everyone out of this dashboard.
+            The last remaining admin cannot be removed, and you cannot change your own access —
+            either would lock everyone out of this dashboard. Every change signs that person out.
           </p>
         </CardContent>
       </Card>

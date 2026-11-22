@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { useFulfilmentBoard, type FulfilmentBoard, type FulfilmentProblemKind } from '@/hooks/use-admin';
 import { shortDate } from '../subscriptions/labels';
+import { OpenFlagsCard } from '@/components/ops/open-flags-card';
 
 const HORIZONS = [7, 14, 31];
 
@@ -47,6 +48,7 @@ export default function FulfilmentBoardPage() {
         <div className="flex justify-center py-16"><Spinner size="lg" /></div>
       ) : (
         <div className={`space-y-6 ${isFetching ? 'opacity-70' : ''}`}>
+          <OpenFlagsCard />
           <Problems board={data} />
           <VendorLists board={data} />
           <Upcoming board={data} />

@@ -1,5 +1,14 @@
 import { describe, it, expect } from 'vitest';
-import { adminRedirectFor, isInSection, isPrefetchRequest, safeNextPath, sessionRefreshUrl } from './auth-redirect';
+import {
+  adminRedirectFor,
+  destinationForRole,
+  homeForRole,
+  isInSection,
+  isPrefetchRequest,
+  safeNextPath,
+  sessionRefreshUrl,
+  staffRedirectFor,
+} from './auth-redirect';
 
 /**
  * `next` / `redirect` arrive in query strings, so these guard against open
@@ -94,3 +103,47 @@ describe('isPrefetchRequest', () => {
     expect(isPrefetchRequest(new Headers({ rsc: '1' }))).toBe(false);
   });
 });
+
+/**
+ * STAFF (e.g. the Country Brand Manager) live in /ops: no admin dashboard and
+ * no shopping. Each role must land somewhere it is allowed, or the layout
+ * rejects it and the refresh route loops.
+ */
+describe('staff routing', () => {
+  it.each([
+    ['/admin', '/ops'],
+    ['/admin/orders?order=x', '/ops'],
+    ['/account', '/ops/profile'],
+    ['/account/subscriptions', '/ops/profile'],
+    ['/orders/abc', '/ops/orders'],
+    ['/setup-location', '/ops'],
+  ])('sends staff from %s to %s', (from, to) => {
+    expect(staffRedirectFor(from.split('?')[0])).toBe(to);
+  });
+
+  it('lets staff browse the store and their own dashboard', () => {
+    for (const path of ['/', '/occasions', '/ops', '/ops/partners', '/account-deletion']) {
+      expect(staffRedirectFor(path)).toBeNull();
+    }
+  });
+
+  it('gives each role its home', () => {
+    expect(homeForRole('ADMIN')).toBe('/admin');
+    expect(homeForRole('STAFF')).toBe('/ops');
+    expect(homeForRole('CUSTOMER')).toBe('/');
+    expect(homeForRole(null)).toBe('/');
+  });
+
+  it.each([
+    ['/admin/orders', 'ADMIN', '/admin/orders'],
+    ['/admin/orders', 'STAFF', '/ops'],
+    ['/admin/orders', 'CUSTOMER', '/'],
+    ['/ops/orders', 'STAFF', '/ops/orders'],
+    ['/ops/orders', 'ADMIN', '/ops/orders'],
+    ['/ops/orders', 'CUSTOMER', '/'],
+    ['/occasions', 'CUSTOMER', '/occasions'],
+  ])('after a refresh, %s as %s goes to %s', (next, role, to) => {
+    expect(destinationForRole(next, role)).toBe(to);
+  });
+});
+

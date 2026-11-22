@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { api } from '@/lib/api';
+import { homeForRole } from '@/lib/auth-redirect';
 import { useAuthStore } from '@/store/auth.store';
 import { toast } from 'sonner';
 import { ShieldCheck } from 'lucide-react';
@@ -40,7 +41,7 @@ export default function TwoFactorPage() {
 
       // Clear the Router Cache then soft-navigate (keeps SPA state). Protected
       // links use prefetch={false} so no redirect-to-login is cached pre-login.
-      const defaultRoute = user?.role === 'ADMIN' ? '/admin' : '/';
+      const defaultRoute = homeForRole(user?.role);
       router.refresh();
       router.push(defaultRoute);
     } catch (err: any) {

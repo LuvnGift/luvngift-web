@@ -8,10 +8,17 @@ import { GET } from './route';
  * full load of an /admin page during a deploy or cold start.
  */
 
-const request = (cookie = 'refreshToken=rt_1') =>
-  new NextRequest('https://luvngift.test/api/auth/session?next=/admin/orders', {
+const request = (cookie = 'refreshToken=rt_1', next = '/admin/orders') =>
+  new NextRequest(`https://luvngift.test/api/auth/session?next=${encodeURIComponent(next)}`, {
     headers: { cookie },
   });
+
+/** Refresh succeeds, then /users/me answers with this role. */
+const refreshedAs = (role: string) =>
+  vi
+    .fn()
+    .mockResolvedValueOnce(json(200, { data: { accessToken: 'at_2' } }))
+    .mockResolvedValueOnce(json(200, { data: { role } }));
 
 const json = (status: number, body: unknown, headers: Record<string, string> = {}) =>
   new Response(JSON.stringify(body), { status, headers });
@@ -68,6 +75,24 @@ describe('GET /api/auth/session', () => {
       .mockResolvedValueOnce(json(200, { data: { role: 'CUSTOMER' } }));
     vi.stubGlobal('fetch', fetch);
     const res = await GET(request());
+    expect(new URL(res.headers.get('location')!).pathname).toBe('/');
+  });
+
+  it('sends staff to their own dashboard instead of back into /admin', async () => {
+    vi.stubGlobal('fetch', refreshedAs('STAFF'));
+    const res = await GET(request());
+    expect(new URL(res.headers.get('location')!).pathname).toBe('/ops');
+  });
+
+  it.each(['STAFF', 'ADMIN'])('lets %s back into /ops', async (role) => {
+    vi.stubGlobal('fetch', refreshedAs(role));
+    const res = await GET(request('refreshToken=rt_1', '/ops/orders'));
+    expect(new URL(res.headers.get('location')!).pathname).toBe('/ops/orders');
+  });
+
+  it('sends a customer home instead of into /ops', async () => {
+    vi.stubGlobal('fetch', refreshedAs('CUSTOMER'));
+    const res = await GET(request('refreshToken=rt_1', '/ops'));
     expect(new URL(res.headers.get('location')!).pathname).toBe('/');
   });
 });

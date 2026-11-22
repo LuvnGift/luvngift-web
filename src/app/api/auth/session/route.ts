@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { safeNextPath } from '@/lib/auth-redirect';
+import { destinationForRole, safeNextPath } from '@/lib/auth-redirect';
 import { isTransientStatus, sessionFetch } from '@/lib/api-fetch';
 
 /**
@@ -46,11 +46,13 @@ export async function GET(req: NextRequest) {
   if (!refreshed) return signedOut(req, next);
 
   let destination = next;
-  // A valid customer session (or a demoted admin) must not be sent back into
-  // /admin, where the layout would reject it again. If the role cannot be
-  // checked, go on: the admin layout checks again and shows its error page.
-  if (next.startsWith('/admin') && (await isAdmin(refreshed.accessToken)) === false) {
-    destination = '/';
+  // A valid session must not be sent back into a section its role is refused
+  // from (a customer or demoted admin into /admin, a customer into /ops), where
+  // the layout would reject it again. If the role cannot be checked, go on:
+  // the layout checks again and shows its error page.
+  if (next.startsWith('/admin') || next.startsWith('/ops')) {
+    const role = await roleOf(refreshed.accessToken);
+    if (role !== UNAVAILABLE) destination = destinationForRole(next, role ?? 'CUSTOMER');
   }
 
   const res = NextResponse.redirect(new URL(destination, req.url));
@@ -81,16 +83,16 @@ async function refresh(
   }
 }
 
-/** true / false from the API, or UNAVAILABLE when it could not say. */
-async function isAdmin(accessToken: string): Promise<boolean | typeof UNAVAILABLE> {
+/** The account's role from the API, null when the token is refused, or UNAVAILABLE. */
+async function roleOf(accessToken: string): Promise<string | null | typeof UNAVAILABLE> {
   try {
     const res = await sessionFetch(`${API_URL}/api/v1/users/me`, {
       headers: { authorization: `Bearer ${accessToken}` },
     });
     if (isTransientStatus(res.status)) return UNAVAILABLE;
-    if (!res.ok) return false;
+    if (!res.ok) return null;
     const body = await res.json();
-    return body?.data?.role === 'ADMIN';
+    return typeof body?.data?.role === 'string' ? body.data.role : null;
   } catch {
     return UNAVAILABLE;
   }

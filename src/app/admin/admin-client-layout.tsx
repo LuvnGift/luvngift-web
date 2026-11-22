@@ -26,6 +26,7 @@ import {
   ClipboardList,
   Banknote,
   UserCog,
+  Compass,
 } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -51,7 +52,9 @@ const NAV_ITEMS = [
   { href: '/admin/reviews', label: 'Reviews', icon: Star },
   { href: '/admin/careers', label: 'Careers', icon: Briefcase },
   { href: '/admin/roadmap', label: 'Roadmap', icon: Map },
-  { href: '/admin/admin-access', label: 'Admin Access', icon: ShieldCheck },
+  { href: '/admin/admin-access', label: 'Team Access', icon: ShieldCheck },
+  // What staff see (the ops dashboard); admins can open it too.
+  { href: '/ops', label: 'Ops View', icon: Compass },
   { href: '/admin/maintenance', label: 'Maintenance', icon: Wrench },
   { href: '/admin/settings', label: 'Settings', icon: Settings },
 ];

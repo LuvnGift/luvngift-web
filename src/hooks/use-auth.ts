@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { api } from '@/lib/api';
+import { homeForRole } from '@/lib/auth-redirect';
 import { useAuthStore } from '@/store/auth.store';
 import { disconnectSocket } from '@/lib/socket';
 import type { LoginInput, RegisterInput } from '@luvngift/shared';
@@ -30,7 +31,7 @@ export const useLogin = (opts?: { onError?: (err: any) => void }) => {
         return;
       }
       setUser(data.user);
-      const defaultRoute = data.user?.role === 'ADMIN' ? '/admin' : '/';
+      const defaultRoute = homeForRole(data.user?.role);
       const redirect = safeRedirect(searchParams.get('redirect'), defaultRoute);
       // Soft navigation keeps SPA state. Safe now that no protected-route link is
       // rendered (and prefetched) while logged out: /custom is public and

@@ -30,6 +30,7 @@ import {
 } from '@/lib/admin-order-tabs';
 import { VendorLinkSection } from './vendor-link-section';
 import { PartnersSection } from './partners-section';
+import { OrderOpsNotes } from './order-ops-notes';
 import { useOrderFulfilment } from '@/hooks/use-partners';
 import { RefundSection } from './refund-section';
 import { CustomOrderSection, customOrderStatusBlock } from './custom-order-section';
@@ -426,6 +427,9 @@ function OrderDetailModal({ orderId, onClose }: { orderId: string; onClose: () =
 
             {/* Partner lines per role, payouts, receipts, recipient confirmation, ratings */}
             <PartnersSection orderId={order.id} />
+
+            {/* Notes and flags from the ops dashboard (staff on the ground). */}
+            <OrderOpsNotes orderId={order.id} />
 
             {/* Personal message + admin notes */}
             {(order.personalMessage || order.adminNotes) && (
