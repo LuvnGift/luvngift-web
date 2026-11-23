@@ -19,4 +19,4 @@ allowBuilds:
 # ("max version is 4.0.0") until someone added it here.
 
 minimumReleaseAgeExclude:
-  - '@luvngift/shared@4.1.0'
+  - '@luvngift/shared@4.1.0 || 4.2.0'
