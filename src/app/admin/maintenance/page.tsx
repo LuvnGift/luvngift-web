@@ -62,6 +62,12 @@ const TASKS: Record<MaintenanceTask, { title: string; when: string; what: string
     what: "Creates the next delivery order for each paid annual subscription whose date has come round. A missed run catches up on the next one and never repeats a delivery.",
     promise: 'Fulfilment',
   },
+  'reviews:request-emails': {
+    title: 'Review requests',
+    when: 'Every day at 15:00 UTC',
+    what: 'Emails each buyer once, 2 to 14 days after their order was delivered, asking them to rate it. A subscription is asked about its first delivery only. No reward is offered.',
+    promise: 'Customer reviews',
+  },
   'refunds:timeliness': {
     title: 'Refund deadline check',
     when: 'Weekdays at 13:00 UTC',
@@ -95,6 +101,7 @@ const RESULT_LABELS: Record<string, string> = {
   failed: 'Failed (retried on the next run)',
   due: 'Due',
   sent: 'Emails sent',
+  skipped: 'Skipped (already asked)',
   made: 'Delivery orders created',
   overdueRequests: 'Overdue refund requests',
   stuckRefunds: 'Unsettled refunds',

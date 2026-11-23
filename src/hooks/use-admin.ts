@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
 import type { OrderConversation } from '@luvngift/shared';
+import type { AdminReview, AdminReviewStatusInput, PaginatedResponse, ReviewStatus } from '@luvngift/shared';
 import type { OrderListParams, OrderTab } from '@/lib/admin-order-tabs';
 import type { SubscriptionInterval as Interval } from '@luvngift/shared';
 import type { input } from 'zod';
@@ -504,26 +505,49 @@ export const useDeleteBundle = () => {
 };
 
 // ---------- Reviews ----------
-export const usePendingReviews = () =>
-  useQuery({
-    queryKey: ['admin', 'reviews'],
+// Moderation only: a review is rejected on a permitted ground, never for a low rating.
+const reviewError = (err: any, fallback: string) =>
+  toast.error(err?.response?.data?.error?.message ?? fallback);
+
+export const useAdminReviews = (status: ReviewStatus, page = 1) =>
+  useQuery<PaginatedResponse<AdminReview>>({
+    queryKey: ['admin', 'reviews', status, page],
     queryFn: () =>
-      api
-        .get('/api/v1/admin/reviews', { params: { page: 1, limit: 50 } })
-        .then((r) => r.data.data.data),
+      api.get('/api/v1/admin/reviews', { params: { status, page, limit: 20 } }).then((r) => r.data.data),
   });
 
-export const useModerateReview = () => {
+function useReviewMutation<V extends { id: string }>(
+  path: string,
+  body: (vars: V) => object,
+  success: string,
+) {
   const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, isModerated, adminResponse }: { id: string; isModerated: boolean; adminResponse?: string }) =>
-      api.patch(`/api/v1/admin/reviews/${id}/moderate`, { isModerated, adminResponse }).then((r) => r.data.data),
+  return useMutation<AdminReview, Error, V>({
+    mutationFn: (vars) => api.patch(`/api/v1/admin/reviews/${vars.id}/${path}`, body(vars)).then((r) => r.data.data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'reviews'] });
-      toast.success('Review moderated');
+      toast.success(success);
     },
+    onError: (err) => reviewError(err, 'The review could not be updated.'),
   });
-};
+}
+
+export const useSetReviewStatus = () =>
+  useReviewMutation<{ id: string } & AdminReviewStatusInput>(
+    'status',
+    ({ id: _id, ...body }) => body,
+    'Review updated',
+  );
+
+export const useSetReviewReply = () =>
+  useReviewMutation<{ id: string; reply: string | null }>('reply', ({ reply }) => ({ reply }), 'Reply saved');
+
+export const useSetReviewFeatured = () =>
+  useReviewMutation<{ id: string; featured: boolean }>(
+    'featured',
+    ({ featured }) => ({ featured }),
+    'Home page updated',
+  );
 
 // ---------- Vendor assignment ----------
 export const useAssignVendor = () => {
@@ -1643,7 +1667,8 @@ export type MaintenanceTask =
   | 'vendors:weekly-digest'
   | 'subscriptions:first-charge-reminders'
   | 'points:expiry-reminders'
-  | 'subscriptions:annual-deliveries';
+  | 'subscriptions:annual-deliveries'
+  | 'reviews:request-emails';
 
 export interface MaintenanceTaskStatus {
   task: MaintenanceTask;

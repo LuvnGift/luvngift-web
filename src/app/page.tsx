@@ -10,6 +10,7 @@ import { ChatWidget } from '@/components/chat/chat-widget';
 import { AddressBanner } from '@/components/layout/address-banner';
 import { FaqSection } from '@/components/seo/faq-section';
 import { BundleCard } from '@/components/bundles/bundle-card';
+import { FeaturedReviews } from '@/components/reviews/featured-reviews';
 import { CACHE_TAGS, CACHE_FALLBACK_SECONDS } from '@luvngift/shared';
 import { OccasionCard } from '@/components/occasions/occasion-card';
 import { GENERAL_FAQS } from '@/content/faqs';
@@ -255,6 +256,9 @@ export default async function HomePage() {
 						</div>
 					</div>
 				</section>
+
+				{/* Featured reviews: loaded in the browser, absent until one is featured. */}
+				<FeaturedReviews />
 
 				{/* FAQ */}
 				<section className="py-16 bg-background">

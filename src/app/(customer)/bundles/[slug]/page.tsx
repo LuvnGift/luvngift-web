@@ -10,6 +10,9 @@ import { formatDeliveryRange } from '@luvngift/shared';
 import { CACHE_TAGS, CACHE_FALLBACK_SECONDS } from '@luvngift/shared';
 import type { FAQ } from '@/content/faqs';
 import type { Bundle } from '@luvngift/shared';
+import { RatingSummary } from '@/components/reviews/rating-summary';
+import { BundleReviews } from '@/components/reviews/bundle-reviews';
+import { aggregateRatingFor } from '@/lib/review-jsonld';
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.luvngift.com';
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? '';
@@ -106,6 +109,8 @@ export default async function BundleDetailPage({ params }: Props) {
     image: bundle.images?.[0],
     url: `${BASE_URL}/bundles/${slug}`,
     brand: { '@type': 'Brand', name: 'Luvngift' },
+    // Present only once a review is approved; the same figures are on the page.
+    aggregateRating: aggregateRatingFor(bundle.rating),
     offers: {
       '@type': 'Offer',
       // Bundle prices are stored in the bundle's own currency (CAD/USD/GBP),
@@ -176,6 +181,8 @@ export default async function BundleDetailPage({ params }: Props) {
         <div className="space-y-5">
           <div>
             <h1 className="text-2xl font-bold mb-2">{bundle.name}</h1>
+            {/* From the bundle payload: no extra fetch on this prerendered page. */}
+            <RatingSummary rating={bundle.rating} href="#reviews" className="mb-2" />
             <p className="text-muted-foreground">{bundle.description}</p>
           </div>
 
@@ -222,6 +229,8 @@ export default async function BundleDetailPage({ params }: Props) {
           </div>
         </section>
       )}
+
+      <BundleReviews bundleId={bundle.id} rating={bundle.rating} />
 
       {bundle.faqs && bundle.faqs.length > 0 && (
         <FaqSection
