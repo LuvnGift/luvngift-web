@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { adminRedirectFor, isInSection, safeNextPath, sessionRefreshUrl } from '@/lib/auth-redirect';
+import { adminRedirectFor, isInSection, isPrefetchRequest, safeNextPath, sessionRefreshUrl } from '@/lib/auth-redirect';
 import { isStaging } from '@/lib/app-env';
 
 // Routes that require the user to be logged in.
@@ -76,6 +76,13 @@ function authRedirect(request: NextRequest) {
     if (!isAuth) return loginRedirect(request, pathname + search);
     if (role !== 'ADMIN') return NextResponse.redirect(new URL('/', request.url));
     if (!request.cookies.get('accessToken')?.value) {
+      // A prefetch gets an uncacheable empty answer, never a renewal: parallel
+      // prefetches raced the single-use refresh token and the losers were
+      // cached as redirects to /login. The router treats a non-RSC answer as
+      // "load this page normally", so the real click renews the session once.
+      if (isPrefetchRequest(request.headers)) {
+        return new NextResponse(null, { status: 204, headers: { 'cache-control': 'no-store' } });
+      }
       return NextResponse.redirect(new URL(sessionRefreshUrl(pathname + search), request.url));
     }
   }

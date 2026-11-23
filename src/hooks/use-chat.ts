@@ -1,15 +1,17 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useSocket } from '@/lib/socket';
+import { ChatMessageRole } from '@luvngift/shared';
 import type { ChatMessage } from '@luvngift/shared';
 import {
   clearGuestChat,
+  clearUserChat,
   readGuestChat,
+  readUserChat,
   writeGuestChat,
-  type GuestChatSession,
 } from '@/lib/guest-chat';
 import type { input } from 'zod';
 import type { escalateChatSchema } from '@luvngift/shared';
@@ -89,18 +91,48 @@ export const useStartChat = () =>
  */
 const GUEST_CHAT_MAX_IDLE_MS = 3 * 24 * 60 * 60 * 1000;
 
-/** Resumes the stored guest conversation, so a reload does not lose the thread. */
-export interface ResumedGuestChat {
-  session: GuestChatSession;
+
+/** A stored conversation: a guest's (with its key) or a signed-in customer's (cookie auth). */
+export interface StoredChat {
+  sessionId: string;
+  guestKey: string | null;
+}
+
+/** Resumes the stored conversation, so a reload or a new visit does not lose the thread. */
+export interface ResumedChat {
+  session: StoredChat;
   messages: ChatMessage[];
   /** Restored so a reload lands in the right stage rather than back at 'chat'. */
   isEscalated: boolean;
+  /** Agent replies the customer has not seen yet: the dot on the closed bubble. */
+  unread: number;
 }
 
-export const useResumeGuestChat = () =>
-  useMutation<ResumedGuestChat | null, Error, void>({
-    mutationFn: async () => {
-      const stored = readGuestChat();
+function storedChatFor(userId: string | null): StoredChat | null {
+  if (userId) {
+    const sessionId = readUserChat(userId);
+    return sessionId ? { sessionId, guestKey: null } : null;
+  }
+  return readGuestChat();
+}
+
+function forgetStoredChat(userId: string | null): void {
+  if (userId) clearUserChat();
+  else clearGuestChat();
+}
+
+/**
+ * `readAt` is sent by the API on every message but is not yet on the shared
+ * `ChatMessage` type; add it there at the next @luvngift/shared release.
+ */
+function countUnread(messages: Array<ChatMessage & { readAt?: string | null }>): number {
+  return messages.filter((m) => m.role === ChatMessageRole.AGENT && !m.readAt).length;
+}
+
+export const useResumeChat = () =>
+  useMutation<ResumedChat | null, Error, { userId: string | null }>({
+    mutationFn: async ({ userId }) => {
+      const stored = storedChatFor(userId);
       if (!stored) return null;
       try {
         const res = await api.get(`/api/v1/chat/sessions/${stored.sessionId}`, {
@@ -110,18 +142,20 @@ export const useResumeGuestChat = () =>
         const idleMs = Date.now() - new Date(data.updatedAt).getTime();
         // Resolved by an agent, or long idle: the conversation is over.
         if (data.isResolved || !(idleMs < GUEST_CHAT_MAX_IDLE_MS)) {
-          clearGuestChat();
+          forgetStoredChat(userId);
           return null;
         }
+        const messages = data.messages ?? [];
         return {
           session: stored,
-          messages: data.messages ?? [],
+          messages,
           isEscalated: Boolean(data.isEscalated),
+          unread: countUnread(messages),
         };
       } catch {
-        // Session deleted, expired, or the key no longer matches. Start fresh
-        // rather than surfacing an error for something the visitor cannot act on.
-        clearGuestChat();
+        // Session deleted, expired, or no longer ours. Start fresh rather than
+        // surfacing an error for something the visitor cannot act on.
+        forgetStoredChat(userId);
         return null;
       }
     },
@@ -155,24 +189,43 @@ export const useChatSocket = (
   sessionId: string | null,
   onMessage: (msg: ChatMessage) => void,
   guestKey?: string | null,
-) => {
+): { markSeen: () => void; joined: boolean } => {
   // The instance is replaced when auth state changes; listening on the one that
   // existed at mount means listening on a socket that has been discarded.
   const socket = useSocket();
+  // `chat:seen` is ignored until the server has put us in the room, and that
+  // join is async (it checks ownership), so wait for its ack.
+  const [joined, setJoined] = useState(false);
 
   useEffect(() => {
+    setJoined(false);
     if (!sessionId || !socket) return;
 
-    const join = () => socket.emit('join:chat', sessionId, guestKey ?? undefined);
+    const join = () =>
+      socket.emit('join:chat', sessionId, guestKey ?? undefined, (ok: boolean) => setJoined(ok));
 
     join();
     // Re-join after a reconnect, or the room membership is silently lost.
     socket.on('connect', join);
     socket.on('chat:message', onMessage);
 
+    const left = () => setJoined(false);
+    socket.on('disconnect', left);
+
     return () => {
       socket.off('connect', join);
+      socket.off('disconnect', left);
       socket.off('chat:message', onMessage);
     };
   }, [socket, sessionId, onMessage, guestKey]);
+
+  /**
+   * Tells the API the agent's replies were shown, which cancels their email
+   * fallback. Call only while the conversation is actually in view.
+   */
+  const markSeen = useCallback(() => {
+    if (socket && sessionId) socket.emit('chat:seen', sessionId);
+  }, [socket, sessionId]);
+
+  return { markSeen, joined };
 };

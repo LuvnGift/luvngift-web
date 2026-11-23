@@ -33,6 +33,7 @@ import { useLogout } from '@/hooks/use-auth';
 import { cn } from '@/lib/utils';
 import { ADMIN_PROFILE_PATH } from '@/lib/auth-redirect';
 import { useAdminOrderActivity } from '@/hooks/use-order-live';
+import { useAdminChatAlerts } from '@/hooks/use-admin-chat-live';
 
 const NAV_ITEMS = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
@@ -64,6 +65,12 @@ export default function AdminClientLayout({ children }: { children: React.ReactN
   );
   useAdminOrderActivity(openOrder);
   const pathname = usePathname();
+  // A customer's chat message alerts on every admin page but the chat itself.
+  const openChat = useCallback(
+    (sessionId: string) => router.push(`/admin/chat?session=${sessionId}`),
+    [router],
+  );
+  useAdminChatAlerts(openChat, pathname.startsWith('/admin/chat'));
   const { mutate: logout } = useLogout();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -84,6 +91,10 @@ export default function AdminClientLayout({ children }: { children: React.ReactN
           <Link
             key={item.href}
             href={item.href}
+            // No prefetch: 17 links prefetched at once is what raced the
+            // single-use refresh token (see isPrefetchRequest). The pages are
+            // client-rendered, so prefetching saved little.
+            prefetch={false}
             onClick={() => setSidebarOpen(false)}
             className={cn(
               'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',

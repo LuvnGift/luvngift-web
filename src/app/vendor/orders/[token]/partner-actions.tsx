@@ -131,7 +131,8 @@ export function RecipientCode({ token, state, onDone }: { token: string; state: 
     <Card icon={<KeyRound className="h-4 w-4" />} title="Recipient's code">
       <p className="mb-3 text-sm text-muted-foreground">
         At the handover, send the recipient a code by text and ask them to read it to you.
-        {state.requireRecipientConfirmation && ' You need it before you can confirm the delivery.'}
+        Entering it confirms the delivery; please still upload the photo.
+        {state.requireRecipientConfirmation && ' You need it before the photo can confirm the delivery.'}
       </p>
       <Button variant="outline" size="lg" className="h-12 w-full" disabled={busy} onClick={() => void send()}>
         {busy && !sentTo ? <Loader2 className="h-5 w-5 animate-spin" /> : sentTo ? 'Send a new code' : 'Send code to recipient'}

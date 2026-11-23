@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useEscalatedSessions, useReplyToSession, useResolveSession } from '@/hooks/use-admin';
+import { useAdminChatLive } from '@/hooks/use-admin-chat-live';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -31,7 +32,14 @@ import { cn } from '@/lib/utils';
  *
  * The escalation email links straight here with `?session=<id>`, so a tap goes
  * from the alert to the right conversation.
+ *
+ * Replies are delivered live first and emailed only if the customer has not
+ * seen them within two minutes (API `chat-receipts.ts`). The header says which
+ * of the two to expect, and each reply shows whether it was seen or emailed.
  */
+
+/** Mirrors the API's UNSEEN_REPLY_EMAIL_DELAY_MS, for the wording only. */
+const EMAIL_FALLBACK_MINUTES = 2;
 
 interface ChatSessionLike {
   id: string;
@@ -39,7 +47,49 @@ interface ChatSessionLike {
   guestName?: string | null;
   guestEmail?: string | null;
   user?: { username?: string; email?: string } | null;
-  messages?: { id: string; role: string; content: string }[];
+  /** The customer has the site (or the app's chat) open right now. */
+  customerOnline?: boolean;
+  messages?: {
+    id: string;
+    role: string;
+    content: string;
+    readAt?: string | null;
+    emailedAt?: string | null;
+  }[];
+}
+
+/** What happens to a reply sent now, in the agent's words. */
+function deliveryHint(session: ChatSessionLike, contact: string): string {
+  if (session.customerOnline) {
+    return `On the site now: your reply shows up live. If it is not read within ${EMAIL_FALLBACK_MINUTES} minutes, it is emailed.`;
+  }
+  if (contact && contact !== 'no email given') {
+    return `Away: your reply waits in their chat and is emailed to ${contact} if they do not come back within ${EMAIL_FALLBACK_MINUTES} minutes.`;
+  }
+  return 'Away, and no email on file: they will only see your reply if they come back on the same device.';
+}
+
+/** The receipt under an agent's reply. */
+function replyStatus(msg: { readAt?: string | null; emailedAt?: string | null }): string {
+  if (msg.readAt) return 'Seen';
+  if (msg.emailedAt) return 'Emailed';
+  return 'Not seen yet';
+}
+
+function PresenceBadge({ online }: { online?: boolean }) {
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center gap-1 text-xs',
+        online ? 'text-green-700' : 'text-muted-foreground',
+      )}
+    >
+      <span
+        className={cn('h-2 w-2 rounded-full', online ? 'bg-green-500' : 'bg-muted-foreground/40')}
+      />
+      {online ? 'On the site' : 'Away'}
+    </span>
+  );
 }
 
 /** A session belongs to a signed-in user or an anonymous visitor. */
@@ -63,6 +113,7 @@ function AdminChat() {
   const { data: sessions, isLoading } = useEscalatedSessions();
   const reply = useReplyToSession();
   const resolve = useResolveSession();
+  useAdminChatLive();
   const searchParams = useSearchParams();
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -110,8 +161,8 @@ function AdminChat() {
       <div className={cn(selectedSession && 'hidden lg:block')}>
         <h1 className="text-2xl font-bold">Support Chat</h1>
         <p className="text-sm text-muted-foreground">
-          Conversations waiting for a person. Guests have no account, so email is the only way to
-          reach them.
+          Conversations waiting for a person. Replies arrive live while the customer is on the site,
+          and are emailed if they go unseen.
         </p>
       </div>
 
@@ -163,7 +214,10 @@ function AdminChat() {
                         </Badge>
                       </div>
                     </div>
-                    <p className="truncate text-xs text-muted-foreground">{who.contact}</p>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="truncate text-xs text-muted-foreground">{who.contact}</p>
+                      <PresenceBadge online={session.customerOnline} />
+                    </div>
                   </button>
                 );
               })}
@@ -194,9 +248,12 @@ function AdminChat() {
                     <CardTitle className="truncate text-base">
                       {describe(selectedSession).name}
                     </CardTitle>
-                    <p className="truncate text-xs text-muted-foreground">
-                      {describe(selectedSession).contact}
-                    </p>
+                    <div className="flex items-center gap-2">
+                      <p className="truncate text-xs text-muted-foreground">
+                        {describe(selectedSession).contact}
+                      </p>
+                      <PresenceBadge online={selectedSession.customerOnline} />
+                    </div>
                   </div>
                   <Button
                     variant="outline"
@@ -210,15 +267,12 @@ function AdminChat() {
                   </Button>
                 </CardHeader>
 
-                {describe(selectedSession).isGuest && (
-                  <div className="flex items-start gap-2 border-b bg-muted/40 px-4 py-2 text-xs text-muted-foreground">
-                    <Mail className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                    <span>
-                      This visitor has no account and has almost certainly closed the page — your
-                      reply is emailed to them automatically.
-                    </span>
-                  </div>
-                )}
+                <div className="flex items-start gap-2 border-b bg-muted/40 px-4 py-2 text-xs text-muted-foreground">
+                  <Mail className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  <span>
+                    {deliveryHint(selectedSession, describe(selectedSession).contact)}
+                  </span>
+                </div>
 
                 <CardContent className="flex-1 space-y-3 overflow-y-auto p-4">
                   {selectedSession.messages?.map((msg) => {
@@ -246,13 +300,20 @@ function AdminChat() {
                             <User className="h-3.5 w-3.5 text-blue-600" />
                           )}
                         </div>
-                        <div
-                          className={cn(
-                            'whitespace-pre-wrap rounded-lg px-3 py-2 text-sm',
-                            isAgent ? 'bg-primary text-primary-foreground' : 'bg-muted',
+                        <div className={cn('flex flex-col', isAgent && 'items-end')}>
+                          <div
+                            className={cn(
+                              'whitespace-pre-wrap rounded-lg px-3 py-2 text-sm',
+                              isAgent ? 'bg-primary text-primary-foreground' : 'bg-muted',
+                            )}
+                          >
+                            {msg.content}
+                          </div>
+                          {isAgent && (
+                            <span className="mt-0.5 text-[11px] text-muted-foreground">
+                              {replyStatus(msg)}
+                            </span>
                           )}
-                        >
-                          {msg.content}
                         </div>
                       </div>
                     );
