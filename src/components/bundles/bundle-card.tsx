@@ -10,6 +10,7 @@ import { useUserCurrency } from '@/hooks/use-exchange-rates';
 import { formatCurrency } from '@luvngift/shared';
 import type { Bundle } from '@luvngift/shared';
 import { formatDeliveryRange } from '@luvngift/shared';
+import { RatingSummary } from '@/components/reviews/rating-summary';
 
 interface BundleCardProps {
   // deliveryWindowDays is supplied by the API alongside the bundle, so no page
@@ -39,6 +40,8 @@ export function BundleCard({ bundle }: BundleCardProps) {
 
       <CardContent className="flex-1 p-4 space-y-2">
         <h3 className="font-semibold text-base leading-tight">{bundle.name}</h3>
+        {/* Embedded by the API; nothing renders until a review is approved. */}
+        <RatingSummary rating={bundle.rating} className="text-xs" />
         <p className="text-sm text-muted-foreground line-clamp-2">{bundle.description}</p>
 
         <div className="flex flex-wrap gap-1 pt-1">

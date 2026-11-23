@@ -1,96 +1,90 @@
 'use client';
 
-import { usePendingReviews, useModerateReview } from '@/hooks/use-admin';
+import { useState } from 'react';
+import { Star } from 'lucide-react';
+import type { ReviewStatus } from '@luvngift/shared';
+import { useAdminReviews } from '@/hooks/use-admin';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
-import { Star, CheckCircle, XCircle } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { ReviewModerationCard } from './review-moderation-card';
 
+const TABS: { status: ReviewStatus; label: string; empty: string }[] = [
+  { status: 'PENDING', label: 'Waiting', empty: 'No reviews are waiting for moderation.' },
+  { status: 'APPROVED', label: 'Published', empty: 'No reviews have been published yet.' },
+  { status: 'REJECTED', label: 'Not published', empty: 'No reviews have been rejected.' },
+];
+
+/**
+ * Review moderation. Publish anything that is not abusive, unlawful, private
+ * information, off-topic or spam: a low rating is not a reason to hold a
+ * review back (Terms § 14), and the reject form offers no such option.
+ */
 export default function AdminReviewsPage() {
-  const { data: reviews, isLoading } = usePendingReviews();
-  const moderate = useModerateReview();
+  const [status, setStatus] = useState<ReviewStatus>('PENDING');
+  const [page, setPage] = useState(1);
+  const { data, isLoading, isError } = useAdminReviews(status, page);
+  const tab = TABS.find((t) => t.status === status)!;
+  const totalPages = data?.meta.totalPages ?? 1;
 
-  const handleModerate = (id: string, approved: boolean) => {
-    moderate.mutate({ id, isModerated: approved });
+  const choose = (next: ReviewStatus) => {
+    setStatus(next);
+    setPage(1);
   };
-
-  if (isLoading) {
-    return (
-      <div className="flex h-64 items-center justify-center">
-        <Spinner />
-      </div>
-    );
-  }
-
-  const reviewList = reviews ?? [];
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Reviews</h1>
-        <p className="text-muted-foreground text-sm">Moderate customer reviews before they go live.</p>
+        <p className="text-muted-foreground text-sm">
+          Publish every honest review, good or bad. Reject only abuse, unlawful content, private
+          information, reviews not about the order, and spam.
+        </p>
       </div>
 
-      {reviewList.length === 0 ? (
+      <div role="tablist" aria-label="Review status" className="flex flex-wrap gap-2">
+        {TABS.map((t) => (
+          <Button
+            key={t.status}
+            role="tab"
+            aria-selected={status === t.status}
+            variant={status === t.status ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => choose(t.status)}
+          >
+            {t.label}
+            {status === t.status && data ? ` (${data.meta.total})` : ''}
+          </Button>
+        ))}
+      </div>
+
+      {isLoading ? (
+        <div className="flex h-64 items-center justify-center"><Spinner /></div>
+      ) : isError ? (
+        <p className="text-sm text-destructive">Reviews could not be loaded.</p>
+      ) : !data || data.data.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-16 text-center">
             <Star className="h-10 w-10 text-muted-foreground mb-3" />
-            <p className="text-muted-foreground">No reviews pending moderation.</p>
+            <p className="text-muted-foreground">{tab.empty}</p>
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {reviewList.map((review: any) => (
-            <Card key={review.id}>
-              <CardContent className="p-5 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="font-medium text-sm">{review.user?.username}</span>
-                  <div className="flex items-center gap-0.5">
-                    {Array.from({ length: 5 }).map((_, i) => (
-                      <Star
-                        key={i}
-                        className={`h-3.5 w-3.5 ${
-                          i < review.rating
-                            ? 'text-yellow-500 fill-yellow-500'
-                            : 'text-muted-foreground/30'
-                        }`}
-                      />
-                    ))}
-                  </div>
-                </div>
+        <div className="grid gap-4 lg:grid-cols-2">
+          {data.data.map((review) => <ReviewModerationCard key={review.id} review={review} />)}
+        </div>
+      )}
 
-                {review.bundle && (
-                  <p className="text-xs text-muted-foreground">
-                    Bundle: {review.bundle.name}
-                  </p>
-                )}
-
-                <p className="text-sm leading-relaxed">{review.comment}</p>
-
-                <div className="flex gap-2 pt-1">
-                  <Button
-                    size="sm"
-                    onClick={() => handleModerate(review.id, true)}
-                    disabled={moderate.isPending}
-                    className="flex-1"
-                  >
-                    <CheckCircle className="h-3 w-3 mr-1" />
-                    Approve
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="flex-1 text-destructive hover:text-destructive"
-                    onClick={() => handleModerate(review.id, false)}
-                    disabled={moderate.isPending}
-                  >
-                    <XCircle className="h-3 w-3 mr-1" />
-                    Reject
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+      {totalPages > 1 && (
+        <div className={cn('flex items-center justify-center gap-3 text-sm')}>
+          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
+            Previous
+          </Button>
+          <span className="text-muted-foreground">Page {page} of {totalPages}</span>
+          <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
+            Next
+          </Button>
         </div>
       )}
     </div>
