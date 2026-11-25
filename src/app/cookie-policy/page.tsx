@@ -27,8 +27,8 @@ const ESSENTIAL: [string, string, string][] = [
 ];
 
 const STORAGE: [string, string, string][] = [
-  ['auth-user (local storage)', 'Remembers whether you are signed in. It holds no personal details.', 'Until you sign out'],
   ['luvngift.guestChat (local storage)', 'Lets you continue a support chat without an account', 'Until you clear it'],
+  ['luvngift.userChat (local storage)', 'Reopens your support chat when you come back while signed in. Holds only the chat and account reference numbers.', 'Until you clear it'],
   ['customGiftDraft (session storage)', 'Keeps a custom gift request you are writing if you sign in part-way through', 'Until you close the tab'],
 ];
 
@@ -59,7 +59,7 @@ function CookieTable({ rows }: { rows: [string, string, string][] }) {
 
 export default function CookiePolicyPage() {
   return (
-    <LegalPage title="Cookie Policy" updated="October 19, 2026">
+    <LegalPage title="Cookie Policy" updated="November 23, 2026">
       <p>
         This policy explains the cookies and similar technologies {BUSINESS.legalName} (trading as{' '}
         {BUSINESS.tradingName}) uses on www.luvngift.com, and how you can control them.

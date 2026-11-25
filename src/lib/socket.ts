@@ -4,28 +4,48 @@ import { io, Socket } from 'socket.io-client';
 let socket: Socket | null = null;
 
 /**
- * The socket INSTANCE is replaced, not just reconnected: `providers.tsx`
- * connects anonymously first and swaps in an authenticated socket once the
- * socket token arrives (and back again on logout). A component that read
- * `getSocket()` once at mount kept listening on the discarded anonymous socket —
- * which cannot join order rooms — so live updates silently never arrived.
- * Subscribers are told whenever the instance changes; `useSocket()` re-renders.
+ * One socket per page, whose identity is read on EVERY (re)connect.
+ *
+ * It used to be created with a fixed token (the 15-minute access token from
+ * `/auth/socket-token`), so any reconnect more than 15 minutes in (an API
+ * deploy, a laptop waking, a Wi-Fi blip) presented an expired token. The API
+ * connects those anonymously, so an admin silently stopped receiving escalated
+ * chats and order activity, and a customer stopped receiving live order
+ * updates, until a full page load.
+ *
+ * `getToken` is asked each time the socket connects. Signing in or out calls
+ * `reauthenticateSocket()`, which reconnects the SAME instance as the new
+ * identity: listeners stay attached, and hooks that join rooms re-join on
+ * `connect`. Subscribers are still told when the instance is created or
+ * dropped, so use `useSocket()` (not `getSocket()` at mount) in effects.
  */
 const listeners = new Set<() => void>();
 const notify = () => listeners.forEach((listener) => listener());
 
-export const connectSocket = (token?: string): Socket => {
-  if (socket?.connected) return socket;
+export type SocketTokenSource = () => Promise<string | undefined>;
+
+export const connectSocket = (getToken: SocketTokenSource): Socket => {
+  if (socket) return socket;
 
   socket = io(process.env.NEXT_PUBLIC_SOCKET_URL!, {
-    // Token is optional: authenticated users pass one (joins their personal/admin
-    // rooms); guests connect anonymously (e.g. for the public chat widget).
-    auth: token ? { token } : {},
+    // No token = anonymous (the public chat widget); the API decides the rooms.
+    auth: (cb) => {
+      getToken()
+        .then((token) => cb(token ? { token } : {}))
+        .catch(() => cb({}));
+    },
     autoConnect: true,
   });
   notify();
 
   return socket;
+};
+
+/** Reconnect as whoever is signed in now. */
+export const reauthenticateSocket = (): void => {
+  if (!socket) return;
+  socket.disconnect();
+  socket.connect();
 };
 
 export const disconnectSocket = (): void => {
@@ -44,9 +64,9 @@ const subscribe = (listener: () => void) => {
 };
 
 /**
- * The current socket, re-rendering when it is replaced. Use this — not
- * `getSocket()` — in any effect that attaches listeners or joins rooms, and put
- * it in the effect's dependencies.
+ * The current socket, re-rendering when it is created or dropped. Use this,
+ * not `getSocket()`, in any effect that attaches listeners or joins rooms, and
+ * put it in the effect's dependencies.
  */
 export const useSocket = (): Socket | null =>
   useSyncExternalStore(subscribe, getSocket, () => null);
