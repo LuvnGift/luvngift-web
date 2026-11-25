@@ -1,15 +1,19 @@
 'use client';
 
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
 import { User } from '@luvngift/shared';
+import { hasSessionHint } from '@/lib/session-hint';
 
 interface AuthState {
-  // Full user object — in memory only, never written to localStorage.
+  // Full user object, in memory only.
   user: User | null;
-  // Persisted flag — only thing stored in localStorage. No PII.
+  /**
+   * Whether this browser holds a session. Starts from the API's `session`
+   * cookie, the same signal the middleware reads, so the page and the
+   * middleware cannot disagree about who is signed in.
+   */
   isAuthenticated: boolean;
-  // Short-lived 2FA intermediate token — held in memory only, never in storage.
+  // Short-lived 2FA intermediate token, held in memory only, never in storage.
   pendingTwoFactorToken: string | null;
   setUser: (user: User) => void;
   clearAuth: () => void;
@@ -17,40 +21,43 @@ interface AuthState {
   clearPendingTwoFactorToken: () => void;
 }
 
-export const useAuthStore = create<AuthState>()(
-  persist(
-    (set) => ({
-      user: null,
-      isAuthenticated: false,
-      pendingTwoFactorToken: null,
-      setUser: (user) => {
-        // Write the `session` cookie (read by Next.js middleware) synchronously so
-        // it exists for the very next navigation — e.g. router.push('/custom')
-        // immediately after login. Relying solely on the API's Set-Cookie (via the
-        // proxy) is not safe here: it may not be committed before middleware runs
-        // for the redirect target, which bounces the user back to /login.
-        //
-        // Critically, set a 7-day Max-Age (matching the refresh token / the API's
-        // own session cookie) so it is a persistent cookie and survives a browser
-        // restart. Without Max-Age it would be session-scoped and middleware-gated
-        // routes would break after the browser is closed.
-        const isSecure = typeof window !== 'undefined' && window.location.protocol === 'https:';
-        const attrs = isSecure ? '; SameSite=None; Secure' : '; SameSite=Lax';
-        const maxAge = 7 * 24 * 60 * 60; // 7 days, in seconds
-        document.cookie = `session=${JSON.stringify({ isAuth: true, role: user.role })}; Path=/; Max-Age=${maxAge}${attrs}`;
-        set({ user, isAuthenticated: true });
-      },
-      clearAuth: () => {
-        document.cookie = 'session=; Path=/; Max-Age=0';
-        set({ user: null, isAuthenticated: false, pendingTwoFactorToken: null });
-      },
-      setPendingTwoFactorToken: (token) => set({ pendingTwoFactorToken: token }),
-      clearPendingTwoFactorToken: () => set({ pendingTwoFactorToken: null }),
-    }),
-    {
-      name: 'auth-user',
-      // Only persist the boolean flag, never the user object or 2FA token.
-      partialize: (state) => ({ isAuthenticated: state.isAuthenticated }),
-    },
-  ),
-);
+/**
+ * Sign-in state used to live in four places: the httpOnly token cookies, the
+ * API's `session` cookie, a second copy of that cookie written here, and an
+ * `isAuthenticated` flag in localStorage. They drifted: a localStorage "signed
+ * in" outlived the session, and the copy written here outlived the API's own.
+ *
+ * Now the API writes every auth cookie and this store only reads `session`.
+ * The copy written here was for when the API was cross-origin, so its cookie
+ * never reached the web domain; every auth call now goes through the Next.js
+ * proxy (`next.config.ts` rewrites), and a browser stores a response's
+ * Set-Cookie before the code awaiting that response runs. The copy could not
+ * have helped anyway: the middleware trusts `session` only beside the httpOnly
+ * `refreshToken`, which only the API can write.
+ *
+ * `clearAuth` still DELETES `session`, because the refresh token is httpOnly
+ * and the middleware needs one of the two gone to see "signed out" when the
+ * API rejected the session without clearing its cookies.
+ */
+export const useAuthStore = create<AuthState>()((set) => ({
+  user: null,
+  isAuthenticated: hasSessionHint(),
+  pendingTwoFactorToken: null,
+  setUser: (user) => set({ user, isAuthenticated: true }),
+  clearAuth: () => {
+    if (typeof document !== 'undefined') document.cookie = 'session=; Path=/; Max-Age=0';
+    set({ user: null, isAuthenticated: false, pendingTwoFactorToken: null });
+  },
+  setPendingTwoFactorToken: (token) => set({ pendingTwoFactorToken: token }),
+  clearPendingTwoFactorToken: () => set({ pendingTwoFactorToken: null }),
+}));
+
+// The old localStorage flag ('auth-user') is no longer used; remove it so the
+// browser holds nothing the Cookie Policy does not list.
+if (typeof window !== 'undefined') {
+  try {
+    window.localStorage.removeItem('auth-user');
+  } catch {
+    /* storage blocked: nothing to remove */
+  }
+}

@@ -26,7 +26,10 @@ export const useLogin = (opts?: { onError?: (err: any) => void }) => {
     onSuccess: (data) => {
       if (data.requiresTwoFactor) {
         setPendingTwoFactorToken(data.tempToken);
-        router.push('/2fa');
+        // Carry ?redirect= through the code step, so an alert-email link still
+        // lands where it pointed for an account with 2FA.
+        const next = searchParams.get('redirect');
+        router.push(next ? `/2fa?redirect=${encodeURIComponent(next)}` : '/2fa');
         return;
       }
       setUser(data.user);

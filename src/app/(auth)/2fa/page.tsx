@@ -1,6 +1,7 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { safeNextPath } from '@/lib/auth-redirect';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { verify2FASchema, Verify2FAInput } from '@luvngift/shared';
@@ -12,20 +13,38 @@ import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/auth.store';
 import { toast } from 'sonner';
 import { ShieldCheck } from 'lucide-react';
-import { useEffect } from 'react';
+import { Suspense, useEffect } from 'react';
 
+// useSearchParams needs a Suspense boundary on a prerendered page (Next 15).
 export default function TwoFactorPage() {
+  return (
+    <Suspense fallback={null}>
+      <TwoFactorForm />
+    </Suspense>
+  );
+}
+
+function TwoFactorForm() {
   const router = useRouter();
   const { setUser, pendingTwoFactorToken, clearPendingTwoFactorToken } = useAuthStore();
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<Verify2FAInput>({
     resolver: zodResolver(verify2FASchema),
   });
 
+  const searchParams = useSearchParams();
+  const redirectParam = searchParams.get('redirect');
+
+  // Only someone who arrives here without signing in first is sent to /login,
+  // so this checks on mount only. It used to re-run when a correct code cleared
+  // the pending token, and its replace('/login') overrode the push to /admin:
+  // the router served its cached /login (the page the user came from) without
+  // ever asking the middleware, so admins with 2FA landed back on the login form.
   useEffect(() => {
-    if (!pendingTwoFactorToken) {
-      router.replace('/login');
+    if (!useAuthStore.getState().pendingTwoFactorToken) {
+      router.replace(redirectParam ? `/login?redirect=${encodeURIComponent(redirectParam)}` : '/login');
     }
-  }, [pendingTwoFactorToken, router]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const onSubmit = async (data: Verify2FAInput) => {
     if (!pendingTwoFactorToken) return;
@@ -42,7 +61,7 @@ export default function TwoFactorPage() {
       // links use prefetch={false} so no redirect-to-login is cached pre-login.
       const defaultRoute = user?.role === 'ADMIN' ? '/admin' : '/';
       router.refresh();
-      router.push(defaultRoute);
+      router.push(safeNextPath(redirectParam, defaultRoute));
     } catch (err: any) {
       toast.error(err?.response?.data?.error?.message ?? 'Invalid code. Please try again.');
     }
