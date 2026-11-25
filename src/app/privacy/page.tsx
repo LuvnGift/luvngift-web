@@ -22,7 +22,7 @@ export default function PrivacyPage() {
   const mail = <a href={`mailto:${BUSINESS.email}`}>{BUSINESS.email}</a>;
 
   return (
-    <LegalPage title="Privacy Policy" updated="November 11, 2026">
+    <LegalPage title="Privacy Policy" updated="November 22, 2026">
       <p>
         This policy explains how {BUSINESS.legalName}, trading as {BUSINESS.tradingName} (&quot;we&quot;,
         &quot;us&quot;), handles personal information when you use our website, our mobile app, or
@@ -117,6 +117,13 @@ export default function PrivacyPage() {
         </li>
       </ul>
 
+      <h3>Reviews you write</h3>
+      <p>
+        After a delivery we may email you once to ask for a review. If you write one, we keep your
+        star rating, your comment (if any), which order it is about and when you wrote it. Writing
+        a review is optional and we never reward it.
+      </p>
+
       <h3>Collected automatically</h3>
       <ul>
         <li>
@@ -147,6 +154,9 @@ export default function PrivacyPage() {
           delivery updates, quotes and replies
         </li>
         <li>To answer questions and support requests</li>
+        <li>
+          To check the reviews you write and, once checked, publish them on our website and app
+        </li>
         <li>To review job, vendor and partner applications, and vet our fulfilment partners</li>
         <li>To pay our fulfilment partners and keep a record of their work</li>
         <li>To prevent fraud, keep our services secure, and find and fix faults</li>
@@ -182,8 +192,8 @@ export default function PrivacyPage() {
           secure our systems and fix faults
         </li>
         <li>
-          <strong>Consent:</strong> for analytics and for dietary or religious requirements. You can
-          withdraw your consent at any time.
+          <strong>Consent:</strong> for analytics, for dietary or religious requirements, and for
+          publishing a review you write. You can withdraw your consent at any time.
         </li>
       </ul>
       <p>
@@ -219,6 +229,17 @@ export default function PrivacyPage() {
         <li><strong>Google</strong>: sign-in, if you choose to sign in with Google</li>
       </ul>
 
+      <h3>Everyone, if you publish a review</h3>
+      <p>
+        A published review is public. It shows your star rating, your comment, the date, what kind
+        of gift it was about, and your name as your first name, the first letter of your last
+        name and the city on your account (for example &quot;Adaeze O., Toronto&quot;). It never
+        shows your email, phone number, full surname or anything about the recipient. We check
+        every review before it is published and publish good and bad reviews alike. We do not
+        publish a review that is abusive, unlawful, shares someone&apos;s private information, is
+        not about the order, or is spam. Your order page shows whether your review is published.
+      </p>
+
       <h3>Others</h3>
       <p>
         We may disclose information where the law requires it, to protect people from harm or
@@ -245,6 +266,10 @@ export default function PrivacyPage() {
           <strong>Orders, payments, refunds and invoices:</strong> six years after the end of the
           tax year they relate to, as Canadian tax law requires, including after you delete your
           account
+        </li>
+        <li>
+          <strong>Reviews:</strong> until you delete the review (from the order page) or your
+          account. Deleting either takes the review off our website and app.
         </li>
         <li>
           <strong>Support chats:</strong> with your account, and deleted when you delete it. Chats

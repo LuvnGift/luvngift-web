@@ -22,7 +22,7 @@ export default function TermsPage() {
   const mail = <a href={`mailto:${BUSINESS.email}`}>{BUSINESS.email}</a>;
 
   return (
-    <LegalPage title="Terms of Service" updated="November 6, 2026">
+    <LegalPage title="Terms of Service" updated="November 22, 2026">
       <h2>1. About us and these terms</h2>
       <p>
         {BUSINESS.tradingName} is operated by {BUSINESS.legalName}, a company based in Ontario,
@@ -252,9 +252,17 @@ export default function TermsPage() {
       <h2>14. Reviews and messages you send</h2>
       <p>
         You keep ownership of reviews, messages and photos you send us. You give us permission to use
-        them to run Luvngift, and to show your reviews on our website and app. We may remove content
-        that is unlawful, abusive or misleading. We do not remove or edit reviews because they are
-        negative.
+        them to run Luvngift, and to show your reviews on our website and app.
+      </p>
+      <p>
+        Only the buyer of a delivered order can review it, once. We check each review before
+        publishing it. We do not publish, or we remove, a review that is abusive, unlawful, shares
+        someone&apos;s private information, is not about the order, or is spam. Your order page
+        shows whether your review is published. We do not remove, edit or hold back a review because it is
+        negative, and we never pay for or reward a review. We may reply to a review publicly. You
+        can delete your review at any time from the order page; deleting your account deletes it
+        too. A review shows your first name, the first letter of your last name and your city
+        (see our <Link href="/privacy">Privacy Policy</Link>).
       </p>
 
       <h2>15. Our intellectual property</h2>

@@ -17,7 +17,8 @@ import { toast } from 'sonner';
 import { OrderStatus } from '@luvngift/shared';
 import { useOrderLive } from '@/hooks/use-order-live';
 import { CustomOrderConversation } from '@/components/orders/custom-order-conversation';
-import type { QuoteStatus } from '@luvngift/shared';
+import type { OwnReview, QuoteStatus } from '@luvngift/shared';
+import { OrderReviewCard } from '@/components/reviews/order-review-card';
 
 
 interface Props {
@@ -169,6 +170,15 @@ export default function OrderDetailPage({ params }: Props) {
                 </p>
               </CardContent>
             </Card>
+          )}
+
+          {/* Rate it: only a delivered order can be reviewed. `?review=1` is the request email. */}
+          {order.status === 'DELIVERED' && (
+            <OrderReviewCard
+              orderId={order.id}
+              review={(order as { review?: OwnReview | null }).review ?? null}
+              focus={searchParams.get('review') === '1'}
+            />
           )}
 
           {/* Items */}
