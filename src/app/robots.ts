@@ -19,6 +19,8 @@ export default function robots(): MetadataRoute.Robots {
           // never be indexed; the pages also send `noindex, nofollow`.
           '/vendor/orders/',
           '/vendor/bank-details/',
+          // Unsubscribe links carry the email's token in the path.
+          '/unsubscribe/',
         ],
       },
     ],

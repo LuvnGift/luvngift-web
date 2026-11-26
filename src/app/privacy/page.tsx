@@ -22,7 +22,7 @@ export default function PrivacyPage() {
   const mail = <a href={`mailto:${BUSINESS.email}`}>{BUSINESS.email}</a>;
 
   return (
-    <LegalPage title="Privacy Policy" updated="November 22, 2026">
+    <LegalPage title="Privacy Policy" updated="November 26, 2026">
       <p>
         This policy explains how {BUSINESS.legalName}, trading as {BUSINESS.tradingName} (&quot;we&quot;,
         &quot;us&quot;), handles personal information when you use our website, our mobile app, or
@@ -168,9 +168,21 @@ export default function PrivacyPage() {
         answers from help content we have written, and passes anything it cannot answer to a
         person.
       </p>
+      <h3>Marketing emails</h3>
       <p>
-        We do not currently send marketing emails. If we start, we will ask for your permission
-        first, and every message will include an unsubscribe link.
+        We send a weekly email with gift ideas and bundles only if you ask for it: by ticking the
+        box when you create your account, or by saying yes on our website, in the app or on your
+        account page. The box is never ticked for you, and saying no changes nothing else about
+        your account. We do not email you to ask for this permission.
+      </p>
+      <p>
+        Every marketing email has an unsubscribe link, which works at once and without signing
+        in, and you can also turn these emails off on your account page. Emails about your
+        orders are sent either way. We record when and where you gave or withdrew permission,
+        and the wording you agreed to, so that we can show we had it. We record whether you
+        clicked a bundle in the email, to learn which gift ideas are useful; we do not track
+        whether you opened it. We do not send marketing to anyone who paid for an order in the
+        previous two weeks.
       </p>
 
       <h2>3. Our legal reasons for using it</h2>
@@ -192,8 +204,8 @@ export default function PrivacyPage() {
           secure our systems and fix faults
         </li>
         <li>
-          <strong>Consent:</strong> for analytics, for dietary or religious requirements, and for
-          publishing a review you write. You can withdraw your consent at any time.
+          <strong>Consent:</strong> for analytics, for marketing emails, for dietary or religious
+          requirements, and for publishing a review you write. You can withdraw your consent at any time.
         </li>
       </ul>
       <p>
@@ -285,6 +297,11 @@ export default function PrivacyPage() {
         </li>
         <li>
           <strong>Payment records for a partner&apos;s work:</strong> kept as tax records, like orders
+        </li>
+        <li>
+          <strong>Marketing emails:</strong> the record of your permission and of the emails we
+          sent you is kept with your account. When you delete your account your permission ends
+          and your email address is removed from it.
         </li>
         <li>
           <strong>Server logs and error reports:</strong> up to 90 days
