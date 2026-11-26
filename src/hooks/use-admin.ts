@@ -1668,7 +1668,8 @@ export type MaintenanceTask =
   | 'subscriptions:first-charge-reminders'
   | 'points:expiry-reminders'
   | 'subscriptions:annual-deliveries'
-  | 'reviews:request-emails';
+  | 'reviews:request-emails'
+  | 'marketing:weekly-bundles';
 
 export interface MaintenanceTaskStatus {
   task: MaintenanceTask;

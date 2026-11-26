@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAdminMetrics } from '@/hooks/use-admin';
+import { SignupFunnel } from '@/components/admin/signup-funnel';
 import { formatMoney } from '@luvngift/shared';
 
 /**
@@ -216,6 +217,14 @@ export default function AdminDashboardPage() {
         ) : (
           <AttentionQueue items={queue} />
         )}
+      </section>
+
+      {/* Where registered customers stop before ordering. */}
+      <section aria-labelledby="funnel-heading" className="space-y-2">
+        <h2 id="funnel-heading" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Conversion
+        </h2>
+        <SignupFunnel />
       </section>
 
       {/* Health */}

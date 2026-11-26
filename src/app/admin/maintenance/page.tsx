@@ -68,6 +68,12 @@ const TASKS: Record<MaintenanceTask, { title: string; when: string; what: string
     what: 'Emails each buyer once, 2 to 14 days after their order was delivered, asking them to rate it. A subscription is asked about its first delivery only. No reward is offered.',
     promise: 'Customer reviews',
   },
+  'marketing:weekly-bundles': {
+    title: 'Weekly bundle email',
+    when: 'Thursdays at 16:00 UTC (11:00 Toronto, 16:00 London)',
+    what: "Emails this week's featured bundles (set on Marketing, or picked automatically) to customers who opted in, skipping anyone who paid for an order in the last 14 days. Each person gets each week's email once.",
+    promise: 'Privacy Policy § 3 (opt-in only)',
+  },
   'refunds:timeliness': {
     title: 'Refund deadline check',
     when: 'Weekdays at 13:00 UTC',

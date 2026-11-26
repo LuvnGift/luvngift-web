@@ -20,6 +20,7 @@ import Link from 'next/link';
 import { DeleteAccountCard } from './delete-account-card';
 import { ChangePasswordCard } from '@/components/account/change-password-card';
 import { TwoFactorCard } from '@/components/account/two-factor-card';
+import { MarketingPreferenceCard } from '@/components/marketing/marketing-preference-card';
 import { latestAdultDateOfBirth } from '@luvngift/shared';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Spinner } from '@/components/ui/spinner';
@@ -246,6 +247,8 @@ export default function AccountPage() {
             </form>
           </CardContent>
         </Card>
+
+        <MarketingPreferenceCard />
 
         {/* Recurring gifts have their own page (/account/subscriptions). */}
         <Link href="/account/subscriptions" className="block">

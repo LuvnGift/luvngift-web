@@ -8,6 +8,7 @@ import { Navbar } from '@/components/layout/navbar';
 import { Footer } from '@/components/layout/footer';
 import { ChatWidget } from '@/components/chat/chat-widget';
 import { AddressBanner } from '@/components/layout/address-banner';
+import { MarketingOptInPrompt } from '@/components/marketing/marketing-opt-in-prompt';
 import { FaqSection } from '@/components/seo/faq-section';
 import { BundleCard } from '@/components/bundles/bundle-card';
 import { FeaturedReviews } from '@/components/reviews/featured-reviews';
@@ -83,6 +84,10 @@ export default async function HomePage() {
 			<AddressBanner />
 
 			<main id="main-content" className="flex-1">
+				{/* Client-only and renders nothing until signed in: no build-time cost. */}
+				<div className="container mx-auto px-4 empty:hidden">
+					<MarketingOptInPrompt className="mt-4" />
+				</div>
 				{/* Hero */}
 				<section className="relative overflow-hidden bg-gradient-to-br from-primary/5 via-background to-secondary/30 py-14 md:py-20">
 					<div className="container mx-auto px-4">

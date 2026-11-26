@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import Link from 'next/link';
-import { isAdultDateOfBirth, latestAdultDateOfBirth } from '@luvngift/shared';
+import { isAdultDateOfBirth, latestAdultDateOfBirth, MARKETING_CONSENT_TEXT } from '@luvngift/shared';
 
 // Extend the shared schema with a client-only confirmPassword field. It is
 // validated here but stripped before the request — the API never needs it.
@@ -43,7 +43,8 @@ export default function RegisterPage() {
   });
 
   const onSubmit = ({ confirmPassword: _confirmPassword, ...payload }: RegisterFormValues) => {
-    register(payload);
+    // Unticked = no consent; the source is only meaningful with a tick.
+    register(payload.marketingOptIn ? { ...payload, marketingConsentSource: 'signup_web' } : payload);
   };
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL;
@@ -145,6 +146,20 @@ export default function RegisterPage() {
             <p className="text-xs text-muted-foreground">You must be 18 or older. We use this only to confirm your age.</p>
             {errors.dateOfBirth && <p className="text-destructive text-xs">{errors.dateOfBirth.message}</p>}
           </div>
+
+          {/* Opt-in only (CASL/PECR): never pre-ticked, and not a condition of signing up. */}
+          <label htmlFor="marketingOptIn" className="flex items-start gap-2.5 text-sm cursor-pointer">
+            <input
+              id="marketingOptIn"
+              type="checkbox"
+              {...field('marketingOptIn')}
+              className="mt-0.5 h-4 w-4 shrink-0 rounded border-input accent-primary"
+            />
+            <span className="text-muted-foreground">
+              {MARKETING_CONSENT_TEXT}{' '}
+              <span className="text-xs">(optional)</span>
+            </span>
+          </label>
 
           {error && (
             <p className="text-destructive text-sm text-center">
